@@ -1,0 +1,8 @@
+# Optional dependencies for semantic search
+# Install with: pip install -r optional-requirements.txt
+
+numpy>=1.21.0
+onnxruntime>=1.14.0
+tokenizers>=0.13.0
+sqlite-vec>=0.1.0
+huggingface-hub>=0.14.0

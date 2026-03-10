@@ -1,0 +1,5 @@
+# Core: zero dependencies (uses Python stdlib + SQLite)
+#
+# The memory system works out-of-the-box with just Python 3.8+ and SQLite 3.37+
+#
+# For semantic search capabilities, install optional-requirements.txt

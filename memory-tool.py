@@ -23,6 +23,7 @@ Usage:
   memory-tool export [--project X]              # Regenerate MEMORY.md (smart context)
   memory-tool stats                             # Full statistics (includes vector index & graph)
   memory-tool next                              # Suggest next actions based on current memory state
+  memory-tool dream                             # Review transcripts, consolidate memories, normalize dates (AI memory REM sleep)
   memory-tool stale                             # Review stale memories
   memory-tool decay                             # Flag stale, deprioritize, expire
   memory-tool reindex                           # Bulk-embed all active memories for vector search
@@ -474,6 +475,14 @@ def init_db():
             tags TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS dream_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_file TEXT UNIQUE NOT NULL,
+            processed_at TEXT DEFAULT (datetime('now')),
+            insights_found INTEGER DEFAULT 0,
+            file_size INTEGER DEFAULT 0
+        );
+
         CREATE INDEX IF NOT EXISTS idx_graph_entity_type ON graph_entities(type);
         CREATE INDEX IF NOT EXISTS idx_graph_entity_name ON graph_entities(name);
         CREATE INDEX IF NOT EXISTS idx_graph_rel_from ON graph_relationships(from_entity_id);
@@ -484,6 +493,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
         CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project);
         CREATE INDEX IF NOT EXISTS idx_runs_agent ON runs(agent);
+        CREATE INDEX IF NOT EXISTS idx_dream_session ON dream_log(session_file);
     """)
 
     conn.commit()
@@ -2903,6 +2913,223 @@ def sync_bidirectional():
     print("\n=== Sync complete ===")
 
 
+def cmd_dream():
+    """Review session transcripts, consolidate memories, normalize dates — like REM sleep for AI memory."""
+    print("🌙 Dreaming: processing session transcripts...")
+
+    # Find transcript directories
+    transcript_paths = []
+    claude_dir = Path.home() / '.claude'
+
+    # Main history file
+    if (claude_dir / 'history.jsonl').exists():
+        transcript_paths.append(claude_dir / 'history.jsonl')
+
+    # Project-specific session files
+    projects_dir = claude_dir / 'projects'
+    if projects_dir.exists():
+        # Find all .jsonl files in project dirs
+        for jsonl_file in projects_dir.glob('*/*.jsonl'):
+            if jsonl_file.is_file():
+                transcript_paths.append(jsonl_file)
+
+    if not transcript_paths:
+        print("No session transcripts found.")
+        return
+
+    conn = get_db()
+
+    # Track already processed files
+    processed_files = {row['session_file'] for row in conn.execute("SELECT session_file FROM dream_log").fetchall()}
+
+    # Process max 50 transcripts per run
+    unprocessed = [p for p in transcript_paths if str(p) not in processed_files][:50]
+
+    if not unprocessed:
+        print(f"All {len(transcript_paths)} transcripts already processed.")
+        print("Run 'memory-tool decay' to prune stale memories or 'memory-tool conflicts' to find duplicates.")
+        conn.close()
+        return
+
+    print(f"Found {len(unprocessed)} new transcripts to process (out of {len(transcript_paths)} total)")
+
+    total_insights = 0
+    total_dates_normalized = 0
+
+    # Insight extraction patterns
+    insight_patterns = [
+        re.compile(r'\b(decision|decided|choosing|chose):\s*(.+)', re.IGNORECASE),
+        re.compile(r'\b(important|note|remember):\s*(.+)', re.IGNORECASE),
+        re.compile(r'\b(lesson learned|learned that|discovered that):\s*(.+)', re.IGNORECASE),
+        re.compile(r'\b(architecture|design decision):\s*(.+)', re.IGNORECASE),
+    ]
+
+    for transcript_path in unprocessed:
+        try:
+            file_size = transcript_path.stat().st_size
+            insights_found = 0
+
+            print(f"  Processing: {transcript_path.name} ({file_size // 1024}KB)...", end=' ')
+
+            with open(transcript_path, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f):
+                    if line_num > 10000:  # Safety limit per file
+                        break
+
+                    try:
+                        entry = json.loads(line.strip())
+                    except json.JSONDecodeError:
+                        continue
+
+                    # Look for assistant messages
+                    if entry.get('type') != 'assistant':
+                        continue
+
+                    message = entry.get('message', {})
+                    content_blocks = message.get('content', [])
+                    timestamp = entry.get('timestamp', '')
+
+                    for block in content_blocks:
+                        if block.get('type') != 'text':
+                            continue
+
+                        text = block.get('text', '')
+
+                        # Extract insights
+                        for pattern in insight_patterns:
+                            for match in pattern.finditer(text):
+                                insight_type = match.group(1).lower()
+                                insight_content = match.group(2).strip()
+
+                                # Skip if too short or looks like code
+                                if len(insight_content) < 20 or insight_content.count('{') > 2:
+                                    continue
+
+                                # Classify category
+                                category = 'learning'
+                                if 'decision' in insight_type or 'choosing' in insight_type:
+                                    category = 'decision'
+                                elif 'architecture' in insight_type or 'design' in insight_type:
+                                    category = 'architecture'
+
+                                # Check for duplicates (simple text similarity)
+                                similar = find_similar(insight_content, category=category, threshold=0.80)
+                                if not similar:
+                                    add_memory(
+                                        category,
+                                        insight_content,
+                                        source='dream-scan',
+                                        tags='auto-extracted'
+                                    )
+                                    insights_found += 1
+
+            # Log processed file
+            conn.execute(
+                "INSERT OR REPLACE INTO dream_log (session_file, insights_found, file_size) VALUES (?, ?, ?)",
+                (str(transcript_path), insights_found, file_size)
+            )
+            conn.commit()
+
+            print(f"{insights_found} insights")
+            total_insights += insights_found
+
+        except Exception as e:
+            print(f"Error processing {transcript_path.name}: {e}")
+            continue
+
+    print(f"\n📊 Extracted {total_insights} new insights from {len(unprocessed)} transcripts")
+
+    # 2. Consolidate similar memories (run conflicts logic)
+    print("\n🔍 Consolidating duplicate memories...")
+    conflicts = find_conflicts()
+    auto_merged = 0
+
+    for conflict in conflicts:
+        # Auto-merge if >80% similar
+        if conflict['score'] > 0.80:
+            merge_memories(conflict['id1'], conflict['id2'])
+            auto_merged += 1
+
+    print(f"   Merged {auto_merged} highly similar memories")
+
+    if len(conflicts) - auto_merged > 0:
+        print(f"   {len(conflicts) - auto_merged} potential duplicates need manual review — run: memory-tool conflicts")
+
+    # 3. Normalize relative dates in memory content
+    print("\n📅 Normalizing relative dates...")
+    memories_to_update = conn.execute("""
+        SELECT id, content, created_at FROM memories
+        WHERE active = 1 AND (
+            content LIKE '%today%' OR
+            content LIKE '%yesterday%' OR
+            content LIKE '%this morning%' OR
+            content LIKE '%this afternoon%' OR
+            content LIKE '%last week%' OR
+            content LIKE '%this week%'
+        )
+    """).fetchall()
+
+    date_patterns = [
+        (r'\btoday\b', 0),
+        (r'\byesterday\b', -1),
+        (r'\bthis morning\b', 0),
+        (r'\bthis afternoon\b', 0),
+        (r'\blast week\b', -7),
+        (r'\bthis week\b', 0),
+    ]
+
+    for mem in memories_to_update:
+        content = mem['content']
+        created_at = datetime.fromisoformat(mem['created_at'].replace(' ', 'T'))
+        updated_content = content
+        changed = False
+
+        for pattern, days_offset in date_patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                date_ref = created_at + timedelta(days=days_offset)
+                date_str = date_ref.strftime('%Y-%m-%d')
+                updated_content = re.sub(pattern, date_str, updated_content, flags=re.IGNORECASE)
+                changed = True
+
+        if changed:
+            conn.execute(
+                "UPDATE memories SET content = ?, updated_at = datetime('now') WHERE id = ?",
+                (updated_content, mem['id'])
+            )
+            total_dates_normalized += 1
+
+    conn.commit()
+    print(f"   Normalized {total_dates_normalized} relative dates to absolute dates")
+
+    # 4. Run decay to flag stale memories
+    print("\n🧹 Running decay to flag stale memories...")
+    run_decay()
+
+    # 5. Re-export MEMORY.md
+    print("\n📝 Re-exporting MEMORY.md...")
+    export_memory_md(None)
+
+    # 6. Generate dream report and save as memory
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {total_dates_normalized} dates normalized from {len(unprocessed)} transcripts"
+
+    today = datetime.now().strftime('%Y-%m-%d')
+    add_memory(
+        'learning',
+        report_summary,
+        source='dream-report',
+        topic_key=f'dream-report-{today}',
+        tags='dream,auto-maintenance'
+    )
+
+    conn.close()
+
+    print(f"\n✨ Dream complete!")
+    print(f"   📚 {total_insights} insights extracted")
+    print(f"   🔗 {auto_merged} duplicates consolidated")
+    print(f"   📅 {total_dates_normalized} dates normalized")
+    print(f"   💾 Report saved to memory")
+
+
 def suggest_next():
     """Suggest next actions based on current memory state."""
     conn = get_db()
@@ -3576,6 +3803,9 @@ def main():
 
     elif cmd == "next":
         suggest_next()
+
+    elif cmd == "dream":
+        cmd_dream()
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

@@ -2,35 +2,36 @@
 
 import re
 from difflib import SequenceMatcher
+from typing import Set, List, Tuple, Optional
 from .config import AUTO_TAG_RULES, SIMILARITY_THRESHOLD
 
 
-def auto_tag(content, existing_tags=""):
+def auto_tag(content: str, existing_tags: str = "") -> str:
     """Auto-detect tags from content keywords."""
     content_lower = content.lower()
-    detected = set()
+    detected: Set[str] = set()
     for tag, keywords in AUTO_TAG_RULES.items():
         for kw in keywords:
             if kw in content_lower:
                 detected.add(tag)
                 break
     # Merge with existing
-    existing = set(filter(None, existing_tags.split(",")))
+    existing: Set[str] = set(filter(None, existing_tags.split(",")))
     merged = existing | detected
     return ",".join(sorted(merged))
 
 
-def normalize(text):
+def normalize(text: str) -> str:
     """Normalize text for comparison."""
     return re.sub(r'[^\w\s]', '', text.lower().strip())
 
 
-def word_set(text):
+def word_set(text: str) -> Set[str]:
     """Extract word set from text (words > 2 chars)."""
     return set(w for w in normalize(text).split() if len(w) > 2)
 
 
-def word_overlap(text_a, text_b):
+def word_overlap(text_a: str, text_b: str) -> float:
     """Calculate word-level Jaccard similarity between two texts."""
     if not text_a or not text_b:
         return 0.0
@@ -43,7 +44,7 @@ def word_overlap(text_a, text_b):
     return len(intersection) / len(union)
 
 
-def similarity(text_a, text_b):
+def similarity(text_a: str, text_b: str) -> float:
     """Calculate similarity between two texts using Jaccard and SequenceMatcher."""
     new_words = word_set(text_a)
     existing_words = word_set(text_b)
@@ -63,7 +64,7 @@ def similarity(text_a, text_b):
     return max(jaccard, seq_score)
 
 
-def find_similar(content, category=None, project=None, threshold=None):
+def find_similar(content: str, category: Optional[str] = None, project: Optional[str] = None, threshold: Optional[float] = None) -> List[Tuple[int, str, float, str, str]]:
     """Find similar memories based on content similarity."""
     from .database import get_db
 
@@ -72,7 +73,7 @@ def find_similar(content, category=None, project=None, threshold=None):
 
     conn = get_db()
     query = "SELECT id, content, category, project FROM memories WHERE active = 1"
-    params = []
+    params: List[str] = []
     if category:
         query += " AND category = ?"
         params.append(category)
@@ -82,7 +83,7 @@ def find_similar(content, category=None, project=None, threshold=None):
     rows = conn.execute(query, params).fetchall()
 
     new_words = word_set(content)
-    similar = []
+    similar: List[Tuple[int, str, float, str, str]] = []
     for row in rows:
         existing_words = word_set(row["content"])
         if not new_words or not existing_words:

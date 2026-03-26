@@ -2,9 +2,10 @@
 
 import math
 from datetime import datetime
+from typing import Optional, List, Any
 
 
-def calc_novelty(created_at, updated_at):
+def calc_novelty(created_at: str, updated_at: str) -> float:
     """Novelty decays over time. New memories score high, old ones low."""
     now = datetime.now()
     try:
@@ -16,7 +17,7 @@ def calc_novelty(created_at, updated_at):
     return max(0.0, min(10.0, 10.0 * (0.5 ** (age_days / 14))))
 
 
-def calc_relevance(project, tags, active_projects=None):
+def calc_relevance(project: Optional[str], tags: Optional[str], active_projects: Optional[List[str]] = None) -> float:
     """Relevance based on matching active projects and tags."""
     if active_projects is None:
         active_projects = ["WhatsAuction", "WhatsHub", "Memzy", "WaSP", "FlashVault"]
@@ -33,7 +34,7 @@ def calc_relevance(project, tags, active_projects=None):
     return max(0.0, min(10.0, score))
 
 
-def calc_frequency(access_count, fsrs_reps):
+def calc_frequency(access_count: Optional[int], fsrs_reps: Optional[int]) -> float:
     """Frequency based on how often memory is accessed."""
     total = (access_count or 0) + (fsrs_reps or 0)
     if total == 0:
@@ -42,7 +43,7 @@ def calc_frequency(access_count, fsrs_reps):
     return min(10.0, 2.0 * math.log2(total + 1))
 
 
-def calc_impact(category, priority):
+def calc_impact(category: str, priority: Optional[int]) -> float:
     """Impact based on category and manual priority."""
     category_weights = {
         "decision": 9.0,
@@ -60,7 +61,7 @@ def calc_impact(category, priority):
     return min(10.0, base * 0.7 + (priority or 5) * 0.3)
 
 
-def calc_importance(novelty, relevance, frequency, impact):
+def calc_importance(novelty: float, relevance: float, frequency: float, impact: float) -> float:
     """Combined importance score. Weighted average."""
     # Weights: relevance matters most, then impact, frequency, novelty
     weights = {"novelty": 0.15, "relevance": 0.35, "frequency": 0.20, "impact": 0.30}
@@ -73,7 +74,7 @@ def calc_importance(novelty, relevance, frequency, impact):
     return round(score, 2)
 
 
-def update_importance(mem_id, conn):
+def update_importance(mem_id: int, conn: Any) -> None:
     """Recalculate and store importance for a single memory."""
     row = conn.execute("""
         SELECT created_at, updated_at, project, tags, access_count,

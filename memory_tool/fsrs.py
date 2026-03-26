@@ -1,14 +1,14 @@
 """FSRS-6 Spaced Repetition Functions."""
 
 
-def fsrs_retention(stability, days_elapsed):
+def fsrs_retention(stability: float, days_elapsed: float) -> float:
     """Calculate current retention probability (0-1) using FSRS-6 forgetting curve."""
     if stability <= 0:
         return 0.0
     return (1 + days_elapsed / (9 * stability)) ** -1
 
 
-def fsrs_new_stability(old_s, old_d, rating, elapsed_days):
+def fsrs_new_stability(old_s: float, old_d: float, rating: int, elapsed_days: float) -> float:
     """Calculate new stability after a review/access.
     rating: 1=forgotten, 2=hard, 3=good, 4=easy
     """
@@ -33,7 +33,7 @@ def fsrs_new_stability(old_s, old_d, rating, elapsed_days):
     return min(new_s, 365.0)  # Cap at 1 year
 
 
-def fsrs_new_difficulty(old_d, rating):
+def fsrs_new_difficulty(old_d: float, rating: int) -> float:
     """Update difficulty based on access quality.
     Easier accesses (high rating) lower difficulty.
     """
@@ -45,14 +45,14 @@ def fsrs_new_difficulty(old_d, rating):
     return max(0.1, min(10.0, new_d))
 
 
-def fsrs_next_interval(stability, desired_retention=0.9):
+def fsrs_next_interval(stability: float, desired_retention: float = 0.9) -> float:
     """Calculate days until retention drops to desired_retention."""
     if stability <= 0:
         return 0.1
     return stability * 9 * (1/desired_retention - 1)
 
 
-def fsrs_auto_rating(category, access_count, priority):
+def fsrs_auto_rating(category: str, access_count: int, priority: int) -> int:
     """Auto-determine rating based on how the memory is being used.
     Higher priority + frequent access = easier recall."""
     if access_count == 0:

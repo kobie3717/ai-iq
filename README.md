@@ -5,7 +5,6 @@
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)
 ![SQLite 3.37+](https://img.shields.io/badge/sqlite-3.37%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
-![Zero Dependencies](https://img.shields.io/badge/core-zero%20dependencies-green)
 [![GitHub](https://img.shields.io/github/stars/kobie3717/ai-iq?style=social)](https://github.com/kobie3717/ai-iq)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/Y2jCXNGgE)
 
@@ -37,7 +36,7 @@ AI-IQ gives your AI assistant persistent, searchable context that survives acros
 - **Graph intelligence** - Entities, relationships, facts, and spreading activation for context discovery
 - **Automated hooks** - Auto-captures errors and generates session snapshots
 - **Cross-tool sync** - Share context between Claude Code, OpenClaw, and other AI tools
-- **Zero config, single file** - No API keys, no cloud services, 100% local and private
+- **Zero config, no cloud services** - No API keys, 100% local and private
 
 ## How It Compares
 
@@ -50,26 +49,39 @@ AI-IQ gives your AI assistant persistent, searchable context that survives acros
 | Dream consolidation | ✅ | ❌ | ❌ | ❌ |
 | Decay & expiry | ✅ | ❌ | ❌ | ❌ |
 | Zero dependencies | ✅ | ✅ | ✅ | ❌ |
-| Single file | ✅ | ❌ | ❌ | ❌ |
 | Works with any AI tool | ✅ | Claude only | Cursor only | Varies |
 
 ## Quick Start
 
+Get up and running in 60 seconds:
+
 ```bash
-# Clone and install
+# Option 1: Install from PyPI (when published)
+pip install ai-iq
+
+# Option 2: Install from source
 git clone https://github.com/kobie3717/ai-iq.git
 cd ai-iq
-./scripts/install.sh
+pip install -e .
 
 # Add your first memory
-memory-tool add learning "Our API uses Express + PostgreSQL" --project MyApp
+memory-tool add learning "React app uses Redux for state management" --project MyApp
 
-# Search memories
-memory-tool search "database"
+# Search for it
+memory-tool search "redux"
+# Output: 1 result found
+#   [1] learning | React app uses Redux for state management | MyApp
 
-# View all commands
-memory-tool --help
+# List all memories
+memory-tool list
+# Output: 1 active memory
+
+# View statistics
+memory-tool stats
+# Output: Memories: 1 active | Projects: 1 | Categories: learning (1)
 ```
+
+See [INSTALLATION.md](INSTALLATION.md) for Claude Code integration and automation setup.
 
 ## Features
 

@@ -1035,7 +1035,29 @@ def main() -> None:
         from .beliefs import weakest_beliefs, strongest_beliefs, belief_conflicts
         conn = get_db()
 
-        if "--weak" in sys.argv:
+        # Check for --state filter
+        if "--state" in sys.argv:
+            state_idx = sys.argv.index("--state")
+            if state_idx + 1 < len(sys.argv):
+                state = sys.argv[state_idx + 1]
+                try:
+                    from .beliefs_extended import list_beliefs_by_state
+                    rows = list_beliefs_by_state(conn, state)
+                    print(f"Beliefs (state: {state})")
+                    print("=" * 70)
+                    for r in rows:
+                        stmt = r['statement'][:60] + "..." if len(r['statement']) > 60 else r['statement']
+                        print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {stmt}")
+                    print(f"\n({len(rows)} beliefs in state '{state}')")
+                except ImportError:
+                    print("Extended beliefs system not available")
+                except Exception as e:
+                    print(f"Error: {e}")
+            else:
+                print("Error: --state requires a value (hypothesis/tested/validated/deprecated/refuted)")
+            conn.close()
+
+        elif "--weak" in sys.argv:
             rows = weakest_beliefs(conn, 20)
             print("Weakest Beliefs (lowest confidence)")
             print("=" * 70)
@@ -1043,6 +1065,7 @@ def main() -> None:
                 content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
                 print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
             print(f"\n({len(rows)} beliefs)")
+            conn.close()
 
         elif "--strong" in sys.argv:
             rows = strongest_beliefs(conn, 20)
@@ -1052,6 +1075,7 @@ def main() -> None:
                 content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
                 print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
             print(f"\n({len(rows)} beliefs)")
+            conn.close()
 
         elif "--conflicts" in sys.argv:
             conflicts = belief_conflicts(conn)
@@ -1066,6 +1090,7 @@ def main() -> None:
                 print(f"({len(conflicts)} conflicts)")
             else:
                 print("No belief conflicts found.")
+            conn.close()
 
         else:
             # Show all beliefs sorted by confidence
@@ -1084,6 +1109,87 @@ def main() -> None:
                 bar = "█" * int(r['confidence'] * 10) + "░" * (10 - int(r['confidence'] * 10))
                 print(f"  #{r['id']:>3} {bar} {r['confidence']:.2f} [{r['category']:<8}] {content}")
             print(f"\n({len(rows)} beliefs)")
+            conn.close()
+
+    elif cmd == "lifecycle" and len(sys.argv) >= 4:
+        # memory-tool lifecycle <id> <state>
+        from .beliefs_extended import set_belief_state
+        belief_id = int(sys.argv[2])
+        new_state = sys.argv[3]
+        reason = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else None
+
+        conn = get_db()
+        try:
+            set_belief_state(conn, belief_id, new_state, reason)
+            print(f"✓ Belief #{belief_id} transitioned to '{new_state}'")
+        except ValueError as e:
+            print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
+        conn.close()
+
+    elif cmd == "timeline":
+        # memory-tool timeline [--project X] [--days N] [<id>]
+        from .beliefs_extended import get_timeline, get_confidence_history, format_timeline_entry, get_timeline_summary
+        flags, args = parse_flags(sys.argv, 2)
+
+        conn = get_db()
+
+        # Check if specific ID provided
+        if args:
+            identifier = int(args[0])
+            # Try to determine if it's a belief or memory ID
+            is_belief = conn.execute("SELECT 1 FROM beliefs WHERE id = ?", (identifier,)).fetchone() is not None
+
+            history = get_confidence_history(conn, identifier, is_belief)
+
+            entity_type = "Belief" if is_belief else "Memory"
+            print(f"{entity_type} #{identifier} Confidence History")
+            print("=" * 70)
+
+            if history:
+                for entry in history:
+                    print(f"  {format_timeline_entry(entry)}")
+                print(f"\n({len(history)} changes)")
+            else:
+                print(f"No confidence changes recorded for {entity_type.lower()} #{identifier}")
+        else:
+            # Show general timeline
+            project = flags.get("project")
+            days = int(flags.get("days", 30))
+
+            entries = get_timeline(conn, project=project, days=days)
+
+            print(f"Timeline (last {days} days{f', project: {project}' if project else ''})")
+            print("=" * 70)
+
+            if entries:
+                for entry in entries:
+                    # Format entry with context
+                    if entry['belief_statement']:
+                        context = entry['belief_statement'][:40] + "..."
+                    elif entry['memory_content']:
+                        context = entry['memory_content'][:40] + "..."
+                    else:
+                        context = "Unknown"
+
+                    print(f"  {format_timeline_entry(entry)}")
+                    print(f"    Context: {context}")
+
+                print(f"\n({len(entries)} changes)")
+
+                # Show summary stats
+                summary = get_timeline_summary(conn, days)
+                print(f"\nSummary:")
+                print(f"  Total changes: {summary['total_changes']}")
+                print(f"  Increases: {summary['increases']} ↑")
+                print(f"  Decreases: {summary['decreases']} ↓")
+                print(f"  Avg delta: {summary['avg_confidence_delta']:+.3f}")
+                if summary['by_source']:
+                    by_source_str = ', '.join([f"{s['source_type']}({s['count']})" for s in summary['by_source']])
+                print(f"  By source: {by_source_str}")
+            else:
+                print(f"No timeline entries in the last {days} days.")
 
         conn.close()
 
@@ -1208,6 +1314,137 @@ def main() -> None:
                 print()
         else:
             print("No expired predictions.")
+
+    elif cmd == "narrative" and len(sys.argv) >= 3:
+        from .narrative import build_narrative, get_entity_stories, get_causal_chains
+        entity_name = " ".join(sys.argv[2:])
+        flags, name_parts = parse_flags(sys.argv, 2)
+        if name_parts:
+            entity_name = " ".join(name_parts)
+
+        conn = get_db()
+        result = build_narrative(conn, entity_name, max_depth=int(flags.get("depth", 3)))
+
+        if result['entity']:
+            print(result['narrative'])
+
+            # Show causal chains
+            chains = get_causal_chains(conn, entity_name)
+            if chains:
+                print(f"\nCausal chains ({len(chains)}):")
+                for chain in chains[:5]:
+                    print(f"  {' → '.join(chain)}")
+        else:
+            print(f"Entity '{entity_name}' not found.")
+            # Show entities with richest stories
+            stories = get_entity_stories(conn, 5)
+            if stories:
+                print("\nEntities with narratives:")
+                for s in stories:
+                    print(f"  {s['name']} ({s['type']}) — {s['rel_count']} relationships, {s['mem_count']} memories")
+        conn.close()
+
+    elif cmd == "meta":
+        from .meta_learning import get_meta_stats, apply_learned_weights
+        conn = get_db()
+
+        if "--apply" in sys.argv:
+            result = apply_learned_weights(conn)
+            if result['applied']:
+                print("✓ Search weights updated:")
+                print(f"  Keyword: {result['old_weights']['keyword_weight']:.2f} → {result['new_weights']['keyword_weight']:.2f}")
+                print(f"  Semantic: {result['old_weights']['semantic_weight']:.2f} → {result['new_weights']['semantic_weight']:.2f}")
+                print(f"  Reason: {result['recommendation']}")
+            else:
+                print(f"No changes applied: {result['reason']}")
+        else:
+            stats = get_meta_stats(conn)
+            print("Meta-Learning Report")
+            print("=" * 70)
+            print(f"\nCurrent weights:")
+            for k, v in stats['current_weights'].items():
+                print(f"  {k}: {v:.2f}")
+
+            eff = stats['effectiveness_30d']
+            print(f"\nLast 30 days ({eff['total_searches']} searches):")
+            print(f"  Keyword effectiveness: {eff['keyword_effectiveness']:.1%}")
+            print(f"  Semantic effectiveness: {eff['semantic_effectiveness']:.1%}")
+            print(f"  Overall hit rate: {eff['overall_hit_rate']:.1%}")
+            print(f"  Recommendation: {eff['recommendation']}")
+
+            if eff['recommendation'] not in ('balanced', 'insufficient_data'):
+                print(f"\nSuggested weights:")
+                for k, v in eff['suggested_weights'].items():
+                    curr = stats['current_weights'].get(k, 0)
+                    delta = v - curr
+                    arrow = "↑" if delta > 0 else "↓" if delta < 0 else "="
+                    print(f"  {k}: {v:.2f} ({arrow}{abs(delta):.2f})")
+                print(f"\nRun 'memory-tool meta --apply' to apply suggested weights")
+
+            print(f"\nWeight changes: {stats['weight_changes']} total")
+        conn.close()
+
+    elif cmd == "identity":
+        from .identity import discover_traits, get_identity, save_identity_snapshot, compare_identity_snapshots
+        conn = get_db()
+
+        if "--discover" in sys.argv or "--refresh" in sys.argv:
+            print("Discovering traits from memories...\n")
+            traits = discover_traits(conn)
+            save_identity_snapshot(conn)
+
+            if traits:
+                print(f"Found {len(traits)} traits:\n")
+                for t in traits:
+                    bar = "█" * int(t['confidence'] * 10) + "░" * (10 - int(t['confidence'] * 10))
+                    print(f"  {bar} {t['confidence']:.0%}  {t['description']}")
+                    print(f"         Evidence: {t['evidence_count']} for, {t['counter_evidence']} against")
+            else:
+                print("No traits discovered. Add more memories first.")
+
+        elif "--evolution" in sys.argv:
+            result = compare_identity_snapshots(conn)
+            if result['has_comparison']:
+                print(f"Identity Evolution: {result['previous_date'][:10]} → {result['current_date'][:10]}")
+                print("=" * 70)
+
+                if result['new_traits']:
+                    print(f"\nNew traits ({len(result['new_traits'])}):")
+                    for t in result['new_traits']:
+                        print(f"  + {t['trait_name']} ({t['confidence']:.0%})")
+
+                if result['removed_traits']:
+                    print(f"\nRemoved traits ({len(result['removed_traits'])}):")
+                    for t in result['removed_traits']:
+                        print(f"  - {t['trait_name']}")
+
+                if result['changed']:
+                    print(f"\nConfidence changes:")
+                    for c in result['changed']:
+                        arrow = "↑" if c['delta'] > 0 else "↓"
+                        print(f"  {arrow} {c['trait_name']}: {c['old_confidence']:.0%} → {c['new_confidence']:.0%}")
+
+                if not result['new_traits'] and not result['removed_traits'] and not result['changed']:
+                    print("\nNo significant changes between snapshots.")
+            else:
+                print(result['message'])
+                print("Run 'memory-tool identity --discover' to create first snapshot.")
+
+        else:
+            # Show current identity
+            identity = get_identity(conn)
+
+            if identity['traits']:
+                print("Identity Profile")
+                print("=" * 70)
+                print(f"\n{identity['summary']}")
+                print(f"\nTotal: {identity['total_traits']} traits, {identity['total_evidence']} evidence points")
+                print(f"  Strong: {len(identity['strong'])} | Moderate: {len(identity['moderate'])} | Weak: {len(identity['weak'])}")
+            else:
+                print("No identity profile yet.")
+                print("Run 'memory-tool identity --discover' to build profile from memories.")
+
+        conn.close()
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

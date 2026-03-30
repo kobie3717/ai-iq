@@ -76,12 +76,30 @@ def init_db() -> None:
         "confidence": "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
     }
 
+    # Whitelist for beliefs table migrations
+    BELIEFS_COLUMN_ADDITIONS = {
+        "belief_state": "ALTER TABLE beliefs ADD COLUMN belief_state TEXT DEFAULT 'hypothesis'",
+    }
+
     # Add columns if upgrading (must run BEFORE triggers reference them)
     for col_name, sql_statement in VALID_COLUMN_ADDITIONS.items():
         try:
             conn.execute(sql_statement)
         except sqlite3.OperationalError:
             pass
+
+    # Migrate beliefs table (must run AFTER beliefs table exists)
+    try:
+        # Check if beliefs table exists first
+        conn.execute("SELECT 1 FROM beliefs LIMIT 1")
+        for col_name, sql_statement in BELIEFS_COLUMN_ADDITIONS.items():
+            try:
+                conn.execute(sql_statement)
+            except sqlite3.OperationalError:
+                pass
+    except sqlite3.OperationalError:
+        pass  # beliefs table doesn't exist yet
+
     conn.commit()
 
     conn.executescript("""
@@ -222,7 +240,7 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_entity_id INTEGER NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
             to_entity_id INTEGER NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
-            relation_type TEXT NOT NULL CHECK(relation_type IN ('knows','works_on','owns','depends_on','built_by','uses','blocks','related_to')),
+            relation_type TEXT NOT NULL CHECK(relation_type IN ('knows','works_on','owns','depends_on','built_by','uses','blocks','related_to','leads_to','prevents','resolves','requires')),
             note TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')),
             UNIQUE(from_entity_id, to_entity_id, relation_type)
@@ -349,7 +367,8 @@ def init_db() -> None:
             source TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
-            status TEXT DEFAULT 'active'
+            status TEXT DEFAULT 'active',
+            belief_state TEXT DEFAULT 'hypothesis' CHECK(belief_state IN ('hypothesis', 'tested', 'validated', 'deprecated', 'refuted'))
         );
 
         CREATE TABLE IF NOT EXISTS evidence (
@@ -372,13 +391,28 @@ def init_db() -> None:
             created_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS belief_timeline (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            memory_id INTEGER REFERENCES memories(id),
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            source_type TEXT DEFAULT 'manual',
+            timestamp TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_beliefs_category ON beliefs(category);
         CREATE INDEX IF NOT EXISTS idx_beliefs_status ON beliefs(status);
         CREATE INDEX IF NOT EXISTS idx_beliefs_confidence ON beliefs(confidence);
         CREATE INDEX IF NOT EXISTS idx_beliefs_memory ON beliefs(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_state ON beliefs(belief_state);
         CREATE INDEX IF NOT EXISTS idx_evidence_belief ON evidence(belief_id);
         CREATE INDEX IF NOT EXISTS idx_evidence_memory ON evidence(memory_id);
         CREATE INDEX IF NOT EXISTS idx_belief_revisions_belief ON belief_revisions(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_belief ON belief_timeline(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_memory ON belief_timeline(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_timestamp ON belief_timeline(timestamp);
     """)
 
     conn.commit()

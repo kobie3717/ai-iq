@@ -128,7 +128,7 @@ def list_runs(status=None, project=None, limit=10):
         query += " AND project = ?"
         params.append(project)
     
-    query += " ORDER BY started_at DESC LIMIT ?"
+    query += " ORDER BY started_at DESC, id DESC LIMIT ?"
     params.append(limit)
     
     rows = conn.execute(query, params).fetchall()

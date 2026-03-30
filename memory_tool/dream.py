@@ -241,6 +241,14 @@ def cmd_dream():
     print("\n🧹 Running decay to flag stale memories...")
     run_decay()
 
+    # 4.5. Apply feedback learning from search patterns
+    print("\n🎓 Applying feedback learning from search patterns...")
+    from .feedback import apply_feedback_learning
+    feedback_results = apply_feedback_learning(conn)
+    print(f"   Boosted: {feedback_results['boosted']} high-value memories")
+    print(f"   Decayed: {feedback_results['decayed']} low-value memories")
+    print(f"   Flagged: {feedback_results['flagged']} unused memories as stale")
+
     # 5. Memory consolidation phase
     print("\n💤 Phase: Memory Consolidation...")
     consol = consolidate_memories(conn)
@@ -254,7 +262,7 @@ def cmd_dream():
     _get_export_memory_md()(None)
 
     # 7. Generate dream report and save as memory
-    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized from {len(unprocessed)} transcripts"
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged from {len(unprocessed)} transcripts"
 
     today = datetime.now().strftime('%Y-%m-%d')
     _get_add_memory()(
@@ -274,6 +282,7 @@ def cmd_dream():
     print(f"   💡 {consol['insights']} patterns discovered")
     print(f"   🗑️  {consol['pruned']} low-value memories pruned")
     print(f"   📅 {total_dates_normalized} dates normalized")
+    print(f"   🎓 {feedback_results['boosted']} boosted / {feedback_results['decayed']} decayed / {feedback_results['flagged']} flagged via feedback")
     print(f"   💾 Report saved to memory")
 
 

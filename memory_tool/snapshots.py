@@ -20,6 +20,9 @@ from .utils import auto_tag, word_set, normalize, find_similar, word_overlap, si
 from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_next_interval, fsrs_auto_rating
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
+from .memory_ops import add_memory, touch_memory
+from .export import export_memory_md
+from .dream import consolidate_memories
 
 # Lazy imports for optional dependencies
 try:

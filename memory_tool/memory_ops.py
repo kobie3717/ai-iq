@@ -423,7 +423,13 @@ def search_memories(query, mode="hybrid"):
     - hybrid: Combine FTS and vector search with RRF (default)
     - keyword: FTS only
     - semantic: Vector only
+
+    Returns:
+        Tuple of (rows, search_id) where search_id can be used for feedback logging
     """
+    import time
+    start_time = time.time()
+
     conn = get_db()
     fts_results = []
     vec_results = []
@@ -508,13 +514,24 @@ def search_memories(query, mode="hybrid"):
             ORDER BY updated_at DESC LIMIT 20
         """, (f"%{query}%", f"%{query}%", f"%{query}%")).fetchall()
 
+    # Calculate latency
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    # Log the search
+    result_ids = ','.join(str(r['id']) for r in rows)
+    cur = conn.execute("""
+        INSERT INTO search_log (query, search_type, result_ids, result_count, latency_ms)
+        VALUES (?, ?, ?, ?, ?)
+    """, (query, mode, result_ids, len(rows), latency_ms))
+    search_id = cur.lastrowid
+
     # Touch accessed memories
     for r in rows:
         touch_memory(conn, r["id"])
         auto_adjust_priority(conn, r["id"])
     conn.commit()
     conn.close()
-    return rows
+    return rows, search_id
 
 
 

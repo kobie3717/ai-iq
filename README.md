@@ -18,6 +18,7 @@ Not a knowledge base. Not a RAG pipeline. A context intelligence system that und
 
 **Major upgrades** from previous versions:
 
+- **Self-Learning Feedback Loop (Phase 6)** - Memory system learns from usage and improves over time
 - **Run Tracking (Phase 5)** - Structured workflow tracking with steps, timing, and outcomes
 - **Provenance System (Phase 6)** - Track memory derivation with `--derived-from`, `--citations`, `--reasoning`
 - **Next Actions** - Smart suggestions for what needs attention (expiring memories, conflicts, stale items)
@@ -32,9 +33,10 @@ AI-IQ gives your AI assistant persistent, searchable context that survives acros
 
 - **Persistent context across sessions** - SQLite-backed storage that never forgets
 - **Hybrid search** - Combines keyword (FTS5), semantic embeddings, and graph traversal with RRF fusion
+- **Self-learning feedback** - Tracks which memories are useful, boosts good ones, prunes noise automatically
 - **Smart deduplication** - Blocks duplicates automatically, warns on similar entries
 - **Graph intelligence** - Entities, relationships, facts, and spreading activation for context discovery
-- **Automated hooks** - Auto-captures errors and generates session snapshots
+- **Automated hooks** - Auto-captures errors, generates snapshots, logs search feedback
 - **Cross-tool sync** - Share context between Claude Code, OpenClaw, and other AI tools
 - **Zero config, no cloud services** - No API keys, 100% local and private
 
@@ -132,13 +134,32 @@ memory-tool merge <id1> <id2>           # Merge similar memories
 memory-tool supersede <old_id> <new_id> # Mark as superseded
 ```
 
-### 4. Automated Hooks (Claude Code Integration)
+### 4. Self-Learning Feedback Loop
+
+The memory system learns from your usage and improves over time:
+
+- **Tracks which memories are useful** - Every search logs which results you actually use
+- **Boosts high-value memories** - >80% hit rate over 10+ searches → priority +1
+- **Decays low-value memories** - <20% hit rate over 10+ searches → priority -1
+- **Flags noise** - Retrieved 20+ times but never used → marked as stale
+- **Runs automatically** - Feedback learning happens during nightly `memory-tool dream`
+
+```bash
+memory-tool search-quality    # View hit rates and helpful/unhelpful memories
+memory-tool hot              # Show most accessed memories (immune to decay)
+memory-tool feedback <search_id> <used_ids>  # Manual feedback logging
+```
+
+**Result**: Search quality improves over time without manual curation. See [docs/FEEDBACK_QUICKSTART.md](docs/FEEDBACK_QUICKSTART.md).
+
+### 5. Automated Hooks (Claude Code Integration)
 
 - **PostToolUse hook** - Auto-captures failed Bash commands as error memories
+- **Search feedback hook** - Auto-logs which search results you actually use
 - **Stop hook** - Generates session snapshot from git/file changes, runs decay, exports MEMORY.md
-- **Daily cron** - Maintenance at 3:17 AM (decay, garbage collection, backup)
+- **Daily cron** - Maintenance at 3:17 AM (decay, garbage collection, backup, feedback learning)
 
-### 5. Cross-Tool Sync (OpenClaw Bridge)
+### 6. Cross-Tool Sync (OpenClaw Bridge)
 
 Bidirectional sync with OpenClaw's workspace format:
 

@@ -69,7 +69,7 @@ def main():
         elif flags.get("keyword"):
             search_mode = "keyword"
 
-        rows = search_memories(query, mode=search_mode)
+        rows, search_id = search_memories(query, mode=search_mode)
         if rows:
             full_mode = flags.get("full", False)
             for r in rows:
@@ -84,6 +84,8 @@ def main():
                 else:
                     for rel in get_related(r["id"]):
                         print(f"      -> #{rel['id']} ({rel['relation_type']}): {rel['content'][:80]}")
+            # Output search_id for feedback tracking (can be parsed by hooks)
+            print(f"\n[search_id:{search_id}]")
         else:
             print("No memories found.")
 
@@ -242,6 +244,17 @@ def main():
         print("\nBy source:")
         for s in sources:
             print(f"  {s['source']}: {s['c']}")
+
+        # Search quality summary
+        try:
+            from .feedback import get_search_quality_stats
+            search_stats = get_search_quality_stats()
+            if search_stats['hit_rate_all']['searches'] > 0:
+                print(f"\nSearch Quality:")
+                print(f"  Hit rate (7d): {search_stats['hit_rate_7d']['rate']:.0%} ({search_stats['hit_rate_7d']['searches']} searches)")
+                print(f"  Hit rate (all): {search_stats['hit_rate_all']['rate']:.0%} ({search_stats['hit_rate_all']['searches']} searches)")
+        except Exception:
+            pass  # Feedback module might not be available
 
     elif cmd == "stale":
         rows = get_stale()
@@ -756,6 +769,187 @@ def main():
             print("Usage: memory-tool capture-correction <text>")
             sys.exit(1)
         cmd_capture_correction(text)
+
+    elif cmd == "feedback" and len(sys.argv) >= 4:
+        # memory-tool feedback <search_id> <used_id1,used_id2,...>
+        search_id = int(sys.argv[2])
+        used_ids = [int(x.strip()) for x in sys.argv[3].split(',') if x.strip()]
+        from .feedback import log_search_feedback
+        log_search_feedback(search_id, used_ids)
+        print(f"Feedback logged for search #{search_id}: {len(used_ids)} memories marked as used")
+
+    elif cmd == "search-quality":
+        from .feedback import get_search_quality_stats
+        stats = get_search_quality_stats()
+
+        print("Search Quality Report")
+        print("=" * 70)
+
+        # Hit rates by period
+        print("\nOverall Hit Rates:")
+        print(f"  Last 7 days:  {stats['hit_rate_7d']['rate']:.1%} ({stats['hit_rate_7d']['searches']} searches)")
+        print(f"  Last 30 days: {stats['hit_rate_30d']['rate']:.1%} ({stats['hit_rate_30d']['searches']} searches)")
+        print(f"  All time:     {stats['hit_rate_all']['rate']:.1%} ({stats['hit_rate_all']['searches']} searches)")
+
+        # Most helpful memories
+        if stats['most_helpful']:
+            print("\nMost Helpful Memories (high hit rate, 5+ retrievals):")
+            for m in stats['most_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Least helpful memories
+        if stats['least_helpful']:
+            print("\nLeast Helpful Memories (low hit rate, 10+ retrievals):")
+            for m in stats['least_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Search patterns
+        if stats['search_patterns']:
+            print("\nMost Common Queries:")
+            for p in stats['search_patterns'][:5]:
+                print(f"  '{p['query'][:40]}' - {p['search_count']} searches, {p['avg_hit_rate']:.0%} avg hit rate")
+
+        # Failing queries
+        if stats['failing_queries']:
+            print("\nRecent Failing Queries (0% hit rate):")
+            for q in stats['failing_queries'][:5]:
+                print(f"  '{q['query'][:50]}' [{q['search_type']}] - {q['result_count']} results but none used")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "suggestions":
+        # memory-tool feedback suggestions
+        from .feedback import get_improvement_suggestions
+        suggestions = get_improvement_suggestions()
+
+        print("Improvement Suggestions")
+        print("=" * 70)
+
+        # Deprecation candidates
+        if suggestions['deprecation_candidates']:
+            print("\n🗑️  Deprecation Candidates (retrieved often, never used):")
+            for m in suggestions['deprecation_candidates']:
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['retrieved_count']} retrievals")
+                print(f"      {m['content']}")
+                print(f"      Suggest: memory-tool delete {m['id']}")
+        else:
+            print("\n✓ No deprecation candidates found")
+
+        # Knowledge gaps
+        if suggestions['knowledge_gaps']:
+            print("\n🔍 Knowledge Gaps (queries with no results):")
+            for g in suggestions['knowledge_gaps']:
+                print(f"  '{g['query']}' - {g['attempt_count']} failed searches")
+                print(f"      Suggest: Add memory covering this topic")
+        else:
+            print("\n✓ No knowledge gaps found")
+
+        # Tag suggestions
+        if suggestions['tag_suggestions']:
+            print("\n🏷️  Tag Suggestions (commonly searched terms):")
+            for t in suggestions['tag_suggestions']:
+                print(f"  '{t['keyword']}' - {t['search_count']} searches")
+        else:
+            print("\n✓ No tag suggestions")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "reset":
+        # memory-tool feedback reset
+        conn = get_db()
+        count = conn.execute("SELECT COUNT(*) as c FROM search_log").fetchone()['c']
+        conn.execute("DELETE FROM search_log")
+        conn.commit()
+        conn.close()
+        print(f"Cleared {count} search log entries")
+
+    elif cmd == "feedback-stats":
+        # Alias for search-quality
+        from .feedback import get_search_quality_stats
+        stats = get_search_quality_stats()
+
+        print("Search Quality Report")
+        print("=" * 70)
+
+        # Hit rates by period
+        print("\nOverall Hit Rates:")
+        print(f"  Last 7 days:  {stats['hit_rate_7d']['rate']:.1%} ({stats['hit_rate_7d']['searches']} searches)")
+        print(f"  Last 30 days: {stats['hit_rate_30d']['rate']:.1%} ({stats['hit_rate_30d']['searches']} searches)")
+        print(f"  All time:     {stats['hit_rate_all']['rate']:.1%} ({stats['hit_rate_all']['searches']} searches)")
+
+        # Most helpful memories
+        if stats['most_helpful']:
+            print("\nMost Helpful Memories (high hit rate, 5+ retrievals):")
+            for m in stats['most_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Least helpful memories
+        if stats['least_helpful']:
+            print("\nLeast Helpful Memories (low hit rate, 10+ retrievals):")
+            for m in stats['least_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Search patterns
+        if stats['search_patterns']:
+            print("\nMost Common Queries:")
+            for p in stats['search_patterns'][:5]:
+                print(f"  '{p['query'][:40]}' - {p['search_count']} searches, {p['avg_hit_rate']:.0%} avg hit rate")
+
+        # Failing queries
+        if stats['failing_queries']:
+            print("\nRecent Failing Queries (0% hit rate):")
+            for q in stats['failing_queries'][:5]:
+                print(f"  '{q['query'][:50]}' [{q['search_type']}] - {q['result_count']} results but none used")
+
+    elif cmd == "gaps":
+        # Show knowledge gaps - queries with no results
+        from .feedback import get_improvement_suggestions
+        suggestions = get_improvement_suggestions()
+
+        print("Knowledge Gaps (searches with poor results)")
+        print("=" * 70)
+
+        if suggestions['knowledge_gaps']:
+            print("\nQueries with zero results:")
+            for g in suggestions['knowledge_gaps']:
+                print(f"  '{g['query']}' - {g['attempt_count']} failed attempt(s)")
+                print(f"    Type: {g['search_type']}")
+                print(f"    Suggestion: Add memory covering this topic")
+                print()
+        else:
+            print("\n✓ No knowledge gaps found")
+
+        if suggestions['deprecation_candidates']:
+            print("\nMemories retrieved often but never used (false positives):")
+            for m in suggestions['deprecation_candidates'][:5]:
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['retrieved_count']} retrievals")
+                print(f"      {m['content']}")
+                print(f"      Suggestion: Consider deletion or rewrite")
+                print()
+
+    elif cmd == "hot":
+        # Show most frequently accessed memories (immune to decay)
+        conn = get_db()
+        rows = conn.execute("""
+            SELECT id, category, project, content, access_count, priority, imp_score
+            FROM memories
+            WHERE active = 1 AND access_count >= 5
+            ORDER BY access_count DESC
+            LIMIT 20
+        """).fetchall()
+        conn.close()
+
+        if rows:
+            print("Hot Memories (5+ accesses, immune to decay)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:50] + "..." if len(r['content']) > 50 else r['content']
+                cat = r['category'][:8]
+                proj = f"[{r['project'][:10]}]" if r['project'] else ""
+                print(f"  #{r['id']:>3} {r['access_count']:>3}x [{cat:<8}]{proj:<12} {content}")
+            print(f"\n({len(rows)} hot memories)")
+        else:
+            print("No hot memories yet (need 5+ accesses)")
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

@@ -100,6 +100,9 @@ def init_db():
             source TEXT DEFAULT 'manual',
             topic_key TEXT DEFAULT NULL,
             revision_count INTEGER DEFAULT 1,
+            derived_from TEXT DEFAULT NULL,
+            citations TEXT DEFAULT NULL,
+            reasoning TEXT DEFAULT NULL,
             fsrs_stability REAL DEFAULT 1.0,
             fsrs_difficulty REAL DEFAULT 5.0,
             fsrs_interval REAL DEFAULT 1.0,
@@ -182,6 +185,23 @@ def init_db():
         except Exception as e:
             # Silently fail if vec is not available
             pass
+
+    # Phase 6: Search feedback tracking table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS search_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query TEXT NOT NULL,
+            search_type TEXT DEFAULT 'hybrid',
+            result_ids TEXT,
+            used_ids TEXT,
+            result_count INTEGER DEFAULT 0,
+            hit_rate REAL,
+            latency_ms INTEGER,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_search_log_query ON search_log(query);
+        CREATE INDEX IF NOT EXISTS idx_search_log_created ON search_log(created_at);
+    """)
 
     # Phase 3: Graph Intelligence tables
     conn.executescript("""

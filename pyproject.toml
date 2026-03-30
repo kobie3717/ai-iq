@@ -43,6 +43,11 @@ full = [
     "sqlite-vec>=0.1.0",
     "huggingface-hub>=0.14.0",
 ]
+dev = [
+    "pytest>=7.0",
+    "mypy>=1.0",
+    "pylint>=3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/kobie3717/ai-iq"
@@ -68,3 +73,25 @@ memory_tool = ["py.typed"]
     "hooks/claude-code/session-hook.sh",
     "hooks/claude-code/settings.json.example",
 ]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false  # Start permissive, tighten later
+
+[tool.pylint.messages_control]
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "R0903",  # too-few-public-methods
+    "W0511",  # fixme/todo
+    "C0301",  # line-too-long
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+]
+
+[tool.pylint.format]
+max-line-length = 120

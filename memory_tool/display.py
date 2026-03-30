@@ -264,6 +264,13 @@ Run Tracking (Phase 5):
   memory-tool run show <id>                     # Show full run detail including all steps
   memory-tool run cancel <id>
 
+Search Feedback & Learning (Phase 6):
+  memory-tool feedback <search_id> <id1,id2,id3>  # Log which search results were used
+  memory-tool feedback-stats                    # Show search quality metrics and helpful/unhelpful memories
+  memory-tool gaps                              # Show knowledge gaps (queries with poor results)
+  memory-tool search-quality                    # Alias for feedback-stats
+  memory-tool hot                               # Show most frequently accessed memories (immune to decay)
+
 Categories: project, decision, preference, error, learning, pending, architecture, workflow, contact
 Priority: 0 (low) to 10 (high). Auto-adjusts based on access frequency.
 Vector search: Requires sqlite-vec, onnxruntime, tokenizers, numpy. Model: all-MiniLM-L6-v2 (384-dim).

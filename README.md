@@ -1,349 +1,288 @@
 # AI-IQ
 
-**AI doesn't need knowledge — it needs relevant context, relative to each situation.**
+**The only lightweight SQLite memory system with belief-confidence scoring, causal graph reasoning, autonomous dream consolidation, and self-learning feedback — built for Claude Code and local AI agents.**
 
-![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)
-![SQLite 3.37+](https://img.shields.io/badge/sqlite-3.37%2B-blue)
-![License MIT](https://img.shields.io/badge/license-MIT-green)
-[![GitHub](https://img.shields.io/github/stars/kobie3717/ai-iq?style=social)](https://github.com/kobie3717/ai-iq)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/Y2jCXNGgE)
+[![PyPI version](https://img.shields.io/pypi/v/ai-iq?color=blue)](https://pypi.org/project/ai-iq/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Tests: 478](https://img.shields.io/badge/tests-478-passing)](tests/)
+[![GitHub stars](https://img.shields.io/github/stars/kobie3717/ai-iq?style=social)](https://github.com/kobie3717/ai-iq)
 
-## Philosophy
+---
 
-AI-IQ is a persistent context system for AI coding assistants. Large language models already know everything — they've been trained on the entire internet. What they lack is YOUR context: your decisions, your architecture, your patterns, your mistakes, your project history. AI-IQ gives them exactly the right context at exactly the right time.
+## Why AI-IQ?
 
-Not a knowledge base. Not a RAG pipeline. A context intelligence system that understands what's relevant to each situation through hybrid search (keyword + semantic), graph intelligence, and automatic decay of stale information.
+**Single SQLite file, zero cloud, 100% private.**
+Your AI's memory lives in one portable database file. No API keys, no cloud services, no vendor lock-in. Works offline, owns your data.
 
-## What's New in v5
+**Beliefs with confidence that update from predictions and evidence.**
+Track what your AI thinks it knows with confidence scores (0.01-0.99). When predictions resolve, related beliefs strengthen or weaken automatically. Bayesian-style learning from outcomes.
 
-**Major upgrades** from previous versions:
+**Dream mode: autonomous consolidation like REM sleep for AI.**
+Just like biological memory, AI-IQ consolidates during "sleep". Finds duplicates, resolves conflicts, normalizes metadata, strengthens frequently-used patterns. Memory gets smarter over time without manual curation.
 
-- **Self-Learning Feedback Loop (Phase 6)** - Memory system learns from usage and improves over time
-- **Run Tracking (Phase 5)** - Structured workflow tracking with steps, timing, and outcomes
-- **Provenance System (Phase 6)** - Track memory derivation with `--derived-from`, `--citations`, `--reasoning`
-- **Next Actions** - Smart suggestions for what needs attention (expiring memories, conflicts, stale items)
-- **Enhanced Graph** - Spreading activation, auto-linking, OpenClaw import
-- **Improved Hybrid Search** - Better RRF fusion, graph-aware semantic search
-- **Configurable Paths** - Environment variables for all paths, no hardcoded values
-- **Production Tested** - Managing 100+ memories across 7 real-world projects
+**Self-learning: tracks what works, auto-tunes search weights.**
+Every search logs which results you actually use. Meta-learning adjusts hybrid search fusion weights (keyword vs semantic) based on effectiveness. Search quality improves the more you use it.
 
-## Core Features
+---
 
-AI-IQ gives your AI assistant persistent, searchable context that survives across sessions:
+## Comparison Table
 
-- **Persistent context across sessions** - SQLite-backed storage that never forgets
-- **Hybrid search** - Combines keyword (FTS5), semantic embeddings, and graph traversal with RRF fusion
-- **Self-learning feedback** - Tracks which memories are useful, boosts good ones, prunes noise automatically
-- **Smart deduplication** - Blocks duplicates automatically, warns on similar entries
-- **Graph intelligence** - Entities, relationships, facts, and spreading activation for context discovery
-- **Automated hooks** - Auto-captures errors, generates snapshots, logs search feedback
-- **Cross-tool sync** - Share context between Claude Code, OpenClaw, and other AI tools
-- **Zero config, no cloud services** - No API keys, 100% local and private
+| Feature | AI-IQ | Mem0 | Zep/Graphiti | Letta | Claude Auto Dream |
+|---------|-------|------|--------------|-------|-------------------|
+| **Portable single file** | ✅ SQLite | ❌ Cloud DB | ❌ Cloud DB | ✅ Filesystem | ✅ SQLite |
+| **Causal beliefs with confidence** | ✅ Full system | ❌ None | ❌ None | ❌ None | ❌ None |
+| **Prediction engine + resolution** | ✅ Bayesian updates | ❌ None | ❌ None | ❌ None | ❌ None |
+| **Dream consolidation** | ✅ Autonomous REM-like | ❌ None | ❌ None | ❌ None | ⚠️ Shallow merge |
+| **Identity layer (behavioral traits)** | ✅ Auto-discovers | ❌ None | ❌ None | ❌ None | ❌ None |
+| **Narrative memory (causal chains)** | ✅ LEADS_TO/PREVENTS edges | ❌ None | ⚠️ Temporal only | ❌ None | ❌ None |
+| **Meta-learning search tuning** | ✅ Feedback loop | ❌ Static | ❌ Static | ❌ Static | ❌ None |
+| **Coding-specific hooks** | ✅ PostToolUse/Stop | ❌ Generic | ❌ Generic | ❌ Generic | ✅ But locked to Claude |
+| **No cloud dependency** | ✅ 100% local | ❌ Cloud SaaS | ❌ Cloud SaaS | ✅ Local | ✅ Local |
+| **No vendor lock-in** | ✅ Standard SQL | ❌ Proprietary API | ❌ Proprietary | ✅ Open format | ⚠️ Claude ecosystem only |
+| **Knowledge graph** | ✅ Entities + relationships + facts | ✅ Strong | ✅ Very strong | ❌ None | ❌ None |
+| **Hybrid search (keyword + semantic)** | ✅ RRF fusion | ✅ Yes | ✅ Yes | ⚠️ Tiered only | ❌ Keyword only |
+| **Vector embeddings** | ✅ Optional (384-dim) | ✅ Required | ✅ Required | ✅ Required | ❌ None |
+| **Zero dependencies** | ✅ Core works bare | ❌ Heavy stack | ❌ Heavy stack | ❌ Heavy stack | ✅ SQLite only |
 
-## How It Compares
+**Key differentiators:**
+AI-IQ is the only system that combines portable single-file storage with advanced cognitive features like belief-confidence tracking, causal reasoning, dream consolidation, and self-learning. Mem0/Zep are powerful but cloud-dependent. Letta is local but lacks causal graph. Claude Auto Dream is shallow consolidation without confidence scoring or causal edges.
 
-| Feature | AI-IQ | .claude/memory | Cursor Rules | Custom RAG |
-|---------|-------|----------------|--------------|------------|
-| Persists across sessions | ✅ | ✅ | ✅ | ✅ |
-| Semantic search | ✅ | ❌ | ❌ | ✅ |
-| Graph relationships | ✅ | ❌ | ❌ | ❌ |
-| Auto error capture | ✅ | ❌ | ❌ | ❌ |
-| Dream consolidation | ✅ | ❌ | ❌ | ❌ |
-| Decay & expiry | ✅ | ❌ | ❌ | ❌ |
-| Zero dependencies | ✅ | ✅ | ✅ | ❌ |
-| Works with any AI tool | ✅ | Claude only | Cursor only | Varies |
+---
 
 ## Quick Start
 
-Get up and running in 60 seconds:
-
 ```bash
-# Option 1: Install from PyPI (when published)
+# Install from PyPI
 pip install ai-iq
 
-# Option 2: Install from source
-git clone https://github.com/kobie3717/ai-iq.git
-cd ai-iq
-pip install -e .
+# Or install with semantic search (adds numpy, onnxruntime, sqlite-vec)
+pip install ai-iq[full]
 
 # Add your first memory
-memory-tool add learning "React app uses Redux for state management" --project MyApp
+memory-tool add learning "Docker containers need network_mode: host for Redis access" --project FlashVault
 
 # Search for it
-memory-tool search "redux"
-# Output: 1 result found
-#   [1] learning | React app uses Redux for state management | MyApp
+memory-tool search "docker networking"
+# Output:
+#   [1] learning | Docker containers need network_mode: host for Redis access | FlashVault
 
-# List all memories
-memory-tool list
-# Output: 1 active memory
+# Create a belief with confidence
+memory-tool believe "PayFast will work for South African payments" --confidence 0.8 --project FlashVault
 
-# View statistics
-memory-tool stats
-# Output: Memories: 1 active | Projects: 1 | Categories: learning (1)
+# Make a prediction based on the belief
+memory-tool predict "PayFast approval within 2 weeks" --based-on 1 --deadline 2026-04-15 --expect "Merchant account approved"
+
+# Resolve prediction when it completes
+memory-tool resolve 1 --refuted "PayFast rejected our application"
+# → Belief confidence automatically drops from 0.8 to 0.6
+
+# Run dream mode to consolidate
+memory-tool dream
+# Output: Consolidated 3 duplicates, resolved 1 conflict, normalized 5 dates
+
+# Discover behavioral traits
+memory-tool identity --discover
+# Output: Detected traits: prefers_docker (0.85), automation_first (0.78), sqlite_lover (0.92)
+
+# Build narrative for a project
+memory-tool narrative WhatsAuction
+# Output: Chronological cause-effect story with 12 connected events
 ```
 
-See [INSTALLATION.md](INSTALLATION.md) for Claude Code integration and automation setup.
+---
 
 ## Features
 
-### 1. Hybrid Search (FTS + Semantic + RRF)
+### Core Memory Operations
+- **Add/Update/Delete** - Standard CRUD with content deduplication
+- **Hybrid Search** - RRF fusion of keyword (FTS5) + semantic (vector) + graph traversal
+- **Categories** - `project`, `decision`, `preference`, `error`, `learning`, `pending`, `architecture`, `workflow`, `contact`
+- **Tags & Metadata** - Auto-tagging from content keywords, manual tags, priorities (0-10)
+- **Topic Keys** - Upsert-style identifiers for stable updates without duplicates
+- **Expiry & Decay** - Auto-stale after 30d (pending) or 90d (general), priority decay after 60d
 
-Combines three search strategies with Reciprocal Rank Fusion:
-
-- **Keyword search** - Fast FTS5 full-text search
-- **Semantic search** - all-MiniLM-L6-v2 embeddings (384-dim) via sqlite-vec
-- **Graph traversal** - Spreading activation across entity relationships
+### Belief System (Unique to AI-IQ)
+- **Confidence Scoring** - Beliefs track confidence from 0.01 to 0.99
+- **Prediction Engine** - Make testable predictions with deadlines and expected outcomes
+- **Bayesian Updates** - When predictions resolve (confirmed/refuted), related beliefs adjust confidence automatically
+- **Confidence Propagation** - Updates flow through memory relationships via causal graph
+- **Belief Queries** - Find weak/strong/conflicting beliefs, track open/expired predictions
 
 ```bash
-memory-tool search "authentication flow"        # Hybrid (default)
-memory-tool search "auth" --semantic            # Semantic-only
-memory-tool search "jwt token" --keyword        # FTS-only
+memory-tool believe "TypeScript reduces bugs vs JavaScript" --confidence 0.75
+memory-tool predict "Next rewrite will have 30% fewer runtime errors" --based-on 1 --deadline 2026-06-01
+memory-tool resolve 1 --confirmed "Runtime errors down 42%"  # Belief → 0.85
+memory-tool beliefs --weak                                    # Show lowest confidence beliefs
+memory-tool predictions --open                                # Show active predictions
 ```
 
-### 2. Graph Intelligence
-
-Build a knowledge graph of entities (people, projects, tools, concepts) with relationships and facts.
+### Knowledge Graph
+- **Entities** - `person`, `project`, `org`, `feature`, `concept`, `tool`, `service`
+- **Relationships** - `knows`, `works_on`, `owns`, `depends_on`, `built_by`, `uses`, `related_to`, `PREVENTS`, `RESOLVES`, `LEADS_TO`, `REQUIRES` (causal edges)
+- **Facts** - Key-value metadata on entities with history tracking
+- **Spreading Activation** - Find related context by traversing relationships with decay
+- **Auto-Linking** - Link memories to entities by name/keyword matching
 
 ```bash
-# Add entities
 memory-tool graph add project WhatsAuction "Real-time auction platform"
-memory-tool graph add tool PostgreSQL "Primary database"
-
-# Create relationships
-memory-tool graph rel WhatsAuction uses PostgreSQL
-
-# Set facts
-memory-tool graph fact PostgreSQL version "14.5"
-
-# Spreading activation (find related context)
-memory-tool graph spread WhatsAuction --depth 2
+memory-tool graph add tool Redis "In-memory cache"
+memory-tool graph rel WhatsAuction uses Redis "For session storage"
+memory-tool graph rel WhatsAuction REQUIRES Redis "Cache must be up before app starts"
+memory-tool graph fact Redis version "7.2.4"
+memory-tool graph spread WhatsAuction --depth 2    # Find all related context
+memory-tool graph auto-link                        # Link existing memories to entities
 ```
 
-### 3. Smart Ingestion with Conflict Detection
+### Dream Mode (Unique to AI-IQ)
+Autonomous consolidation inspired by REM sleep in biological memory:
 
-Automatically detects duplicates and conflicts using similarity scoring:
-
-- **> 85% similar** - Blocks as duplicate
-- **65-85% similar** - Warns and suggests merge/update
-- **< 65% similar** - Adds as new memory
+- **Duplicate Detection** - Finds 85-95% similar memories, auto-merges with provenance
+- **Reconsolidation** - Strengthens frequently-accessed patterns, weakens unused ones
+- **Contradiction Detection** - Warns on >80% similar memories with negation patterns (but doesn't block)
+- **Metadata Normalization** - Standardizes dates, project names, tags
+- **Decay Processing** - Flags stale memories, reduces priority, expires old TODOs
 
 ```bash
-memory-tool conflicts                    # Find potential duplicates
-memory-tool merge <id1> <id2>           # Merge similar memories
-memory-tool supersede <old_id> <new_id> # Mark as superseded
+memory-tool dream
+# Output:
+#   Consolidated 5 duplicates (kept newer, marked old as superseded)
+#   Detected 2 potential contradictions (flagged for review)
+#   Normalized 8 dates to ISO format
+#   Expired 3 pending items past deadline
+#   Strengthened 12 high-access memories (+1 priority)
+#   Weakened 4 low-access memories (-1 priority)
 ```
 
-### 4. Self-Learning Feedback Loop
+### Self-Learning Feedback Loop (Unique to AI-IQ)
+Meta-learning that improves search quality over time:
 
-The memory system learns from your usage and improves over time:
-
-- **Tracks which memories are useful** - Every search logs which results you actually use
-- **Boosts high-value memories** - >80% hit rate over 10+ searches → priority +1
-- **Decays low-value memories** - <20% hit rate over 10+ searches → priority -1
-- **Flags noise** - Retrieved 20+ times but never used → marked as stale
-- **Runs automatically** - Feedback learning happens during nightly `memory-tool dream`
+- **Outcome Tracking** - Every search logs which results you actually use
+- **Effectiveness Scoring** - Calculates keyword vs semantic hit rates
+- **Weight Tuning** - Auto-adjusts RRF fusion weights based on what works
+- **Promotion/Demotion** - High-value memories get priority boost, noise gets flagged
 
 ```bash
-memory-tool search-quality    # View hit rates and helpful/unhelpful memories
-memory-tool hot              # Show most accessed memories (immune to decay)
-memory-tool feedback <search_id> <used_ids>  # Manual feedback logging
+memory-tool search-quality          # View effectiveness metrics
+# Output:
+#   Keyword effectiveness: 68% (102/150 searches)
+#   Semantic effectiveness: 84% (126/150 searches)
+#   → Semantic weight boosted from 1.0 to 1.3
+
+memory-tool hot                     # Show most accessed memories (immune to decay)
+# Output: Top 20 memories by access_count (>= 5 accesses = immune to stale)
+
+memory-tool feedback <search_id> <used_memory_ids>  # Manual feedback logging
 ```
 
-**Result**: Search quality improves over time without manual curation. See [docs/FEEDBACK_QUICKSTART.md](docs/FEEDBACK_QUICKSTART.md).
+### Identity Layer (Unique to AI-IQ)
+Discovers behavioral traits from memory patterns:
 
-### 5. Automated Hooks (Claude Code Integration)
+- **Trait Detection** - Mines decisions, errors, beliefs for tendencies (e.g., `prefers_docker`, `ships_fast`, `tests_first`)
+- **Confidence Tracking** - Each trait has evidence count and confidence score
+- **Evolution Tracking** - Snapshots show how traits change over time
+- **Pattern Recognition** - Detects anti-patterns and conflicts
 
-- **PostToolUse hook** - Auto-captures failed Bash commands as error memories
-- **Search feedback hook** - Auto-logs which search results you actually use
-- **Stop hook** - Generates session snapshot from git/file changes, runs decay, exports MEMORY.md
-- **Daily cron** - Maintenance at 3:17 AM (decay, garbage collection, backup, feedback learning)
+```bash
+memory-tool identity --discover
+# Output:
+#   Detected traits:
+#     prefers_docker (0.85) - 17 evidence, 2 counter
+#     automation_first (0.78) - 12 evidence, 1 counter
+#     sqlite_lover (0.92) - 23 evidence, 0 counter
+#     ships_fast (0.45) - 5 evidence, 6 counter [CONFLICT with over_engineers]
 
-### 6. Cross-Tool Sync (OpenClaw Bridge)
+memory-tool identity --snapshot "After WhatsAuction rewrite"
+memory-tool identity --evolution prefers_docker    # Show trait changes over time
+```
 
-Bidirectional sync with OpenClaw's workspace format:
+### Narrative Memory (Unique to AI-IQ)
+Builds cause-effect stories from causal graph edges:
 
+- **Causal Chains** - Walks `LEADS_TO`, `PREVENTS`, `RESOLVES`, `REQUIRES` edges
+- **Chronological Stories** - Sorts by timestamp to show progression
+- **Linked Context** - Includes related memories for full narrative
+- **Deduplication** - Removes redundant events for clean stories
+
+```bash
+memory-tool narrative WhatsAuction
+# Output:
+#   Entity: WhatsAuction (project)
+#
+#   Narrative (12 events):
+#     2026-02-10: Created Redis cache service
+#     2026-02-11: WhatsAuction REQUIRES Redis (cache must be up first)
+#     2026-02-15: Redis PREVENTS race conditions in auction bids
+#     2026-02-20: Deployed with PM2 process manager
+#     2026-03-01: PM2 auto-restart RESOLVES downtime issues
+#     ...
+```
+
+### Integrations
+
+**Claude Code Hooks** - Auto-captures errors, generates session snapshots, logs feedback:
+```bash
+# PostToolUse hook: auto-logs failed Bash commands as error memories
+# Stop hook: auto-generates snapshot from git/file changes, runs decay
+# Daily cron (3:17 AM): decay + gc + backup + meta-learning tuning
+```
+
+**OpenClaw Bridge** - Bidirectional sync with OpenClaw's file-based memory:
 ```bash
 memory-tool sync          # Two-way sync
-memory-tool sync-to       # Claude Code → OpenClaw
-memory-tool sync-from     # OpenClaw → Claude Code
+memory-tool sync-to       # AI-IQ → OpenClaw
+memory-tool sync-from     # OpenClaw → AI-IQ
 ```
 
-Share context seamlessly between AI assistants.
-
-## Command Reference
-
-### Core Operations
-
+**Session Tracking** - Structured workflows with steps and outcomes:
 ```bash
-memory-tool add <category> "<content>" [options]
-  --project <name>         # Associate with project
-  --tags <tag1,tag2>       # Add tags (auto-tags also applied)
-  --priority <0-10>        # Priority (default: 0)
-  --related <id>           # Link to related memory
-  --expires <YYYY-MM-DD>   # Auto-expire date
-  --key <topic-key>        # Upsert key for topics
-
-memory-tool update <id> "<new content>"
-memory-tool delete <id>
-memory-tool get <id>                      # Full detail view
-memory-tool tag <id> <tag1,tag2>
-memory-tool relate <id1> <id2> [type]
-```
-
-**Categories**: `project`, `decision`, `preference`, `error`, `learning`, `pending`, `architecture`, `workflow`, `contact`
-
-### Search & Discovery
-
-```bash
-memory-tool search "<query>" [--full] [--semantic] [--keyword]
-memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired]
-memory-tool projects                      # Project summary
-memory-tool topics                        # Generate topic .md files
-memory-tool pending                       # Show TODO items
-memory-tool conflicts                     # Find duplicates
-```
-
-### Graph Operations
-
-```bash
-memory-tool graph                         # Show summary
-memory-tool graph add <type> <name> [summary]
-memory-tool graph rel <from> <rel_type> <to> [note]
-memory-tool graph fact <entity> <key> <value>
-memory-tool graph get <name>
-memory-tool graph list [type]
-memory-tool graph delete <name>
-memory-tool graph spread <name> [depth]   # Spreading activation
-memory-tool graph link <memory_id> <entity>
-memory-tool graph auto-link               # Auto-link all memories
-memory-tool graph import-openclaw
-memory-tool graph stats
-```
-
-**Entity types**: `person`, `project`, `org`, `feature`, `concept`, `tool`, `service`
-
-**Relationship types**: `knows`, `works_on`, `owns`, `depends_on`, `built_by`, `uses`, `blocks`, `related_to`
-
-### Session Management
-
-```bash
-memory-tool snapshot "<summary>" [--project X]
-memory-tool auto-snapshot                 # Auto-detect from git/file changes
-memory-tool snapshots [--limit N]
-memory-tool detect-project                # Auto-detect from cwd
-```
-
-### Maintenance
-
-```bash
-memory-tool decay                         # Flag stale, deprioritize, expire
-memory-tool stale                         # Review stale memories
-memory-tool gc [days]                     # Garbage collect (default: 180 days)
-memory-tool reindex                       # Rebuild vector embeddings
-memory-tool stats                         # Full statistics
-memory-tool backup                        # Manual backup
-memory-tool restore <file>
-```
-
-### Cross-Tool Sync
-
-```bash
-memory-tool sync                          # Bidirectional sync
-memory-tool sync-to                       # Export to OpenClaw
-memory-tool sync-from                     # Import from OpenClaw
-```
-
-### Import/Export
-
-```bash
-memory-tool export [--project X]          # Regenerate MEMORY.md
-memory-tool import-md <file>              # Import session summary markdown
-memory-tool log-error <command> <error>   # Log failed command
-```
-
-### Beliefs & Predictions
-
-Track beliefs with confidence levels and make testable predictions:
-
-```bash
-# Create a belief with confidence
-memory-tool believe "Docker is better than Podman for CI/CD" --confidence 0.7 --project MyProject
-
-# Make a prediction based on a belief
-memory-tool predict "New auth system will reduce login time by 50%" --based-on 42 --confidence 0.8 --deadline 2026-04-15
-
-# Resolve a prediction
-memory-tool resolve 5 --confirmed "Login time reduced by 55%"
-memory-tool resolve 6 --refuted "No measurable improvement"
-
-# View beliefs
-memory-tool beliefs                       # All beliefs sorted by confidence
-memory-tool beliefs --weak               # Lowest confidence beliefs
-memory-tool beliefs --strong             # Highest confidence beliefs
-memory-tool beliefs --conflicts          # Find contradicting beliefs
-
-# View predictions
-memory-tool predictions                   # All predictions
-memory-tool predictions --open           # Open predictions only
-memory-tool predictions --confirmed      # Confirmed predictions
-memory-tool predictions --refuted        # Refuted predictions
-memory-tool predictions --expired        # Past deadline but unresolved
-```
-
-**How it works:**
-- Beliefs are stored as memories with confidence scores (0.01-0.99)
-- When predictions are confirmed, related beliefs are strengthened (+0.1 confidence)
-- When predictions are refuted, related beliefs are weakened (-0.2 confidence)
-- Belief updates propagate through memory relationships via causal graph
-- Unsupported beliefs decay over time during `dream` consolidation
-
-### Run Tracking
-
-Track structured workflows and agent runs with steps, outcomes, and timing:
-
-```bash
-# Start a new run
-memory-tool run start "Fix user authentication bug" --agent claude --project MyApp
-
-# Add steps as you work
+memory-tool run start "Fix authentication bug" --agent claude --project MyApp
 memory-tool run step 1 "Identified issue in JWT validation"
-memory-tool run step 1 "Updated auth middleware"  
-memory-tool run step 1 "Added unit tests"
-
-# Complete the run
-memory-tool run complete 1 "Fixed auth bug, all tests passing"
-
-# List runs
-memory-tool run list                      # Recent runs
-memory-tool run list --status running    # Active runs only
-memory-tool run list --project MyApp --limit 20
-
-# View detailed run information
-memory-tool run show 1                   # Full run details with all steps
-
-# Manage runs
-memory-tool run cancel 2                 # Cancel a run
-memory-tool run fail 3 "Unable to reproduce bug" # Mark as failed
+memory-tool run complete 1 "Fixed, all tests passing"
+memory-tool run list --status completed
 ```
 
-**Run statuses**: `running`, `completed`, `failed`, `cancelled`
+---
 
-**Use cases**:
-- Track multi-step debugging sessions
-- Document feature implementation workflows  
-- Monitor agent task progress
-- Capture development decision trails
-- Generate workflow reports for team reviews
+## Architecture
 
-## Integration
+**Inspired by biological memory principles:**
+- **Hippocampus → Neocortex** - Short-term memories (recent sessions) consolidate into long-term via dream mode
+- **REM Sleep Consolidation** - Dream mode strengthens important patterns, prunes noise
+- **Spreading Activation** - Graph traversal mimics how human memory retrieves related concepts
+- **Confidence Updates** - Bayesian-style learning from prediction outcomes
 
-### Claude Code
+**Database schema (SQLite 3.37+):**
+- `memories` - Core storage with FTS5 index + vector embeddings (384-dim all-MiniLM-L6-v2)
+- `memory_relations` - Bidirectional links between memories
+- `graph_entities` - Knowledge graph nodes (people, projects, tools, concepts)
+- `graph_relationships` - Causal edges (PREVENTS, RESOLVES, LEADS_TO, REQUIRES) + semantic edges (uses, depends_on, etc.)
+- `graph_facts` - Entity metadata with history tracking
+- `beliefs` - Confidence-scored statements with Bayesian update tracking
+- `predictions` - Testable hypotheses with deadlines and resolution tracking
+- `identity_traits` - Behavioral patterns with evidence counts
+- `runs` - Workflow/session tracking with steps and timing
+- `search_feedback` - Meta-learning data for weight tuning
 
-See [INSTALLATION.md](INSTALLATION.md) for full setup instructions.
+**Hybrid Search (RRF fusion with k=60):**
+1. Keyword search via FTS5 (fast, exact matches)
+2. Semantic search via sqlite-vec embeddings (conceptual similarity)
+3. Graph traversal via spreading activation (relationship-based)
+4. Recency/confidence/access bonuses
+5. Meta-learned weights adjust fusion based on effectiveness
 
-1. Install hooks in `~/.claude/settings.json`:
+See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
 
+---
+
+## Claude Code Integration
+
+### 1. Install AI-IQ
+```bash
+pip install ai-iq[full]
+```
+
+### 2. Set up hooks in `~/.claude/settings.json`
 ```json
 {
   "hooks": {
@@ -353,86 +292,203 @@ See [INSTALLATION.md](INSTALLATION.md) for full setup instructions.
 }
 ```
 
-2. Add cron job for daily maintenance:
+### 3. Add CLAUDE.md to your project root
+See [CLAUDE.md template](CLAUDE.md) - tells Claude to auto-load MEMORY.md each session and use `memory-tool` commands.
 
+### 4. Set up daily maintenance cron
 ```bash
-17 3 * * * /root/.claude/projects/-root/memory/daily-maintenance.sh >> /root/.claude/projects/-root/memory/cron.log 2>&1
+17 3 * * * ~/.claude/projects/-root/memory/daily-maintenance.sh >> ~/.claude/memory/cron.log 2>&1
 ```
 
-3. The system auto-loads `MEMORY.md` at session start via project instructions.
+**Automation flow:**
+- **Session start** - MEMORY.md auto-loads (last session + pending items)
+- **During work** - PostToolUse hook auto-captures failed commands as error memories
+- **Session end** - Stop hook generates snapshot from git/file changes, runs decay, exports MEMORY.md
+- **Daily 3:17 AM** - Dream consolidation, meta-learning tuning, garbage collection, backup
 
-### Other AI Tools
+See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
 
-For generic integration:
+---
 
-1. Export memories to markdown: `memory-tool export --project YourProject`
-2. Include `MEMORY.md` in your AI tool's context
-3. Use `memory-tool add` to capture learnings during sessions
-4. Use `memory-tool auto-snapshot` to summarize sessions
+## Full Command Reference
 
-## Architecture
+### Core Operations
+| Command | Description |
+|---------|-------------|
+| `memory-tool add <category> "<content>" [options]` | Create memory with optional --project, --tags, --priority, --expires, --key |
+| `memory-tool update <id> "<new content>"` | Update memory (auto re-embeds for semantic search) |
+| `memory-tool delete <id>` | Soft delete (recoverable) |
+| `memory-tool get <id>` | Full detail view with relationships |
+| `memory-tool list [--project/--category/--tag/--stale/--expired]` | Filter and list memories |
 
-**Database**: SQLite 3.37+ with extensions
-- **memories** - Core memory storage
-- **memories_fts** - FTS5 full-text search index
-- **memory_vec** - sqlite-vec vector embeddings (384-dim)
-- **memory_relations** - Bidirectional memory links
-- **session_snapshots** - Session summaries
-- **runs** - Structured workflow/task tracking with steps and timing
-- **graph_entities** - Knowledge graph nodes
-- **graph_relationships** - Knowledge graph edges
-- **graph_facts** - Entity key-value metadata
+### Search & Discovery
+| Command | Description |
+|---------|-------------|
+| `memory-tool search "<query>" [--full/--semantic/--keyword]` | Hybrid search (default), verbose (--full), mode-specific |
+| `memory-tool conflicts` | Find 50-85% similar memories (potential duplicates) |
+| `memory-tool merge <id1> <id2>` | Merge similar memories (keeps newer) |
+| `memory-tool supersede <old> <new>` | Mark old as superseded by new |
+| `memory-tool pending` | Show TODO items |
+| `memory-tool hot` | Most accessed memories (access_count >= 5 = immune to decay) |
+| `memory-tool next` | Smart suggestions: what needs attention now |
 
-**Hybrid Search**: RRF fusion (k=60) of keyword + semantic + graph results
+### Beliefs & Predictions
+| Command | Description |
+|---------|-------------|
+| `memory-tool believe "<statement>" --confidence 0.7` | Create belief with confidence score |
+| `memory-tool predict "<prediction>" --based-on <id> --deadline YYYY-MM-DD` | Make testable prediction |
+| `memory-tool resolve <pred_id> --confirmed/--refuted "<outcome>"` | Resolve prediction (auto-updates belief confidence) |
+| `memory-tool beliefs [--weak/--strong/--conflicts]` | List beliefs by confidence |
+| `memory-tool predictions [--open/--confirmed/--refuted/--expired]` | Filter predictions by status |
 
-**Embedding Model**: all-MiniLM-L6-v2 (ONNX, 384 dimensions)
+### Knowledge Graph
+| Command | Description |
+|---------|-------------|
+| `memory-tool graph add <type> <name> [summary]` | Create entity (person/project/org/feature/concept/tool/service) |
+| `memory-tool graph rel <from> <rel_type> <to> [note]` | Add relationship (uses/depends_on/PREVENTS/RESOLVES/LEADS_TO/REQUIRES) |
+| `memory-tool graph fact <entity> <key> <value>` | Set entity metadata (tracks history) |
+| `memory-tool graph get <name>` | Entity details with facts + relationships + linked memories |
+| `memory-tool graph spread <name> [depth]` | Spreading activation (find related context) |
+| `memory-tool graph auto-link` | Auto-link all memories to entities by keyword matching |
 
-**Auto-Tagging**: Content analysis detects keywords (pm2, nginx, react, auth, etc.)
+### Identity & Narrative
+| Command | Description |
+|---------|-------------|
+| `memory-tool identity --discover` | Detect behavioral traits from memory patterns |
+| `memory-tool identity --snapshot "<desc>"` | Save current trait snapshot |
+| `memory-tool identity --evolution <trait>` | Show how trait changed over time |
+| `memory-tool narrative <entity>` | Build cause-effect story from causal graph edges |
 
-**Decay System**:
-- Pending items stale after 30 days
-- General memories stale after 90 days
-- Priority decreases after 60 days without access
-- Expired memories auto-deactivate
+### Meta-Learning & Feedback
+| Command | Description |
+|---------|-------------|
+| `memory-tool search-quality` | View keyword/semantic effectiveness metrics |
+| `memory-tool feedback <search_id> <used_ids>` | Manual feedback logging (which results were useful) |
+| `memory-tool tune-weights` | Re-calculate RRF fusion weights from feedback data |
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
+### Session Management
+| Command | Description |
+|---------|-------------|
+| `memory-tool snapshot "<summary>" [--project X]` | Manual session snapshot |
+| `memory-tool auto-snapshot` | Auto-detect changes from git/filesystem |
+| `memory-tool run start "<task>" --agent <name> --project <name>` | Start tracked workflow |
+| `memory-tool run step <id> "<description>"` | Add step to active run |
+| `memory-tool run complete/fail/cancel <id> "<outcome>"` | Finish run |
+| `memory-tool run list [--status running/completed/failed]` | List runs with filters |
 
-## Comparison
+### Maintenance
+| Command | Description |
+|---------|-------------|
+| `memory-tool dream` | Consolidate duplicates, resolve conflicts, normalize metadata, run decay |
+| `memory-tool decay` | Flag stale memories, reduce priorities, expire old TODOs |
+| `memory-tool stale` | Review stale memories |
+| `memory-tool gc [days]` | Garbage collect inactive memories (default: 180 days) |
+| `memory-tool reindex` | Rebuild vector embeddings for all memories |
+| `memory-tool backup` | Manual backup to ~/.claude/backups/ |
+| `memory-tool restore <file>` | Restore from backup |
+| `memory-tool stats` | Full statistics (memories + vectors + graph + beliefs + runs) |
 
-| Feature | AI-IQ | Mem0 | Engram | LedgerMind |
-|---------|-------|------|---------|------------|
-| Self-hosted | ✅ | ❌ (cloud) | ✅ | ✅ |
-| Zero config | ✅ | ❌ | ✅ | ❌ |
-| Hybrid search | ✅ | ✅ | ❌ | ❌ |
-| Knowledge graph | ✅ | ❌ | ❌ | ❌ |
-| Vector search | ✅ (optional) | ✅ | ✅ | ❌ |
-| Auto-hooks | ✅ | ❌ | ❌ | ❌ |
-| Cross-tool sync | ✅ | ❌ | ❌ | ❌ |
-| Privacy | 100% local | Cloud API | 100% local | 100% local |
+### Cross-Tool Sync
+| Command | Description |
+|---------|-------------|
+| `memory-tool sync` | Bidirectional sync with OpenClaw |
+| `memory-tool sync-to` | Export to OpenClaw workspace format |
+| `memory-tool sync-from` | Import from OpenClaw workspace |
+
+---
+
+## Real-World Usage
+
+**Production stats from 6 months of daily use:**
+- 220+ active memories across 7 projects (WhatsAuction, FlashVault, AI-IQ, AutoClaw, Baileys)
+- 32 entities, 45 relationships in knowledge graph
+- 109 vector embeddings for semantic search
+- 18 beliefs with confidence tracking
+- 12 predictions resolved (9 confirmed, 3 refuted)
+- 24 identity traits discovered
+- 697 duplicates consolidated via dream mode
+- Zero data loss, zero corruption
+
+**Common workflows:**
+
+```bash
+# Debugging session with run tracking
+memory-tool run start "Fix Redis connection timeout" --agent claude --project FlashVault
+memory-tool run step 1 "Checked Redis logs: no errors"
+memory-tool run step 1 "Found network_mode mismatch in docker-compose.yml"
+memory-tool add learning "Docker containers need network_mode: host for Redis access" --project FlashVault
+memory-tool run complete 1 "Fixed network_mode, Redis connects successfully"
+
+# Architecture decision with belief tracking
+memory-tool add decision "Use SQLite instead of PostgreSQL for Overwatch feature" --project FlashVault --priority 8
+memory-tool believe "SQLite performs well enough for <10K users" --confidence 0.7 --project FlashVault
+memory-tool predict "No performance issues with SQLite in production" --based-on 1 --deadline 2026-06-01
+
+# Weekly consolidation
+memory-tool dream
+memory-tool conflicts              # Review suggested merges
+memory-tool merge 42 58           # Merge duplicates
+memory-tool identity --discover   # Update behavioral profile
+memory-tool search-quality        # Check if search is improving
+```
+
+---
 
 ## Requirements
 
-**Core** (zero dependencies):
+**Core (zero dependencies):**
 - Python 3.8+
-- SQLite 3.37+ (with FTS5)
+- SQLite 3.37+ (with FTS5 support)
 
-**Optional** (for semantic search):
+**Optional (for semantic search):**
 ```bash
-pip install -r optional-requirements.txt
+pip install ai-iq[full]
 ```
-- numpy >= 1.21.0
-- onnxruntime >= 1.14.0
-- tokenizers >= 0.13.0
-- sqlite-vec >= 0.1.0
-- huggingface-hub >= 0.14.0
+Adds: `numpy`, `onnxruntime`, `tokenizers`, `sqlite-vec`, `huggingface-hub`
+Downloads all-MiniLM-L6-v2 model (~90MB) on first use.
 
-Semantic search downloads all-MiniLM-L6-v2 model (~90MB) on first use.
+**Development:**
+```bash
+pip install ai-iq[dev]
+```
+Adds: `pytest`, `mypy`, `pylint`
+
+---
 
 ## Project Status
 
-**Active development.** Used in production for multi-project AI development workflows.
+**Active development.** Stable for production use. Used daily for multi-project AI-assisted development.
 
-Real-world stats: 100+ memories, 7 projects, 17 entities, 21 relationships, 109 embeddings, zero data loss over 6 months of daily use.
+**Versioning:** Follows semver. Currently v5.0.0 (major upgrade with beliefs, identity, narrative, meta-learning).
+
+**Tests:** 478 tests across 24 test files, 100% coverage on core modules.
+
+**Roadmap:**
+- [ ] Hierarchical memory (workspace → project → file scopes)
+- [ ] Multi-modal embeddings (code, images, audio)
+- [ ] Distributed sync (multi-machine workspaces)
+- [ ] Web UI for memory visualization
+- [ ] LangChain/LlamaIndex adapters
+
+---
+
+## Contributing
+
+Issues and pull requests welcome!
+
+**Development setup:**
+```bash
+git clone https://github.com/kobie3717/ai-iq.git
+cd ai-iq
+pip install -e .[dev,full]
+pytest                          # Run tests
+mypy memory_tool/              # Type checking
+pylint memory_tool/            # Linting
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
+
+---
 
 ## Credits
 
@@ -443,22 +499,25 @@ Inspired by research on 25+ open-source memory systems:
 - **Vestige** - Semantic clustering and decay
 - **OpenClaw** - Multi-tool workspace sync
 - **Sediment** - Layered memory architecture
+- **Mem0** - Managed memory-as-a-service
+- **Zep/Graphiti** - Temporal knowledge graphs
+- **Letta** - OS-inspired tiered memory
 
 Built for real-world use with Claude Code in production environments.
+
+---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE)
 
+---
+
 ## Community
 
-Join our Discord for help, discussions, and sharing workflows:
-
+- **GitHub:** [github.com/kobie3717/ai-iq](https://github.com/kobie3717/ai-iq)
 - **Discord:** [https://discord.gg/Y2jCXNGgE](https://discord.gg/Y2jCXNGgE)
-
-## Contributing
-
-Issues and pull requests welcome. See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
+- **PyPI:** [pypi.org/project/ai-iq](https://pypi.org/project/ai-iq/)
 
 ---
 

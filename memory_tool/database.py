@@ -1,6 +1,7 @@
 """Database connection and schema initialization."""
 
 import sqlite3
+from typing import Optional
 from .config import DB_PATH, EMBEDDING_DIM
 
 # Lazy imports for optional dependencies
@@ -11,7 +12,7 @@ except ImportError:
     _SQLITE_VEC_AVAILABLE = False
 
 
-def has_vec_support():
+def has_vec_support() -> bool:
     """Check if vector search dependencies are available."""
     global _SQLITE_VEC_AVAILABLE
     if not _SQLITE_VEC_AVAILABLE:
@@ -27,7 +28,7 @@ def has_vec_support():
         return False
 
 
-def get_db():
+def get_db() -> sqlite3.Connection:
     """Get database connection with proper configuration."""
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -46,7 +47,7 @@ def get_db():
     return conn
 
 
-def init_db():
+def init_db() -> None:
     """Initialize database schema with all tables and indexes."""
     conn = get_db()
 

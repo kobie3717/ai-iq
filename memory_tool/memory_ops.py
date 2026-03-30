@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -30,19 +31,19 @@ except ImportError:
 
 
 # Lazy imports to avoid circular dependencies
-def _get_export_memory_md():
+def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
     from .export import export_memory_md
     return export_memory_md
 
 
-def _get_auto_link_memory():
+def _get_auto_link_memory() -> Any:
     """Lazy import of auto_link_memory to avoid circular dependency."""
     from .graph import auto_link_memory
     return auto_link_memory
 
 
-def touch_memory(conn, mem_id):
+def touch_memory(conn: sqlite3.Connection, mem_id: int) -> None:
     """Update access tracking and FSRS state when a memory is accessed."""
     # First update basic access tracking
     conn.execute("""
@@ -94,7 +95,7 @@ def touch_memory(conn, mem_id):
 
 
 
-def auto_adjust_priority(conn, mem_id):
+def auto_adjust_priority(conn: sqlite3.Connection, mem_id: int) -> None:
     row = conn.execute(
         "SELECT access_count, priority FROM memories WHERE id = ?", (mem_id,)
     ).fetchone()
@@ -107,7 +108,7 @@ def auto_adjust_priority(conn, mem_id):
 # ── Smart Ingest (v4 Feature #4) ──
 
 
-def check_contradictions(content, category=None, project=None):
+def check_contradictions(content: str, category: Optional[str] = None, project: Optional[str] = None) -> Optional[str]:
     """Check for potential contradictions with existing memories.
     Returns a warning string if contradictions are detected, None otherwise."""
 
@@ -180,9 +181,11 @@ def check_contradictions(content, category=None, project=None):
         return None
 
 
-def smart_ingest(category, content, tags="", project=None, priority=0, related_to=None,
-                 expires_at=None, source="manual", topic_key=None, derived_from=None,
-                 citations=None, reasoning=None):
+def smart_ingest(category: str, content: str, tags: str = "", project: Optional[str] = None,
+                 priority: int = 0, related_to: Optional[int] = None,
+                 expires_at: Optional[str] = None, source: str = "manual",
+                 topic_key: Optional[str] = None, derived_from: Optional[str] = None,
+                 citations: Optional[str] = None, reasoning: Optional[str] = None) -> Optional[int]:
     """
     Smart ingestion with 4-tier similarity handling:
     - SKIP: >85% (duplicate blocked)
@@ -369,9 +372,12 @@ def smart_ingest(category, content, tags="", project=None, priority=0, related_t
 
 
 
-def add_memory(category, content, tags="", project=None, priority=0, related_to=None,
-               expires_at=None, source="manual", topic_key=None, skip_dedup=False,
-               derived_from=None, citations=None, reasoning=None):
+def add_memory(category: str, content: str, tags: str = "", project: Optional[str] = None,
+               priority: int = 0, related_to: Optional[int] = None,
+               expires_at: Optional[str] = None, source: str = "manual",
+               topic_key: Optional[str] = None, skip_dedup: bool = False,
+               derived_from: Optional[str] = None, citations: Optional[str] = None,
+               reasoning: Optional[str] = None) -> Optional[int]:
     """Legacy add_memory wrapper for backward compatibility."""
     if skip_dedup:
         # Old behavior: skip dedup entirely
@@ -417,7 +423,7 @@ def add_memory(category, content, tags="", project=None, priority=0, related_to=
 
 
 
-def search_memories(query, mode="hybrid"):
+def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row], int]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
@@ -536,7 +542,7 @@ def search_memories(query, mode="hybrid"):
 
 
 
-def get_memory(mem_id):
+def get_memory(mem_id: int) -> Optional[sqlite3.Row]:
     """Get full detail for a single memory."""
     conn = get_db()
     row = conn.execute("SELECT * FROM memories WHERE id = ?", (mem_id,)).fetchone()
@@ -546,7 +552,9 @@ def get_memory(mem_id):
 
 
 
-def list_memories(category=None, project=None, tag=None, stale_only=False, expired_only=False):
+def list_memories(category: Optional[str] = None, project: Optional[str] = None,
+                  tag: Optional[str] = None, stale_only: bool = False,
+                  expired_only: bool = False) -> List[sqlite3.Row]:
     conn = get_db()
     query = "SELECT * FROM memories WHERE active = 1"
     params = []
@@ -571,7 +579,7 @@ def list_memories(category=None, project=None, tag=None, stale_only=False, expir
 
 
 
-def update_memory(mem_id, content):
+def update_memory(mem_id: int, content: str) -> None:
     conn = get_db()
     # Auto-tag the new content
     existing = conn.execute("SELECT tags, revision_count FROM memories WHERE id = ?", (mem_id,)).fetchone()
@@ -592,7 +600,7 @@ def update_memory(mem_id, content):
 
 
 
-def delete_memory(mem_id):
+def delete_memory(mem_id: int) -> None:
     conn = get_db()
     conn.execute("UPDATE memories SET active = 0, updated_at = datetime('now') WHERE id = ?", (mem_id,))
     conn.commit()
@@ -603,7 +611,7 @@ def delete_memory(mem_id):
 
 
 
-def tag_memory(mem_id, tags):
+def tag_memory(mem_id: int, tags: str) -> None:
     conn = get_db()
     existing = conn.execute("SELECT tags FROM memories WHERE id = ?", (mem_id,)).fetchone()
     if existing:
@@ -621,7 +629,7 @@ def tag_memory(mem_id, tags):
 
 
 
-def show_importance_ranking():
+def show_importance_ranking() -> None:
     """Show all memories ranked by importance score."""
     conn = get_db()
 

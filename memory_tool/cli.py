@@ -4,13 +4,14 @@ import sys
 import json
 import sqlite3
 from datetime import datetime
+from typing import Optional, List, Dict, Tuple, Any
 
 # Import all operations from the core module (which re-exports everything)
 from . import core
 from .core import *
 
 
-def parse_flags(argv, start=2):
+def parse_flags(argv: List[str], start: int = 2) -> Tuple[Dict[str, Any], List[str]]:
     """Parse --flag value pairs from argv starting at position `start`.
     Returns (flags_dict, remaining_args).
     """
@@ -31,7 +32,8 @@ def parse_flags(argv, start=2):
             remaining.append(arg)
             i += 1
     return flags, remaining
-def main():
+
+def main() -> None:
     init_db()
 
     if len(sys.argv) < 2:

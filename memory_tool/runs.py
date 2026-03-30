@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -29,7 +30,7 @@ except ImportError:
     pass
 
 
-def start_run(task, agent="claw", project=None, tags=""):
+def start_run(task: str, agent: str = "claw", project: Optional[str] = None, tags: str = "") -> int:
     """Start a new run. Returns run ID."""
     conn = get_db()
     cur = conn.execute(
@@ -44,7 +45,7 @@ def start_run(task, agent="claw", project=None, tags=""):
 
 
 
-def add_run_step(run_id, step_description):
+def add_run_step(run_id: int, step_description: str) -> bool:
     """Append a step to the run's steps array."""
     conn = get_db()
     
@@ -74,7 +75,7 @@ def add_run_step(run_id, step_description):
 
 
 
-def complete_run(run_id, outcome):
+def complete_run(run_id: int, outcome: str) -> None:
     """Mark a run as completed."""
     conn = get_db()
     conn.execute(
@@ -87,7 +88,7 @@ def complete_run(run_id, outcome):
 
 
 
-def fail_run(run_id, reason):
+def fail_run(run_id: int, reason: str) -> None:
     """Mark a run as failed."""
     conn = get_db()
     conn.execute(
@@ -100,7 +101,7 @@ def fail_run(run_id, reason):
 
 
 
-def cancel_run(run_id):
+def cancel_run(run_id: int) -> None:
     """Mark a run as cancelled."""
     conn = get_db()
     conn.execute(
@@ -113,7 +114,7 @@ def cancel_run(run_id):
 
 
 
-def list_runs(status=None, project=None, limit=10):
+def list_runs(status: Optional[str] = None, project: Optional[str] = None, limit: int = 10) -> List[sqlite3.Row]:
     """List runs with optional filters."""
     conn = get_db()
     
@@ -138,7 +139,7 @@ def list_runs(status=None, project=None, limit=10):
 
 
 
-def show_run(run_id):
+def show_run(run_id: int) -> Optional[sqlite3.Row]:
     """Show detailed information for a run."""
     conn = get_db()
     row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
@@ -148,7 +149,7 @@ def show_run(run_id):
 
 
 
-def format_duration(start_time, end_time=None):
+def format_duration(start_time: str, end_time: Optional[str] = None) -> str:
     """Format duration in human-readable format."""
     if not start_time:
         return "unknown"

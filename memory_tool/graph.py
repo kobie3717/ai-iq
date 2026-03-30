@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -29,7 +30,7 @@ except ImportError:
     pass
 
 
-def graph_add_entity(name, entity_type, summary="", importance=3):
+def graph_add_entity(name: str, entity_type: str, summary: str = "", importance: int = 3) -> Optional[int]:
     """Add or update an entity. Returns entity id."""
     conn = get_db()
     try:
@@ -56,7 +57,7 @@ def graph_add_entity(name, entity_type, summary="", importance=3):
 
 
 
-def graph_get_or_create_entity(name, entity_type="concept", summary=""):
+def graph_get_or_create_entity(name: str, entity_type: str = "concept", summary: str = "") -> Optional[int]:
     """Get entity by name, create if doesn't exist. Case-insensitive lookup."""
     conn = get_db()
     # Case-insensitive lookup
@@ -76,7 +77,7 @@ def graph_get_or_create_entity(name, entity_type="concept", summary=""):
 
 
 
-def graph_add_relationship(from_name, to_name, relation_type, note=""):
+def graph_add_relationship(from_name: str, to_name: str, relation_type: str, note: str = "") -> bool:
     """Add a relationship between two entities (by name). Creates entities if they don't exist."""
     from_id = graph_get_or_create_entity(from_name)
     to_id = graph_get_or_create_entity(to_name)
@@ -104,7 +105,7 @@ def graph_add_relationship(from_name, to_name, relation_type, note=""):
 
 
 
-def graph_set_fact(entity_name, key, value, confidence=1.0, source=""):
+def graph_set_fact(entity_name: str, key: str, value: str, confidence: float = 1.0, source: str = "") -> bool:
     """Set a fact on an entity. If key exists, update it and log history."""
     entity_id = graph_get_or_create_entity(entity_name)
     if not entity_id:
@@ -144,7 +145,7 @@ def graph_set_fact(entity_name, key, value, confidence=1.0, source=""):
 
 
 
-def graph_get_entity(name):
+def graph_get_entity(name: str) -> Optional[Dict[str, Any]]:
     """Get entity with all its facts and relationships."""
     conn = get_db()
 
@@ -208,7 +209,7 @@ def graph_get_entity(name):
 
 
 
-def graph_list_entities(entity_type=None):
+def graph_list_entities(entity_type: Optional[str] = None) -> List[sqlite3.Row]:
     """List all entities, optionally filtered by type."""
     conn = get_db()
     if entity_type:
@@ -226,7 +227,7 @@ def graph_list_entities(entity_type=None):
 
 
 
-def graph_delete_entity(name):
+def graph_delete_entity(name: str) -> bool:
     """Delete an entity and its relationships/facts."""
     conn = get_db()
     result = conn.execute(
@@ -241,7 +242,7 @@ def graph_delete_entity(name):
 
 
 
-def graph_remove_relationship(from_name, to_name, relation_type=None):
+def graph_remove_relationship(from_name: str, to_name: str, relation_type: Optional[str] = None) -> bool:
     """Remove a relationship."""
     conn = get_db()
 
@@ -278,7 +279,7 @@ def graph_remove_relationship(from_name, to_name, relation_type=None):
 
 
 
-def graph_remove_fact(entity_name, key):
+def graph_remove_fact(entity_name: str, key: str) -> bool:
     """Remove a fact from an entity."""
     conn = get_db()
 
@@ -303,7 +304,7 @@ def graph_remove_fact(entity_name, key):
 
 
 
-def graph_spread(start_entity_name, depth=2):
+def graph_spread(start_entity_name: str, depth: int = 2) -> List[Dict[str, Any]]:
     """
     Spreading activation: starting from an entity, find connected entities
     up to `depth` hops. Returns entities with activation scores (closer = higher).
@@ -391,7 +392,7 @@ def graph_spread(start_entity_name, depth=2):
 
 
 
-def link_memory_to_entity(memory_id, entity_name):
+def link_memory_to_entity(memory_id: int, entity_name: str) -> bool:
     """Link a memory to a graph entity."""
     entity_id = graph_get_or_create_entity(entity_name)
     if not entity_id:
@@ -414,7 +415,7 @@ def link_memory_to_entity(memory_id, entity_name):
 
 
 
-def auto_link_memory(memory_id, content):
+def auto_link_memory(memory_id: int, content: str) -> int:
     """Auto-detect entity mentions in content and create links."""
     conn = get_db()
 
@@ -445,7 +446,7 @@ def auto_link_memory(memory_id, content):
 
 
 
-def graph_auto_link_all():
+def graph_auto_link_all() -> Tuple[int, int]:
     """Auto-link all existing memories to entities."""
     conn = get_db()
     memories = conn.execute("SELECT id, content FROM memories WHERE active = 1").fetchall()
@@ -461,7 +462,7 @@ def graph_auto_link_all():
 
 
 
-def graph_import_openclaw():
+def graph_import_openclaw() -> None:
     """Import entities, relationships, and facts from OpenClaw's graph DB."""
     from .config import OPENCLAW_GRAPH_DB
     openclaw_path = OPENCLAW_GRAPH_DB
@@ -541,7 +542,7 @@ def graph_import_openclaw():
 
 
 
-def graph_stats():
+def graph_stats() -> Dict[str, Any]:
     """Get graph statistics."""
     conn = get_db()
 

@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -30,13 +31,13 @@ except ImportError:
 
 
 # Lazy import to avoid circular dependency
-def _get_export_memory_md():
+def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
     from .export import export_memory_md
     return export_memory_md
 
 
-def relate_memories(id1, id2, relation_type="related"):
+def relate_memories(id1: int, id2: int, relation_type: str = "related") -> None:
     conn = get_db()
     try:
         conn.execute("INSERT OR IGNORE INTO memory_relations (source_id, target_id, relation_type) VALUES (?, ?, ?)",
@@ -52,7 +53,7 @@ def relate_memories(id1, id2, relation_type="related"):
 
 
 
-def get_related(mem_id):
+def get_related(mem_id: int) -> List[sqlite3.Row]:
     conn = get_db()
     rows = conn.execute("""
         SELECT m.*, mr.relation_type FROM memories m
@@ -67,7 +68,7 @@ def get_related(mem_id):
 
 
 
-def find_conflicts():
+def find_conflicts() -> List[Dict[str, Any]]:
     """Find memories with 50-85% similarity (potential conflicts)."""
     conn = get_db()
     rows = conn.execute(
@@ -113,7 +114,7 @@ def find_conflicts():
 
 
 
-def merge_memories(id1, id2):
+def merge_memories(id1: int, id2: int) -> None:
     """Merge two memories: keep newer, deactivate older, merge tags and relations."""
     conn = get_db()
     mem1 = conn.execute("SELECT * FROM memories WHERE id = ?", (id1,)).fetchone()
@@ -167,7 +168,7 @@ def merge_memories(id1, id2):
 
 
 
-def supersede_memory(old_id, new_id):
+def supersede_memory(old_id: int, new_id: int) -> None:
     """Mark old memory as superseded by new."""
     conn = get_db()
 

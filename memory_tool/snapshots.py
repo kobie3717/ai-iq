@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -32,7 +33,8 @@ except ImportError:
     pass
 
 
-def save_snapshot(summary, project=None, files_touched="", memories_added="", memories_updated=""):
+def save_snapshot(summary: str, project: Optional[str] = None, files_touched: str = "",
+                  memories_added: str = "", memories_updated: str = "") -> None:
     conn = get_db()
     conn.execute(
         "INSERT INTO session_snapshots (summary, project, files_touched, memories_added, memories_updated) VALUES (?, ?, ?, ?, ?)",
@@ -45,7 +47,7 @@ def save_snapshot(summary, project=None, files_touched="", memories_added="", me
 
 
 
-def get_snapshots(limit=5):
+def get_snapshots(limit: int = 5) -> List[sqlite3.Row]:
     conn = get_db()
     rows = conn.execute("SELECT * FROM session_snapshots ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
@@ -56,7 +58,7 @@ def get_snapshots(limit=5):
 
 
 
-def auto_snapshot():
+def auto_snapshot() -> None:
     """Auto-generate session snapshot from recent git activity and file changes."""
     from .config import PROJECT_PATHS
     parts = []
@@ -144,7 +146,7 @@ def auto_snapshot():
 
 
 
-def log_error(command, error_output, project=None):
+def log_error(command: str, error_output: str, project: Optional[str] = None) -> Optional[int]:
     """Log a failed command as an error memory."""
     # Truncate long errors
     error_clean = error_output.strip()[:300]
@@ -179,7 +181,7 @@ def log_error(command, error_output, project=None):
 
 
 
-def import_session_md(filepath):
+def import_session_md(filepath: str) -> None:
     """Import memories from a session summary markdown file."""
     path = Path(filepath)
     if not path.exists():
@@ -236,7 +238,7 @@ def import_session_md(filepath):
 
 
 
-def detect_project(cwd=None):
+def detect_project(cwd: Optional[str] = None) -> Optional[str]:
     if cwd is None:
         cwd = os.getcwd()
     for path, project in PROJECT_PATHS.items():

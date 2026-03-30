@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -32,19 +33,19 @@ except ImportError:
 
 
 # Lazy import to avoid circular dependency
-def _get_add_memory():
+def _get_add_memory() -> Any:
     """Lazy import of add_memory to avoid circular dependency."""
     from .memory_ops import add_memory
     return add_memory
 
 
-def _get_export_memory_md():
+def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
     from .export import export_memory_md
     return export_memory_md
 
 
-def cmd_dream():
+def cmd_dream() -> None:
     """Review session transcripts, consolidate memories, normalize dates — like REM sleep for AI memory."""
     print("🌙 Dreaming: processing session transcripts...")
 
@@ -306,7 +307,7 @@ CORRECTION_PATTERNS = [
 
 
 
-def consolidate_memories(conn):
+def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
     """Cross-memory consolidation — like REM sleep for AI memory.
     Replays memories, finds patterns, merges duplicates, generates insights."""
 
@@ -440,7 +441,7 @@ def consolidate_memories(conn):
     return results
 
 
-def reconsolidate_memories(conn):
+def reconsolidate_memories(conn: sqlite3.Connection) -> int:
     """Reconsolidation phase: find near-duplicates (85-95% similarity) and auto-merge them.
     This phase happens after standard dedup but catches memories that are almost identical
     but have minor differences (like updated timestamps, slightly different wording, etc.)."""

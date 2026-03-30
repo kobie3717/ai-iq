@@ -2,6 +2,7 @@
 
 import sys
 import sqlite3
+from typing import Optional, List, Tuple, Any
 from .config import MODEL_DIR, EMBEDDING_DIM, RRF_K
 
 # Lazy imports for optional dependencies
@@ -16,14 +17,14 @@ except ImportError:
     _VEC_LIBS_AVAILABLE = False
 
 
-def has_vec_support():
+def has_vec_support() -> bool:
     """Check if vector search dependencies are available."""
     # Import from database module to keep single source of truth
     from .database import has_vec_support as db_has_vec_support
     return db_has_vec_support()
 
 
-def get_embedding_model():
+def get_embedding_model() -> Optional[Tuple[Any, Any]]:
     """Lazy-load the embedding model (singleton)."""
     global _EMBEDDING_MODEL
     if _EMBEDDING_MODEL is not None:
@@ -60,7 +61,7 @@ def get_embedding_model():
         return None
 
 
-def embed_text(text):
+def embed_text(text: str) -> Optional[bytes]:
     """Generate embedding for a single text string. Returns bytes for sqlite-vec."""
     model = get_embedding_model()
     if model is None:
@@ -100,7 +101,7 @@ def embed_text(text):
         return None
 
 
-def embed_texts_batch(texts):
+def embed_texts_batch(texts: List[str]) -> List[Optional[bytes]]:
     """Generate embeddings for multiple texts. Returns list of bytes."""
     model = get_embedding_model()
     if model is None:
@@ -140,7 +141,7 @@ def embed_texts_batch(texts):
         return [None] * len(texts)
 
 
-def embed_and_store(conn, mem_id, content):
+def embed_and_store(conn: sqlite3.Connection, mem_id: int, content: str) -> None:
     """Generate embedding for content and store in vector table."""
     if not has_vec_support():
         return
@@ -160,7 +161,7 @@ def embed_and_store(conn, mem_id, content):
         pass
 
 
-def semantic_search(conn, query, limit=20):
+def semantic_search(conn: sqlite3.Connection, query: str, limit: int = 20) -> List[sqlite3.Row]:
     """Perform semantic vector search."""
     if not has_vec_support():
         return []
@@ -183,7 +184,7 @@ def semantic_search(conn, query, limit=20):
         return []
 
 
-def reindex_embeddings(conn):
+def reindex_embeddings(conn: sqlite3.Connection) -> None:
     """Bulk-embed all active memories for vector search."""
     if not has_vec_support():
         print("Vector search not available. Install: pip install sqlite-vec onnxruntime tokenizers numpy")

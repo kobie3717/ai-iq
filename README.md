@@ -262,6 +262,42 @@ memory-tool import-md <file>              # Import session summary markdown
 memory-tool log-error <command> <error>   # Log failed command
 ```
 
+### Beliefs & Predictions
+
+Track beliefs with confidence levels and make testable predictions:
+
+```bash
+# Create a belief with confidence
+memory-tool believe "Docker is better than Podman for CI/CD" --confidence 0.7 --project MyProject
+
+# Make a prediction based on a belief
+memory-tool predict "New auth system will reduce login time by 50%" --based-on 42 --confidence 0.8 --deadline 2026-04-15
+
+# Resolve a prediction
+memory-tool resolve 5 --confirmed "Login time reduced by 55%"
+memory-tool resolve 6 --refuted "No measurable improvement"
+
+# View beliefs
+memory-tool beliefs                       # All beliefs sorted by confidence
+memory-tool beliefs --weak               # Lowest confidence beliefs
+memory-tool beliefs --strong             # Highest confidence beliefs
+memory-tool beliefs --conflicts          # Find contradicting beliefs
+
+# View predictions
+memory-tool predictions                   # All predictions
+memory-tool predictions --open           # Open predictions only
+memory-tool predictions --confirmed      # Confirmed predictions
+memory-tool predictions --refuted        # Refuted predictions
+memory-tool predictions --expired        # Past deadline but unresolved
+```
+
+**How it works:**
+- Beliefs are stored as memories with confidence scores (0.01-0.99)
+- When predictions are confirmed, related beliefs are strengthened (+0.1 confidence)
+- When predictions are refuted, related beliefs are weakened (-0.2 confidence)
+- Belief updates propagate through memory relationships via causal graph
+- Unsupported beliefs decay over time during `dream` consolidation
+
 ### Run Tracking
 
 Track structured workflows and agent runs with steps, outcomes, and timing:

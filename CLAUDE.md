@@ -30,6 +30,13 @@ memory-tool pending                       # Show TODO items
 memory-tool update <id> "<new content>"
 memory-tool delete <id>
 
+# Beliefs & predictions
+memory-tool believe "<statement>" --confidence 0.7  # Create belief
+memory-tool predict "<prediction>" --based-on <id> --deadline YYYY-MM-DD
+memory-tool resolve <pred_id> --confirmed "<outcome>"  # Or --refuted
+memory-tool beliefs [--weak|--strong|--conflicts]
+memory-tool predictions [--open|--confirmed|--refuted|--expired]
+
 # Maintenance
 memory-tool next                          # Smart suggestions: what needs attention
 memory-tool dream                         # AI-powered consolidation & cleanup

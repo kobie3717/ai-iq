@@ -22,6 +22,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -45,9 +47,9 @@ def relate_memories(id1: int, id2: int, relation_type: str = "related") -> None:
         conn.execute("INSERT OR IGNORE INTO memory_relations (source_id, target_id, relation_type) VALUES (?, ?, ?)",
                      (id2, id1, relation_type))
         conn.commit()
-        print(f"Linked #{id1} <-> #{id2} ({relation_type})")
+        logger.info(f"Linked #{id1} <-> #{id2} ({relation_type})")
     except sqlite3.IntegrityError as e:
-        print(f"Failed: {e}")
+        logger.error(f"Failed: {e}")
     conn.close()
 
 
@@ -121,7 +123,7 @@ def merge_memories(id1: int, id2: int) -> None:
     mem2 = conn.execute("SELECT * FROM memories WHERE id = ?", (id2,)).fetchone()
 
     if not mem1 or not mem2:
-        print("One or both memories not found.")
+        logger.error("One or both memories not found.")
         conn.close()
         return
 
@@ -163,7 +165,7 @@ def merge_memories(id1: int, id2: int) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"Merged #{discard_id} into #{keep_id} (deactivated #{discard_id})")
+    logger.info(f"Merged #{discard_id} into #{keep_id} (deactivated #{discard_id})")
 
 
 
@@ -177,7 +179,7 @@ def supersede_memory(old_id: int, new_id: int) -> None:
     new = conn.execute("SELECT id FROM memories WHERE id = ?", (new_id,)).fetchone()
 
     if not old or not new:
-        print("One or both memories not found.")
+        logger.error("One or both memories not found.")
         conn.close()
         return
 
@@ -193,7 +195,7 @@ def supersede_memory(old_id: int, new_id: int) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"#{new_id} supersedes #{old_id} (deactivated #{old_id})")
+    logger.info(f"#{new_id} supersedes #{old_id} (deactivated #{old_id})")
 
 
 # ── Topic File Export (v4 Feature #5) ──

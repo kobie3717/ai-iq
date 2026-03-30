@@ -3,7 +3,9 @@
 import sys
 import sqlite3
 from typing import Optional, List, Tuple, Any
-from .config import MODEL_DIR, EMBEDDING_DIM, RRF_K
+from .config import MODEL_DIR, EMBEDDING_DIM, RRF_K, get_logger
+
+logger = get_logger(__name__)
 
 # Lazy imports for optional dependencies
 _EMBEDDING_MODEL = None
@@ -57,7 +59,7 @@ def get_embedding_model() -> Optional[Tuple[Any, Any]]:
         _EMBEDDING_MODEL = (tokenizer, session)
         return _EMBEDDING_MODEL
     except Exception as e:
-        print(f"Warning: Failed to load embedding model: {e}", file=sys.stderr)
+        logger.warning(f"Failed to load embedding model: {e}")
         return None
 
 
@@ -97,7 +99,7 @@ def embed_text(text: str) -> Optional[bytes]:
         # Return as bytes
         return embeddings[0].tobytes()
     except Exception as e:
-        print(f"Warning: Embedding failed: {e}", file=sys.stderr)
+        logger.warning(f"Embedding failed: {e}")
         return None
 
 
@@ -137,7 +139,7 @@ def embed_texts_batch(texts: List[str]) -> List[Optional[bytes]]:
         # Return as list of bytes
         return [emb.tobytes() for emb in embeddings]
     except Exception as e:
-        print(f"Warning: Batch embedding failed: {e}", file=sys.stderr)
+        logger.warning(f"Batch embedding failed: {e}")
         return [None] * len(texts)
 
 
@@ -187,8 +189,8 @@ def semantic_search(conn: sqlite3.Connection, query: str, limit: int = 20) -> Li
 def reindex_embeddings(conn: sqlite3.Connection) -> None:
     """Bulk-embed all active memories for vector search."""
     if not has_vec_support():
-        print("Vector search not available. Install: pip install sqlite-vec onnxruntime tokenizers numpy")
-        print(f"Also download model files to {MODEL_DIR}")
+        logger.error("Vector search not available. Install: pip install sqlite-vec onnxruntime tokenizers numpy")
+        logger.error(f"Also download model files to {MODEL_DIR}")
         return
 
     rows = conn.execute("""
@@ -197,10 +199,10 @@ def reindex_embeddings(conn: sqlite3.Connection) -> None:
     """).fetchall()
 
     if not rows:
-        print("No active memories to index.")
+        logger.info("No active memories to index.")
         return
 
-    print(f"Reindexing {len(rows)} memories...")
+    logger.info(f"Reindexing {len(rows)} memories...")
     batch_size = 32
     total = 0
 
@@ -222,7 +224,7 @@ def reindex_embeddings(conn: sqlite3.Connection) -> None:
                     pass  # Skip this embedding if insert fails
 
         if (i + batch_size) % 100 == 0:
-            print(f"  Processed {min(i + batch_size, len(rows))}/{len(rows)}...")
+            logger.debug(f"  Processed {min(i + batch_size, len(rows))}/{len(rows)}...")
 
     conn.commit()
-    print(f"Reindexing complete. {total} embeddings created.")
+    logger.info(f"Reindexing complete. {total} embeddings created.")

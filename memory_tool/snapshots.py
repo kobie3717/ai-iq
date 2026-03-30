@@ -25,6 +25,8 @@ from .memory_ops import add_memory, touch_memory
 from .export import export_memory_md
 from .dream import consolidate_memories
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -42,7 +44,7 @@ def save_snapshot(summary: str, project: Optional[str] = None, files_touched: st
     )
     conn.commit()
     conn.close()
-    print(f"Session snapshot saved.")
+    logger.info("Session snapshot saved.")
 
 
 
@@ -122,7 +124,7 @@ def auto_snapshot() -> None:
         if recent:
             parts.append(f"Added {recent} new memories")
         else:
-            print("No recent activity detected for auto-snapshot.")
+            logger.debug("No recent activity detected for auto-snapshot.")
             return
 
     summary = "; ".join(parts)
@@ -135,9 +137,9 @@ def auto_snapshot() -> None:
         results = consolidate_memories(conn)
         conn.close()
         if any(results.values()):
-            print(f"  Consolidated: {sum(results.values())} changes")
+            logger.info(f"  Consolidated: {sum(results.values())} changes")
     except Exception as e:
-        pass  # Silently continue if consolidation fails
+        logger.debug(f"Consolidation failed: {e}")
 
     export_memory_md(project)
 
@@ -171,7 +173,7 @@ def log_error(command: str, error_output: str, project: Optional[str] = None) ->
         touch_memory(conn, similar[0][0])
         conn.commit()
         conn.close()
-        print(f"Known error (memory #{similar[0][0]}), access count updated.")
+        logger.debug(f"Known error (memory #{similar[0][0]}), access count updated.")
         return similar[0][0]
 
     return add_memory("error", content, project=project, source="auto-hook", skip_dedup=True)
@@ -185,7 +187,7 @@ def import_session_md(filepath: str) -> None:
     """Import memories from a session summary markdown file."""
     path = Path(filepath)
     if not path.exists():
-        print(f"File not found: {filepath}")
+        logger.error(f"File not found: {filepath}")
         return
 
     text = path.read_text()
@@ -231,7 +233,7 @@ def import_session_md(filepath: str) -> None:
             if result:
                 imported += 1
 
-    print(f"Imported {imported} memories from {filepath}")
+    logger.info(f"Imported {imported} memories from {filepath}")
 
 
 # ── Project Detection ──

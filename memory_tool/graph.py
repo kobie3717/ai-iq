@@ -22,6 +22,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -50,7 +52,7 @@ def graph_add_entity(name: str, entity_type: str, summary: str = "", importance:
         conn.close()
         return entity_id
     except sqlite3.IntegrityError as e:
-        print(f"Error adding entity: {e}")
+        logger.error(f"Error adding entity: {e}")
         conn.close()
         return None
 
@@ -98,7 +100,7 @@ def graph_add_relationship(from_name: str, to_name: str, relation_type: str, not
         conn.close()
         return True
     except sqlite3.IntegrityError as e:
-        print(f"Error adding relationship: {e}")
+        logger.error(f"Error adding relationship: {e}")
         conn.close()
         return False
 
@@ -408,7 +410,7 @@ def link_memory_to_entity(memory_id: int, entity_name: str) -> bool:
         conn.close()
         return True
     except sqlite3.Error as e:
-        print(f"Error linking memory to entity: {e}")
+        logger.error(f"Error linking memory to entity: {e}")
         conn.close()
         return False
 
@@ -468,7 +470,7 @@ def graph_import_openclaw() -> None:
     openclaw_path = OPENCLAW_GRAPH_DB
 
     if not openclaw_path.exists():
-        print(f"OpenClaw graph DB not found at {openclaw_path}")
+        logger.error(f"OpenClaw graph DB not found at {openclaw_path}")
         return
 
     try:
@@ -488,7 +490,7 @@ def graph_import_openclaw() -> None:
             )
             entity_map[e['id']] = new_id
 
-        print(f"Imported {len(entities)} entities")
+        logger.info(f"Imported {len(entities)} entities")
 
         # Import relationships
         relationships = source.execute("SELECT * FROM relationships").fetchall()
@@ -510,7 +512,7 @@ def graph_import_openclaw() -> None:
                 except sqlite3.Error:
                     conn.close()
 
-        print(f"Imported {len(relationships)} relationships")
+        logger.info(f"Imported {len(relationships)} relationships")
 
         # Import facts
         facts = source.execute("SELECT * FROM facts").fetchall()
@@ -532,12 +534,12 @@ def graph_import_openclaw() -> None:
                 except sqlite3.Error:
                     conn.close()
 
-        print(f"Imported {imported_facts} facts")
+        logger.info(f"Imported {imported_facts} facts")
 
         source.close()
 
     except sqlite3.Error as e:
-        print(f"Error importing from OpenClaw: {e}")
+        logger.error(f"Error importing from OpenClaw: {e}")
 
 
 

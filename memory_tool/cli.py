@@ -3,12 +3,16 @@
 import sys
 import json
 import sqlite3
+import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple, Any
 
 # Import all operations from the core module (which re-exports everything)
 from . import core
 from .core import *
+from .config import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 
 def parse_flags(argv: List[str], start: int = 2) -> Tuple[Dict[str, Any], List[str]]:
@@ -40,7 +44,13 @@ def main() -> None:
         print_help()
         sys.exit(0)
 
+    # Parse global flags for verbose/quiet BEFORE command processing
     cmd = sys.argv[1]
+
+    # Check for --verbose or --quiet flags anywhere in argv
+    verbose = '--verbose' in sys.argv or '-v' in sys.argv
+    quiet = '--quiet' in sys.argv or '-q' in sys.argv
+    setup_logging(verbose=verbose, quiet=quiet)
 
     if cmd == "add" and len(sys.argv) >= 4:
         category = sys.argv[2]
@@ -161,6 +171,7 @@ def main() -> None:
 
     elif cmd == "topics":
         export_topics()
+        print("Exported topic files")
 
     elif cmd == "export":
         flags, _ = parse_flags(sys.argv, 2)

@@ -22,6 +22,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, embed_texts_batch, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -234,7 +236,7 @@ def export_topics() -> None:
             lines.append("")
 
         filename.write_text("\n".join(lines))
-        print(f"  Exported {filename}")
+        logger.debug(f"Exported {filename}")
 
     # Special: people.md (all contacts)
     contacts = conn.execute(
@@ -246,7 +248,7 @@ def export_topics() -> None:
             proj = f" [{c['project']}]" if c["project"] else ""
             lines.append(f"- #{c['id']} {c['content']}{proj}")
         (TOPICS_DIR / "people.md").write_text("\n".join(lines))
-        print(f"  Exported {TOPICS_DIR / 'people.md'}")
+        logger.debug(f"Exported {TOPICS_DIR / 'people.md'}")
 
     # Special: todo.md (all pending)
     pending = conn.execute(
@@ -258,10 +260,10 @@ def export_topics() -> None:
             proj = f" [{p['project']}]" if p["project"] else ""
             lines.append(f"- [ ] #{p['id']} {p['content']}{proj}")
         (TOPICS_DIR / "todo.md").write_text("\n".join(lines))
-        print(f"  Exported {TOPICS_DIR / 'todo.md'}")
+        logger.debug(f"Exported {TOPICS_DIR / 'todo.md'}")
 
     conn.close()
-    print(f"Topic files generated in {TOPICS_DIR}")
+    logger.info(f"Topic files generated in {TOPICS_DIR}")
 
 
 # ── Decay & Expiry (Upgrade #6: expiry added) ──
@@ -326,7 +328,7 @@ def run_decay() -> Dict[str, int]:
 
     conn.commit()
     conn.close()
-    print(f"Decay (FSRS): {changes['stale']} stale (R<0.5), {changes['deprioritized']} deprioritized (R<0.3), {changes['expired']} expired")
+    logger.info(f"Decay (FSRS): {changes['stale']} stale (R<0.5), {changes['deprioritized']} deprioritized (R<0.3), {changes['expired']} expired")
     return changes
 
 
@@ -377,9 +379,9 @@ def garbage_collect(days: int = 180) -> None:
     conn.commit()
     conn.close()
     if vec_count > 0:
-        print(f"GC: purged {count} inactive memories older than {days} days, {snapshot_count} old snapshots, {vec_count} orphaned embeddings")
+        logger.info(f"GC: purged {count} inactive memories older than {days} days, {snapshot_count} old snapshots, {vec_count} orphaned embeddings")
     else:
-        print(f"GC: purged {count} inactive memories older than {days} days, {snapshot_count} old snapshots")
+        logger.info(f"GC: purged {count} inactive memories older than {days} days, {snapshot_count} old snapshots")
 
 
 
@@ -402,8 +404,8 @@ def backup_db() -> Path:
         old.unlink()
 
     size_kb = backup_path.stat().st_size / 1024
-    print(f"Backup saved: {backup_path} ({size_kb:.1f} KB)")
-    print(f"Keeping last {min(7, len(backups))} backups")
+    logger.info(f"Backup saved: {backup_path} ({size_kb:.1f} KB)")
+    logger.debug(f"Keeping last {min(7, len(backups))} backups")
     return backup_path
 
 
@@ -412,7 +414,7 @@ def backup_db() -> Path:
 def restore_db(backup_file: str) -> bool:
     path = Path(backup_file)
     if not path.exists():
-        print(f"Backup not found: {backup_file}")
+        logger.error(f"Backup not found: {backup_file}")
         return False
 
     # Verify it's a valid SQLite DB
@@ -421,17 +423,17 @@ def restore_db(backup_file: str) -> bool:
         test.execute("SELECT COUNT(*) FROM memories")
         test.close()
     except sqlite3.Error as e:
-        print(f"Invalid backup file: {e}")
+        logger.error(f"Invalid backup file: {e}")
         return False
 
     # Backup current before restoring
     if DB_PATH.exists():
         emergency = DB_PATH.with_suffix(".db.pre-restore")
         shutil.copy2(str(DB_PATH), str(emergency))
-        print(f"Current DB backed up to {emergency}")
+        logger.info(f"Current DB backed up to {emergency}")
 
     shutil.copy2(str(path), str(DB_PATH))
-    print(f"Restored from {backup_file}")
+    logger.info(f"Restored from {backup_file}")
     export_memory_md()
     return True
 
@@ -541,12 +543,12 @@ def suggest_next() -> None:
     conn.close()
 
     if suggestions:
-        print("Next actions suggested:\n")
+        print("Next actions suggested:\n")  # User-facing output
         for s in suggestions:
             print(f"  {s}")
         print(f"\n({len(suggestions)} suggestions)")
     else:
-        print("✅ Everything looks good! No actions needed.")
+        print("✅ Everything looks good! No actions needed.")  # User-facing output
 
 
 # ── CLI ──
@@ -556,7 +558,7 @@ def suggest_next() -> None:
 def reindex_embeddings() -> None:
     """Bulk-embed all active memories that don't have embeddings yet."""
     if not has_vec_support():
-        print("Error: Vector search not available (missing dependencies or model files)")
+        logger.error("Vector search not available (missing dependencies or model files)")
         return
 
     conn = get_db()
@@ -567,7 +569,7 @@ def reindex_embeddings() -> None:
     ).fetchall()
 
     if not all_memories:
-        print("No active memories to index")
+        logger.info("No active memories to index")
         conn.close()
         return
 
@@ -584,11 +586,11 @@ def reindex_embeddings() -> None:
     to_embed = [(r['id'], r['content']) for r in all_memories if r['id'] not in existing_ids]
 
     if not to_embed:
-        print(f"All {len(all_memories)} active memories already have embeddings")
+        logger.info(f"All {len(all_memories)} active memories already have embeddings")
         conn.close()
         return
 
-    print(f"Indexing {len(to_embed)} memories (batch size 32)...")
+    logger.info(f"Indexing {len(to_embed)} memories (batch size 32)...")
 
     # Batch process
     BATCH_SIZE = 32
@@ -612,15 +614,15 @@ def reindex_embeddings() -> None:
                     )
                     indexed += 1
                 except Exception as e:
-                    print(f"Warning: Failed to store embedding for #{mem_id}: {e}")
+                    logger.warning(f"Failed to store embedding for #{mem_id}: {e}")
 
         # Progress update
         if (i + BATCH_SIZE) % 128 == 0:
-            print(f"  Indexed {min(i + BATCH_SIZE, len(to_embed))}/{len(to_embed)}...")
+            logger.debug(f"  Indexed {min(i + BATCH_SIZE, len(to_embed))}/{len(to_embed)}...")
 
     conn.commit()
     conn.close()
-    print(f"Reindex complete: {indexed}/{len(to_embed)} embeddings stored")
+    logger.info(f"Reindex complete: {indexed}/{len(to_embed)} embeddings stored")
 
 
 # ── Display ──

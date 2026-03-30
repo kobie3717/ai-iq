@@ -1,6 +1,7 @@
 """Configuration constants for memory-tool."""
 
 import os
+import logging
 from pathlib import Path
 from typing import Dict, List
 
@@ -53,3 +54,32 @@ AUTO_TAG_RULES: Dict[str, List[str]] = {
     "react": ["react", "vite", "tailwind", "frontend", "tsx", "jsx"],
     "api": ["endpoint", "route", "controller", "middleware", "express"],
 }
+
+
+# Logging configuration
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger for the given module."""
+    return logging.getLogger(f"ai_iq.{name}")
+
+
+def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
+    """Configure logging level based on CLI flags.
+
+    Args:
+        verbose: Enable DEBUG level logging
+        quiet: Enable WARNING level logging only
+    """
+    level = logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(message)s',  # Clean output for CLI
+        force=True  # Override any existing config
+    )
+
+
+# Default logging configuration — clean output for CLI
+# Will be overridden by CLI --verbose/--quiet flags
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(message)s'
+)

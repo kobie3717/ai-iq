@@ -22,6 +22,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -227,11 +229,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"Updated memory #{existing['id']} (revision {new_revision}) key:{topic_key}")
+            logger.info(f"Updated memory #{existing['id']} (revision {new_revision}) key:{topic_key}")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return existing["id"]
         else:
@@ -247,9 +249,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
         # SKIP: >85% (blocked)
         if score > 0.85:
-            print(f"DUPLICATE BLOCKED (score={score:.0%}): similar to #{best_id}")
-            print(f"  Existing: {best_content}")
-            print(f"  Use 'memory-tool update {best_id} \"{content}\"' to update instead.")
+            logger.warning(f"DUPLICATE BLOCKED (score={score:.0%}): similar to #{best_id}")
+            logger.warning(f"  Existing: {best_content}")
+            logger.warning(f"  Use 'memory-tool update {best_id} \"{content}\"' to update instead.")
             return None
 
         # UPDATE: 70-85% same category and project
@@ -277,11 +279,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"AUTO-UPDATED memory #{best_id} ({score:.0%} match, revision {new_revision})")
+            logger.info(f"AUTO-UPDATED memory #{best_id} ({score:.0%} match, revision {new_revision})")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return best_id
 
@@ -319,19 +321,19 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"Added memory #{new_id}, supersedes #{best_id} ({score:.0%} overlap, different content)")
+            logger.info(f"Added memory #{new_id}, supersedes #{best_id} ({score:.0%} overlap, different content)")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return new_id
 
         # CREATE with warning: <50% or different category/project
         else:
-            print(f"WARNING: Similar memory (score={score:.0%}): #{best_id}: {best_content}")
+            logger.info(f"Similar memory exists (score={score:.0%}): #{best_id}: {best_content}")
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
     # CREATE: Normal insert
     conn = get_db()
@@ -361,11 +363,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
     _get_export_memory_md()()
     key_str = f" key:{topic_key}" if topic_key else ""
-    print(f"Added memory #{mem_id} [{category}]{key_str}{' tags:' + tags if tags else ''}")
+    logger.info(f"Added memory #{mem_id} [{category}]{key_str}{' tags:' + tags if tags else ''}")
 
     # Print contradiction warning if detected
     if contradiction_warning:
-        print(contradiction_warning)
+        logger.warning(contradiction_warning)
 
     return mem_id
 
@@ -410,11 +412,11 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         _get_auto_link_memory()(mem_id, content)
 
         _get_export_memory_md()()
-        print(f"Added memory #{mem_id} [{category}]{' tags:' + tags if tags else ''}")
+        logger.info(f"Added memory #{mem_id} [{category}]{' tags:' + tags if tags else ''}")
 
         # Print contradiction warning if detected
         if contradiction_warning:
-            print(contradiction_warning)
+            logger.warning(contradiction_warning)
 
         return mem_id
     else:
@@ -595,7 +597,7 @@ def update_memory(mem_id: int, content: str) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"Updated memory #{mem_id} (revision {new_revision})")
+    logger.info(f"Updated memory #{mem_id} (revision {new_revision})")
 
 
 
@@ -606,7 +608,7 @@ def delete_memory(mem_id: int) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"Deactivated memory #{mem_id}")
+    logger.info(f"Deactivated memory #{mem_id}")
 
 
 
@@ -620,7 +622,7 @@ def tag_memory(mem_id: int, tags: str) -> None:
         merged = ",".join(sorted(current | new_tags))
         conn.execute("UPDATE memories SET tags = ?, updated_at = datetime('now') WHERE id = ?", (merged, mem_id))
         conn.commit()
-        print(f"Tagged memory #{mem_id}: {merged}")
+        logger.info(f"Tagged memory #{mem_id}: {merged}")
     conn.close()
     _get_export_memory_md()()
 
@@ -648,6 +650,7 @@ def show_importance_ranking() -> None:
     """).fetchall()
     conn.close()
 
+    # User-facing output - display stays as print()
     print(f"Importance Ranking ({len(rows)} memories)")
     print("=" * 70)
     print(f"  {'#':>3} {'Score':>5} {'N':>3} {'R':>3} {'F':>3} {'I':>3} {'Cat':<8} Content")

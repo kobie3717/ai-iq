@@ -62,3 +62,4 @@ htmlcov/
 # System
 .Trash/
 Thumbs.db
+.github/workflows/test.yml

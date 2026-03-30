@@ -73,6 +73,7 @@ def init_db() -> None:
         "imp_frequency": "ALTER TABLE memories ADD COLUMN imp_frequency REAL DEFAULT 0.0",
         "imp_impact": "ALTER TABLE memories ADD COLUMN imp_impact REAL DEFAULT 5.0",
         "imp_score": "ALTER TABLE memories ADD COLUMN imp_score REAL DEFAULT 5.0",
+        "confidence": "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
     }
 
     # Add columns if upgrading (must run BEFORE triggers reference them)
@@ -113,7 +114,8 @@ def init_db() -> None:
             imp_relevance REAL DEFAULT 5.0,
             imp_frequency REAL DEFAULT 0.0,
             imp_impact REAL DEFAULT 5.0,
-            imp_score REAL DEFAULT 5.0
+            imp_score REAL DEFAULT 5.0,
+            confidence REAL DEFAULT 0.7
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -300,6 +302,83 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_dream_session ON dream_log(session_file);
         CREATE INDEX IF NOT EXISTS idx_corrections_status ON corrections(status);
         CREATE INDEX IF NOT EXISTS idx_corrections_created ON corrections(created_at);
+    """)
+
+    # Beliefs system tables (Phase 7)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER REFERENCES memories(id),
+            prediction TEXT NOT NULL,
+            expected_outcome TEXT,
+            confidence REAL DEFAULT 0.5,
+            deadline TEXT,
+            status TEXT DEFAULT 'open',
+            actual_outcome TEXT,
+            resolved_at TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS belief_updates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER,
+            prediction_id INTEGER,
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
+        CREATE INDEX IF NOT EXISTS idx_predictions_memory ON predictions(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_predictions_deadline ON predictions(deadline);
+        CREATE INDEX IF NOT EXISTS idx_belief_updates_memory ON belief_updates(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_updates_prediction ON belief_updates(prediction_id);
+    """)
+
+    # Extended beliefs system tables (explicit beliefs with evidence tracking)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS beliefs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER REFERENCES memories(id),
+            statement TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            category TEXT DEFAULT 'general',
+            evidence_for INTEGER DEFAULT 0,
+            evidence_against INTEGER DEFAULT 0,
+            source TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            status TEXT DEFAULT 'active'
+        );
+
+        CREATE TABLE IF NOT EXISTS evidence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            memory_id INTEGER REFERENCES memories(id),
+            direction TEXT NOT NULL CHECK(direction IN ('supports', 'contradicts')),
+            strength REAL DEFAULT 0.5,
+            note TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS belief_revisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            revision_type TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_beliefs_category ON beliefs(category);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_status ON beliefs(status);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_confidence ON beliefs(confidence);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_memory ON beliefs(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_evidence_belief ON evidence(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_evidence_memory ON evidence(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_revisions_belief ON belief_revisions(belief_id);
     """)
 
     conn.commit()

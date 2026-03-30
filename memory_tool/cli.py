@@ -964,6 +964,251 @@ def main() -> None:
         else:
             print("No hot memories yet (need 5+ accesses)")
 
+    elif cmd == "believe" and len(sys.argv) >= 3:
+        from .beliefs import set_confidence
+        statement = " ".join(sys.argv[2:])
+        # Parse flags if present
+        flags, content_parts = parse_flags(sys.argv, 2)
+        if content_parts:
+            statement = " ".join(content_parts)
+
+        confidence = float(flags.get("confidence", 0.7))
+        based_on = int(flags.get("based-on")) if flags.get("based-on") else None
+
+        # Add as belief memory
+        mem_id = add_memory(
+            "belief",
+            statement,
+            tags="belief,explicit",
+            project=flags.get("project")
+        )
+
+        # Set explicit confidence
+        conn = get_db()
+        set_confidence(conn, mem_id, confidence, "Explicit belief creation")
+        conn.close()
+
+        print(f"Created belief #{mem_id} with confidence {confidence:.2f}")
+
+    elif cmd == "predict" and len(sys.argv) >= 3:
+        from .beliefs import predict
+        flags, content_parts = parse_flags(sys.argv, 2)
+        prediction = " ".join(content_parts) if content_parts else " ".join(sys.argv[2:])
+
+        based_on = int(flags.get("based-on")) if flags.get("based-on") else None
+        confidence = float(flags.get("confidence", 0.5))
+        deadline = flags.get("deadline")
+        expected = flags.get("expect", "")
+
+        conn = get_db()
+        pred_id = predict(conn, prediction, based_on, confidence, deadline, expected)
+        conn.close()
+
+        print(f"Created prediction #{pred_id}")
+        if deadline:
+            print(f"  Deadline: {deadline}")
+        print(f"  Confidence: {confidence:.2f}")
+
+    elif cmd == "resolve" and len(sys.argv) >= 3:
+        from .beliefs import resolve_prediction
+        pred_id = int(sys.argv[2])
+        flags, outcome_parts = parse_flags(sys.argv, 3)
+
+        confirmed = flags.get("confirmed", False)
+        refuted = flags.get("refuted", False)
+
+        if not confirmed and not refuted:
+            print("Error: Must specify --confirmed or --refuted")
+            sys.exit(1)
+
+        outcome = " ".join(outcome_parts) if outcome_parts else flags.get("outcome", "")
+
+        conn = get_db()
+        result = resolve_prediction(conn, pred_id, outcome, confirmed)
+        conn.close()
+
+        status = "confirmed" if confirmed else "refuted"
+        print(f"Resolved prediction #{pred_id} as {status}")
+        print(f"  Updated {result['updated']} memories via belief propagation")
+
+    elif cmd == "beliefs":
+        from .beliefs import weakest_beliefs, strongest_beliefs, belief_conflicts
+        conn = get_db()
+
+        if "--weak" in sys.argv:
+            rows = weakest_beliefs(conn, 20)
+            print("Weakest Beliefs (lowest confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+
+        elif "--strong" in sys.argv:
+            rows = strongest_beliefs(conn, 20)
+            print("Strongest Beliefs (highest confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+
+        elif "--conflicts" in sys.argv:
+            conflicts = belief_conflicts(conn)
+            if conflicts:
+                print("Belief Conflicts (high-confidence contradictions)")
+                print("=" * 70)
+                for c in conflicts:
+                    print(f"  #{c['id1']} vs #{c['id2']} ({c['similarity']:.0%} similar)")
+                    print(f"    A ({c['confidence1']:.2f}): {c['content1'][:60]}...")
+                    print(f"    B ({c['confidence2']:.2f}): {c['content2'][:60]}...")
+                    print()
+                print(f"({len(conflicts)} conflicts)")
+            else:
+                print("No belief conflicts found.")
+
+        else:
+            # Show all beliefs sorted by confidence
+            rows = conn.execute("""
+                SELECT id, category, content, confidence, access_count
+                FROM memories
+                WHERE active = 1 AND category IN ('belief', 'learning', 'decision')
+                ORDER BY confidence DESC
+                LIMIT 30
+            """).fetchall()
+
+            print("Beliefs (sorted by confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                bar = "█" * int(r['confidence'] * 10) + "░" * (10 - int(r['confidence'] * 10))
+                print(f"  #{r['id']:>3} {bar} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+
+        conn.close()
+
+    elif cmd == "predictions":
+        from .beliefs import list_predictions, expired_predictions
+        conn = get_db()
+
+        if "--open" in sys.argv:
+            preds = list_predictions(conn, 'open')
+            status_filter = 'open'
+        elif "--confirmed" in sys.argv:
+            preds = list_predictions(conn, 'confirmed')
+            status_filter = 'confirmed'
+        elif "--refuted" in sys.argv:
+            preds = list_predictions(conn, 'refuted')
+            status_filter = 'refuted'
+        elif "--expired" in sys.argv:
+            preds = expired_predictions(conn)
+            status_filter = 'expired'
+        else:
+            preds = list_predictions(conn, 'all')
+            status_filter = 'all'
+
+        if preds:
+            print(f"Predictions ({status_filter})")
+            print("=" * 70)
+            for p in preds:
+                deadline_str = f" [deadline: {p['deadline']}]" if p['deadline'] else ""
+                mem_ref = f" (based on #{p['memory_id']})" if p['memory_id'] else ""
+                pred_preview = p['prediction'][:50] + "..." if len(p['prediction']) > 50 else p['prediction']
+                print(f"  #{p['id']:>3} [{p['status']:<10}] {p['confidence']:.2f} {pred_preview}{deadline_str}{mem_ref}")
+            print(f"\n({len(preds)} predictions)")
+        else:
+            print(f"No {status_filter} predictions.")
+
+        conn.close()
+
+    # Extended beliefs system commands
+    elif cmd == "believe" and len(sys.argv) >= 3:
+        from .beliefs_extended import add_belief
+        flags, statement_parts = parse_flags(sys.argv, 2)
+        statement = " ".join(statement_parts)
+
+        conn = get_db()
+        belief_id = add_belief(
+            conn,
+            statement,
+            confidence=float(flags.get("confidence", 0.5)),
+            category=flags.get("category", "general"),
+            source=flags.get("source", "user"),
+            memory_id=int(flags["memory"]) if "memory" in flags else None
+        )
+        conn.close()
+        print(f"Created belief #{belief_id}")
+
+    elif cmd == "evidence" and len(sys.argv) >= 4:
+        from .beliefs_extended import add_evidence
+        belief_id = int(sys.argv[2])
+        memory_id = int(sys.argv[3])
+        flags, _ = parse_flags(sys.argv, 4)
+
+        direction = "supports" if "supports" in sys.argv else "contradicts"
+        strength = float(flags.get("strength", 0.5))
+        note = flags.get("note")
+
+        conn = get_db()
+        add_evidence(conn, belief_id, memory_id, direction, strength, note)
+        conn.close()
+        print(f"Added {direction} evidence to belief #{belief_id}")
+
+    elif cmd == "belief-stats":
+        from .beliefs_extended import belief_accuracy, strongest_beliefs, weakest_beliefs, most_revised
+        conn = get_db()
+
+        print("=== Belief System Statistics ===\n")
+
+        # Prediction accuracy
+        acc = belief_accuracy(conn)
+        if acc['total_predictions'] > 0:
+            print(f"Prediction Accuracy:")
+            print(f"  Total: {acc['total_predictions']} ({acc['correct_count']} correct, {acc['incorrect_count']} incorrect)")
+            print(f"  Accuracy: {acc['correct_percentage']:.1f}%")
+            print(f"  Avg confidence (correct): {acc['avg_confidence_correct']:.2f}")
+            print(f"  Avg confidence (incorrect): {acc['avg_confidence_incorrect']:.2f}")
+
+            if acc['calibration']:
+                print(f"\n  Calibration by confidence bucket:")
+                for bucket, stats in acc['calibration'].items():
+                    print(f"    {bucket}: {stats['accuracy']:.1%} actual vs {stats['expected']:.1%} expected ({stats['count']} predictions)")
+
+        # Strongest beliefs
+        print(f"\nStrongest Beliefs:")
+        strong = strongest_beliefs(conn, 5)
+        for b in strong:
+            print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        # Weakest beliefs
+        print(f"\nWeakest Beliefs:")
+        weak = weakest_beliefs(conn, 5)
+        for b in weak:
+            print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        # Most revised (controversial)
+        print(f"\nMost Revised (Controversial):")
+        revised = most_revised(conn, 5)
+        for b in revised:
+            print(f"  #{b['id']} {b['revision_count']} revisions {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        conn.close()
+
+    elif cmd == "expired-predictions":
+        from .beliefs_extended import check_expired_predictions
+        conn = get_db()
+        expired = check_expired_predictions(conn)
+        conn.close()
+
+        if expired:
+            print(f"Found {len(expired)} expired predictions:\n")
+            for p in expired:
+                print(f"  #{p['id']} deadline: {p['deadline']}")
+                print(f"    {p['prediction'][:80]}")
+                print()
+        else:
+            print("No expired predictions.")
+
     elif cmd in ("help", "--help", "-h"):
         print_help()
 

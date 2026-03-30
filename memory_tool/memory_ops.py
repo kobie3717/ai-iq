@@ -174,6 +174,18 @@ def check_contradictions(content: str, category: Optional[str] = None, project: 
             # Return warning with the most similar memory
             most_similar = high_similarity[0]
             preview = most_similar['content'][:80] + "..." if len(most_similar['content']) > 80 else most_similar['content']
+
+            # Integration with belief system: weaken confidence of contradicting memory slightly
+            try:
+                from .beliefs import weaken_confidence
+                weaken_confidence(
+                    conn, most_similar['id'], 0.05,
+                    f"Contradiction detected with new memory: {content[:60]}..."
+                )
+                logger.debug(f"Weakened confidence of memory #{most_similar['id']} due to contradiction")
+            except Exception:
+                pass  # beliefs module might not be available or column doesn't exist yet
+
             return f"⚠️  Potential contradiction with memory #{most_similar['id']} ({most_similar['similarity']:.0%} similar): {preview}"
 
         return None

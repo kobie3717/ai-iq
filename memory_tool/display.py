@@ -272,7 +272,27 @@ Search Feedback & Learning (Phase 6):
   memory-tool search-quality                    # Alias for feedback-stats
   memory-tool hot                               # Show most frequently accessed memories (immune to decay)
 
-Categories: project, decision, preference, error, learning, pending, architecture, workflow, contact
+Beliefs & Predictions (Phase 7):
+  memory-tool believe "<statement>" [--confidence 0.8] [--based-on <id>] [--project X]
+                                                # Create belief with explicit confidence
+  memory-tool predict "<prediction>" [--based-on <id>] [--confidence 0.6] [--deadline YYYY-MM-DD] [--expect "<outcome>"]
+                                                # Create prediction based on belief
+  memory-tool resolve <prediction_id> --confirmed|--refuted [--outcome "<what happened>"]
+                                                # Resolve prediction (triggers Bayesian propagation)
+  memory-tool beliefs [--weak|--strong|--conflicts]
+                                                # List beliefs sorted by confidence
+  memory-tool predictions [--open|--confirmed|--refuted|--expired]
+                                                # List predictions by status
+
+Extended Beliefs System (explicit beliefs with evidence tracking):
+  memory-tool believe "<statement>" [--confidence 0.5] [--category general] [--source user] [--memory <id>]
+                                                # Create explicit belief (separate from memories)
+  memory-tool evidence <belief_id> <memory_id> --supports|--contradicts [--strength 0.5] [--note "text"]
+                                                # Add evidence for/against a belief (triggers Bayesian update)
+  memory-tool belief-stats                      # Show belief accuracy, calibration, strongest/weakest beliefs
+  memory-tool expired-predictions               # List predictions past deadline that need resolution
+
+Categories: project, decision, preference, error, learning, pending, architecture, workflow, contact, belief
 Priority: 0 (low) to 10 (high). Auto-adjusts based on access frequency.
 Vector search: Requires sqlite-vec, onnxruntime, tokenizers, numpy. Model: all-MiniLM-L6-v2 (384-dim).
 """

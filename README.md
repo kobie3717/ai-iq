@@ -275,38 +275,107 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
 
 ---
 
-## Claude Code Integration
+## Claude Code Plugin
 
-### 1. Install AI-IQ
+AI-IQ provides a ready-to-use Claude Code plugin with automatic error capture, session snapshots, and intelligent memory management.
+
+### Quick Install
+
 ```bash
-pip install ai-iq[full]
+# Install AI-IQ
+pip install ai-iq
+
+# Run the plugin installer
+cd /path/to/ai-iq
+bash hooks/claude-code/install.sh
 ```
 
-### 2. Set up hooks in `~/.claude/settings.json`
-```json
-{
-  "hooks": {
-    "PostToolUse": "~/.claude/projects/-root/memory/error-hook.sh",
-    "Stop": "~/.claude/projects/-root/memory/session-hook.sh"
-  }
-}
-```
+The installer will:
+- Check if `memory-tool` is installed (installs via pip if needed)
+- Copy hook scripts to `~/.claude/hooks/`
+- Configure hooks in `~/.claude/settings.json`
+- Optionally install a daily maintenance cron job
 
-### 3. Add CLAUDE.md to your project root
-See [CLAUDE.md template](CLAUDE.md) - tells Claude to auto-load MEMORY.md each session and use `memory-tool` commands.
+### Manual Installation
 
-### 4. Set up daily maintenance cron
-```bash
-17 3 * * * ~/.claude/projects/-root/memory/daily-maintenance.sh >> ~/.claude/memory/cron.log 2>&1
-```
+If you prefer manual setup or need to merge with existing hooks:
+
+1. **Copy hook scripts:**
+   ```bash
+   mkdir -p ~/.claude/hooks
+   cp hooks/claude-code/error-hook.sh ~/.claude/hooks/ai-iq-error-hook.sh
+   cp hooks/claude-code/session-hook.sh ~/.claude/hooks/ai-iq-session-hook.sh
+   cp hooks/claude-code/session-start-hook.sh ~/.claude/hooks/ai-iq-session-start-hook.sh
+   chmod +x ~/.claude/hooks/ai-iq-*.sh
+   ```
+
+2. **Add hooks to `~/.claude/settings.json`:**
+   ```json
+   {
+     "hooks": {
+       "Stop": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash ~/.claude/hooks/ai-iq-session-hook.sh"
+             }
+           ]
+         }
+       ],
+       "PostToolUse": [
+         {
+           "matcher": "Bash",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash ~/.claude/hooks/ai-iq-error-hook.sh"
+             }
+           ]
+         }
+       ],
+       "SessionStart": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash ~/.claude/hooks/ai-iq-session-start-hook.sh"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+3. **Add to your project's CLAUDE.md:**
+   ```bash
+   cat hooks/claude-code/CLAUDE.md.example >> /your/project/CLAUDE.md
+   ```
+
+### What Gets Automated
+
+Once installed, the plugin automatically:
+
+- **PostToolUse hook**: Auto-captures failed Bash commands as error memories
+- **Stop hook**: Auto-snapshots session (detects git/file changes), runs decay, exports MEMORY.md, daily backups
+- **SessionStart hook**: Logs session start for timeline tracking
+- **Daily cron** (optional): Dream consolidation, garbage collection, backups at 3:17 AM
 
 **Automation flow:**
-- **Session start** - MEMORY.md auto-loads (last session + pending items)
-- **During work** - PostToolUse hook auto-captures failed commands as error memories
-- **Session end** - Stop hook generates snapshot from git/file changes, runs decay, exports MEMORY.md
-- **Daily 3:17 AM** - Dream consolidation, meta-learning tuning, garbage collection, backup
+- **Session start** - MEMORY.md auto-loads (last session + pending items), session logged
+- **During work** - Failed commands auto-captured as error memories
+- **Session end** - Snapshot generated, stale memories flagged, MEMORY.md regenerated, backup created
+- **Daily 3:17 AM** - Dream mode consolidation, meta-learning tuning, garbage collection
 
-See [INSTALLATION.md](INSTALLATION.md) for detailed setup.
+### Plugin Documentation
+
+For detailed setup, troubleshooting, and advanced usage:
+- **Plugin README**: [hooks/claude-code/PLUGIN_README.md](hooks/claude-code/PLUGIN_README.md)
+- **CLAUDE.md template**: [hooks/claude-code/CLAUDE.md.example](hooks/claude-code/CLAUDE.md.example)
+- **Full installation guide**: [INSTALLATION.md](INSTALLATION.md)
 
 ---
 

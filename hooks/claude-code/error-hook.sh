@@ -17,47 +17,49 @@ fi
 INPUT=$(cat)
 
 # Extract tool name
-TOOL=$(echo "$INPUT" | grep -o '"tool":"[^"]*"' | cut -d'"' -f4)
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))" 2>/dev/null)
 
-# Only process Bash tool invocations
-if [ "$TOOL" != "Bash" ]; then
+# Only process Bash tool calls
+if [ "$TOOL_NAME" != "Bash" ]; then
     exit 0
 fi
 
-# Extract exit code
-EXIT_CODE=$(echo "$INPUT" | grep -o '"exitCode":[0-9]*' | cut -d':' -f2)
+# Extract exit code from tool_result
+EXIT_CODE=$(echo "$INPUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+r = d.get('tool_result', '')
+# Look for exit code in result
+if 'Exit code' in str(r):
+    import re
+    m = re.search(r'Exit code[:\s]+(\d+)', str(r))
+    if m: print(m.group(1))
+    else: print('0')
+else:
+    print('0')
+" 2>/dev/null)
 
-# Only process non-zero exits (errors)
-if [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" -eq 0 ]; then
-    exit 0
+# Only log non-zero exit codes
+if [ "$EXIT_CODE" != "0" ] && [ -n "$EXIT_CODE" ]; then
+    COMMAND=$(echo "$INPUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+i = d.get('tool_input', {})
+print(i.get('command', '')[:150])
+" 2>/dev/null)
+
+    ERROR=$(echo "$INPUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+r = str(d.get('tool_result', ''))
+# Get last 3 meaningful lines
+lines = [l.strip() for l in r.split('\n') if l.strip() and not l.startswith('Exit code')]
+print('\n'.join(lines[-3:])[:300])
+" 2>/dev/null)
+
+    if [ -n "$COMMAND" ] && [ -n "$ERROR" ]; then
+        "$MT" log-error "$COMMAND" "$ERROR" 2>/dev/null || true
+    fi
 fi
-
-# Extract command (handle escaped quotes and newlines)
-COMMAND=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get('parameters', {}).get('command', 'unknown command'))
-except:
-    print('unknown command')
-" 2>/dev/null || echo "unknown command")
-
-# Extract error output (stderr or stdout if stderr is empty)
-ERROR=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    result = data.get('result', {})
-    stderr = result.get('stderr', '').strip()
-    stdout = result.get('stdout', '').strip()
-    error = stderr if stderr else stdout
-    # Limit to first 500 chars
-    print(error[:500] if error else 'Command failed with no output')
-except:
-    print('Command failed')
-" 2>/dev/null || echo "Command failed")
-
-# Log the error via memory-tool
-"$MT" log-error "$COMMAND" "$ERROR" "$EXIT_CODE" 2>/dev/null || true
 
 exit 0

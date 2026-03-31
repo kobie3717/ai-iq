@@ -5,47 +5,72 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Persistent Memory System (IMPORTANT - USE EVERY SESSION)
 
 SQLite-backed memory at `~/.local/share/ai-memory/`:
-- **memories.db** - Source of truth (SQLite + FTS5 full-text search)
+- **memories.db** - Source of truth (SQLite + FTS5 + sqlite-vec + graph tables)
 - **MEMORY.md** - Auto-generated from DB, auto-loaded every session with smart context
 - **memory-tool** - CLI tool (global command) to manage memories
 
 ### Automation (runs without manual intervention)
 - **PostToolUse hook** (Bash): Auto-captures failed commands as error memories
+- **SessionStart hook**: Logs session start for timeline tracking
 - **Stop hook**: Auto-generates session snapshot from git/file changes, runs decay, re-exports MEMORY.md, daily backup
-- **Daily cron** (3:17 AM): Runs decay, garbage collection, backup, re-export
+- **Daily cron** (3:17 AM): Runs dream mode, decay, garbage collection, backup, re-export
 
 ### Core Commands (run via Bash tool)
 ```bash
-memory-tool add <category> "<content>" --project X --tags t1,t2 --priority N --related <id> --expires YYYY-MM-DD
-memory-tool search "<query>"              # FTS search (auto-tracks access, boosts priority)
-memory-tool search --mode semantic "<query>"   # Semantic search using embeddings
-memory-tool search --mode hybrid "<query>"     # Combined FTS + semantic search
-memory-tool list --project ProjectName   # Filter by project/category/tag/--stale/--expired
-memory-tool update <id> "<new content>"   # Update (auto re-tags)
+# Basic operations
+memory-tool add <category> "<content>" --project X --tags t1,t2 --priority N --related <id> --expires YYYY-MM-DD --key <topic-key> --derived-from <ids> --citations <sources> --reasoning <why>
+memory-tool search "<query>"              # Hybrid search: FTS + semantic (RRF fusion)
+memory-tool search "<query>" --semantic   # Semantic-only (vector similarity)
+memory-tool search "<query>" --keyword    # Keyword-only (FTS, old behavior)
+memory-tool search "<query>" --full       # Verbose output
+memory-tool get <id>                      # Full detail for single memory
+memory-tool list --project WhatsAuction   # Filter by project/category/tag/--stale/--expired
+memory-tool update <id> "<new content>"   # Update (auto re-tags + re-embeds)
 memory-tool delete <id>                   # Soft-delete (recoverable)
 memory-tool relate <id1> <id2> [type]     # Link related memories
+memory-tool conflicts                     # Find 50-85% similar pairs
+memory-tool merge <id1> <id2>             # Merge two memories (keep newer)
+memory-tool supersede <old> <new>         # Mark old as superseded
 memory-tool pending                       # Show TODOs
+memory-tool topics                        # Generate per-project .md files
+memory-tool reindex                       # Bulk-embed all memories for vector search
 memory-tool snapshot "<summary>"          # Manual session summary
 memory-tool auto-snapshot                 # Auto-detect changes for snapshot
 memory-tool import-md <file>              # Import from session summary markdown
-memory-tool backup                        # Manual backup
+memory-tool backup                        # Manual backup to backups/
 memory-tool restore <file>                # Restore from backup
-memory-tool decay                         # Flag stale, deprioritize, expire
+memory-tool decay                         # Flag stale, deprioritize, expire (access_count >= 5 = immune)
 memory-tool stale                         # Review stale memories
+memory-tool hot                           # Show most frequently accessed memories (immune to decay)
 memory-tool gc [days]                     # Purge old inactive (default 180d)
-memory-tool stats                         # Full statistics
+memory-tool next                          # Smart suggestions: what needs attention now
+memory-tool dream                         # Review transcripts, extract insights, consolidate duplicates, normalize dates (AI memory REM sleep)
+memory-tool stats                         # Full statistics (memories + vectors + graph + bridge)
 
-# Graph/Knowledge Base Commands
-memory-tool graph add-entity <name> <type> [description]
-memory-tool graph add-relationship <entity1> <entity2> <type> [properties]
-memory-tool graph set-fact <entity> <property> <value>
-memory-tool graph get <entity>
-memory-tool graph spread <entity> [depth]
+# Graph Intelligence
+memory-tool graph                         # Graph summary
+memory-tool graph add <type> <name> [summary]  # Add entity (person/project/org/feature/concept/tool/service)
+memory-tool graph rel <from> <rel_type> <to> [note]  # Add relationship (knows/works_on/owns/depends_on/built_by/uses/related_to/PREVENTS/RESOLVES/LEADS_TO/REQUIRES)
+memory-tool graph fact <entity> <key> <value>  # Set fact (auto-tracks history)
+memory-tool graph get <name>              # Entity with facts + relationships + linked memories
+memory-tool graph list [type]             # List entities
+memory-tool graph spread <name> [depth]   # Spreading activation (find related entities)
+memory-tool graph link <mem_id> <entity>  # Link memory to entity
+memory-tool graph auto-link               # Auto-link all memories to entities
 
-# Topic/Conflict Commands
-memory-tool topics                        # List all topics
-memory-tool conflicts                     # Show conflicting memories
-memory-tool merge <id1> <id2>             # Merge duplicate memories
+# Beliefs & Predictions
+memory-tool believe "<statement>" --confidence 0.7 --project X  # Create belief with confidence
+memory-tool predict "<prediction>" --based-on <id> --confidence 0.8 --deadline YYYY-MM-DD --expect "<outcome>"
+memory-tool resolve <pred_id> --confirmed "<actual_outcome>"  # Resolve prediction (or --refuted)
+memory-tool beliefs                       # List all beliefs by confidence
+memory-tool beliefs --weak                # Show weakest beliefs
+memory-tool beliefs --strong              # Show strongest beliefs
+memory-tool beliefs --conflicts           # Find contradicting beliefs
+memory-tool predictions                   # List all predictions
+memory-tool predictions --open            # Open predictions only
+memory-tool predictions --confirmed       # Confirmed predictions
+memory-tool predictions --refuted         # Refuted predictions
+memory-tool predictions --expired         # Past deadline but unresolved
 ```
 
 ### Categories
@@ -58,6 +83,7 @@ memory-tool merge <id1> <id2>             # Merge duplicate memories
 - **architecture**: System design, data models, integration patterns
 - **workflow**: Development workflows, deployment procedures
 - **contact**: People, teams, external services
+- **belief**: Explicit beliefs with confidence tracking (0.01-0.99)
 
 ### Auto-Update Rules (FOLLOW THESE)
 - **Session start**: MEMORY.md is auto-loaded. Check "Last Session" and "Pending" sections
@@ -68,24 +94,64 @@ memory-tool merge <id1> <id2>             # Merge duplicate memories
 - **When user says "forget X"**: `memory-tool search` then `memory-tool delete <id>`
 - **When completing a pending item**: `memory-tool delete <id>` to remove it
 - **When discovering conflicts**: Use `memory-tool conflicts` to find, `memory-tool merge` to resolve
+- **When making predictions**: Use `memory-tool predict` to create testable predictions
+- **When outcomes are known**: Use `memory-tool resolve` to update related beliefs
 
-### Search Modes
-- **keyword** (default): Fast FTS5 full-text search, best for exact terms
-- **semantic**: Vector similarity search using embeddings, best for conceptual matches
-- **hybrid**: Combines both keyword and semantic results, best overall accuracy
+### Advanced Features
 
-### Graph/Knowledge Base
-The memory system includes a knowledge graph for structured data:
-- **Entities**: Named objects (users, systems, APIs, files)
-- **Relationships**: Connections between entities (depends_on, integrates_with, owns)
-- **Facts**: Key-value properties on entities (version, status, url)
-- **Spreading activation**: Find related entities within N hops
+#### Hybrid Search (Phase 2)
+- **Default**: RRF fusion of FTS5 keyword + sqlite-vec semantic search
+- **Semantic-only**: `--semantic` flag for vector similarity
+- **Keyword-only**: `--keyword` flag for traditional FTS
+- **Progressive disclosure**: Compact by default, `--full` for verbose, `get <id>` for detail
+
+#### Graph Intelligence (Phase 3)
+The memory system includes a causal knowledge graph:
+- **Entities**: Named objects (person/project/org/feature/concept/tool/service)
+- **Relationships**: Standard edges (knows/works_on/owns/depends_on/built_by/uses/related_to)
+- **Causal edges**: PREVENTS/RESOLVES/LEADS_TO/REQUIRES for cause-effect chains
+- **Facts**: Key-value properties on entities with history tracking
+- **Spreading activation**: Find related context by traversing relationships with decay
 
 Use the graph for:
-- Mapping system dependencies
+- Mapping system dependencies and causal chains
 - Tracking ownership and responsibilities
-- Documenting API integrations
-- Recording configuration hierarchies
+- Documenting API integrations and data flows
+- Building narrative context (chronological cause-effect stories)
+
+#### Belief System (Phase 7)
+Track what you think you know with explicit confidence:
+- **Confidence scores**: 0.01 (nearly impossible) to 0.99 (nearly certain)
+- **Prediction engine**: Make testable predictions with deadlines
+- **Bayesian updates**: When predictions resolve, related beliefs adjust automatically
+- **Confidence propagation**: Updates flow through memory relationships
+- **Calibration**: Track prediction accuracy over time
+
+Use beliefs for:
+- Recording uncertain decisions with confidence levels
+- Making testable predictions about outcomes
+- Learning from resolved predictions (what worked, what didn't)
+- Finding weak beliefs that need more evidence
+
+#### Dream Mode (Phase 6)
+Autonomous consolidation like REM sleep for AI:
+- **Duplicate detection**: Finds 85-95% similar memories, auto-merges
+- **Reconsolidation**: Strengthens frequently-accessed patterns
+- **Contradiction detection**: Warns on >80% similar + negation patterns
+- **Metadata normalization**: Standardizes dates, project names, tags
+- **Decay processing**: Flags stale, reduces priority, expires old TODOs
+
+Run `memory-tool dream` after major sessions or when memory feels cluttered.
+
+#### Self-Learning (Phase 6)
+Meta-learning that improves over time:
+- **Outcome tracking**: Every search logs which results you use
+- **Effectiveness scoring**: Calculates keyword vs semantic hit rates
+- **Weight tuning**: Auto-adjusts RRF fusion weights based on what works
+- **Promotion/Demotion**: High-value memories get priority boost
+- **Immunity to decay**: Memories with access_count >= 5 won't go stale
+
+Use `memory-tool hot` to see your most-accessed memories.
 
 ## Project Context
 

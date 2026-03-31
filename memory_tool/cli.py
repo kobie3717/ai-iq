@@ -71,6 +71,9 @@ def main() -> None:
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
+        from .modes import get_mode_config
+        from .display import show_token_economics
+
         flags, query_parts = parse_flags(sys.argv, 2)
         query = " ".join(query_parts)
 
@@ -96,6 +99,12 @@ def main() -> None:
                 else:
                     for rel in get_related(r["id"]):
                         print(f"      -> #{rel['id']} ({rel['relation_type']}): {rel['content'][:80]}")
+
+            # Show token economics if enabled in mode
+            mode_config = get_mode_config()
+            if mode_config.get("show_tokens", True):
+                show_token_economics(rows, compact=not full_mode)
+
             # Output search_id for feedback tracking (can be parsed by hooks)
             print(f"\n[search_id:{search_id}]")
         else:
@@ -1445,6 +1454,29 @@ def main() -> None:
                 print("Run 'memory-tool identity --discover' to build profile from memories.")
 
         conn.close()
+
+    elif cmd == "mode":
+        from .modes import get_mode, set_mode, list_modes
+
+        if len(sys.argv) == 2:
+            # Show current mode
+            current = get_mode()
+            print(f"Current mode: {current}")
+            print("\nRun 'memory-tool mode list' to see all modes")
+            print("Run 'memory-tool mode <name>' to switch")
+
+        elif sys.argv[2] == "list":
+            # List all modes
+            list_modes()
+
+        else:
+            # Set mode
+            mode_name = sys.argv[2]
+            if set_mode(mode_name):
+                print(f"✅ Switched to mode: {mode_name}")
+            else:
+                print(f"❌ Failed to set mode. Valid modes: default, dev, ops, research, monitor")
+                sys.exit(1)
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

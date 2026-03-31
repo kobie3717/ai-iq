@@ -185,6 +185,36 @@ def print_memory_full(mem_id: int) -> None:
 
 
 
+def estimate_tokens(text: str) -> int:
+    """Estimate token count using ~4 chars per token heuristic."""
+    return len(text) // 4
+
+
+def show_token_economics(rows: List[sqlite3.Row], compact: bool = True) -> None:
+    """Display token compression line showing context savings."""
+    if len(rows) < 2:
+        return  # Only show for 2+ results
+
+    # Calculate full content tokens (all memories' full content)
+    full_tokens = sum(estimate_tokens(r['content']) for r in rows)
+
+    # Calculate displayed tokens (compact or full mode)
+    if compact:
+        # Compact mode: preview (100 chars) + metadata overhead (~50 chars avg)
+        displayed_tokens = sum(estimate_tokens(r['content'][:100]) + 12 for r in rows)
+
+        if full_tokens > 0:
+            saved_pct = int(((full_tokens - displayed_tokens) / full_tokens) * 100)
+            if saved_pct > 0:
+                print(f"\n💡 Read ~{displayed_tokens} tokens (saved {saved_pct}% vs ~{full_tokens} discovery tokens)")
+    else:
+        # Full mode: show total tokens read (no savings since we show everything)
+        # But still useful to show the cost
+        displayed_tokens = full_tokens + (len(rows) * 20)  # Add metadata overhead
+        if full_tokens > 0:
+            print(f"\n💡 Read ~{displayed_tokens} tokens ({len(rows)} full memories)")
+
+
 def print_help() -> None:
     """Print comprehensive help documentation."""
     help_text = """
@@ -236,6 +266,11 @@ Usage:
   memory-tool import-md <file>                  # Import memories from session summary markdown
   memory-tool backup                            # Backup database
   memory-tool restore <file>                    # Restore database from backup
+
+Mode Profiles:
+  memory-tool mode                              # Show current mode
+  memory-tool mode list                         # List all available modes
+  memory-tool mode <name>                       # Switch to mode (default/dev/ops/research/monitor)
 
 Graph Intelligence (Phase 3):
   memory-tool graph                             # Show graph summary

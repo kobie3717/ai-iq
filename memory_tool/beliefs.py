@@ -47,6 +47,15 @@ def set_confidence(db: sqlite3.Connection, memory_id: int, confidence: float, re
         VALUES (?, ?, ?, ?)
     """, (memory_id, old_confidence, confidence, reason))
 
+    # Log to timeline (Feature 2)
+    try:
+        db.execute("""
+            INSERT INTO belief_timeline (memory_id, old_confidence, new_confidence, reason, source_type)
+            VALUES (?, ?, ?, ?, 'manual')
+        """, (memory_id, old_confidence, confidence, reason))
+    except Exception:
+        pass  # Timeline table might not exist yet
+
     db.commit()
     logger.debug(f"Set confidence for memory #{memory_id}: {old_confidence:.2f} → {confidence:.2f} ({reason})")
 
@@ -208,6 +217,15 @@ def resolve_prediction(
             # Propagate negative update through causal graph
             propagated = propagate_belief_update(db, source_id, -0.1)
             updated_memories.extend(propagated)
+
+    # Auto-transition belief lifecycle states
+    try:
+        from .beliefs_extended import auto_transition_on_prediction
+        transitioned = auto_transition_on_prediction(db, prediction_id, confirmed)
+        if transitioned:
+            logger.info(f"Auto-transitioned {len(transitioned)} belief states")
+    except ImportError:
+        pass  # beliefs_extended might not be available
 
     db.commit()
 

@@ -268,12 +268,23 @@ def cmd_dream() -> None:
     logger.info(f"   Predictions expired: {belief_results['predictions_expired']}")
     logger.info(f"   Beliefs weakened: {belief_results['beliefs_weakened']}")
 
+    # 5.6. Lifecycle state auto-deprecation
+    logger.info("⚖️  Phase: Lifecycle State Management...")
+    try:
+        from .beliefs_extended import auto_deprecate_weak_beliefs
+        deprecated_count = auto_deprecate_weak_beliefs(conn, days_inactive=60)
+        logger.info(f"   Auto-deprecated: {deprecated_count} weak beliefs")
+        belief_results['deprecated'] = deprecated_count
+    except Exception as e:
+        logger.debug(f"Lifecycle deprecation skipped: {e}")
+        belief_results['deprecated'] = 0
+
     # 6. Re-export MEMORY.md
     logger.debug("Re-exporting MEMORY.md...")
     _get_export_memory_md()(None)
 
     # 7. Generate dream report and save as memory
-    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened from {len(unprocessed)} transcripts"
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated from {len(unprocessed)} transcripts"
 
     today = datetime.now().strftime('%Y-%m-%d')
     _get_add_memory()(
@@ -295,7 +306,7 @@ def cmd_dream() -> None:
     print(f"   🗑️  {consol['pruned']} low-value memories pruned")
     print(f"   📅 {total_dates_normalized} dates normalized")
     print(f"   🎓 {feedback_results['boosted']} boosted / {feedback_results['decayed']} decayed / {feedback_results['flagged']} flagged via feedback")
-    print(f"   🔮 {belief_results['merged']} beliefs merged / {belief_results['predictions_expired']} predictions expired / {belief_results['beliefs_weakened']} beliefs weakened")
+    print(f"   🔮 {belief_results['merged']} beliefs merged / {belief_results['predictions_expired']} predictions expired / {belief_results['beliefs_weakened']} beliefs weakened / {belief_results.get('deprecated', 0)} beliefs deprecated")
     print(f"   💾 Report saved to memory")
 
 

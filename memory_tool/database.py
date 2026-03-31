@@ -74,6 +74,7 @@ def init_db() -> None:
         "imp_impact": "ALTER TABLE memories ADD COLUMN imp_impact REAL DEFAULT 5.0",
         "imp_score": "ALTER TABLE memories ADD COLUMN imp_score REAL DEFAULT 5.0",
         "confidence": "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
+        "content_hash": "ALTER TABLE memories ADD COLUMN content_hash TEXT DEFAULT NULL",
     }
 
     # Whitelist for beliefs table migrations
@@ -133,7 +134,8 @@ def init_db() -> None:
             imp_frequency REAL DEFAULT 0.0,
             imp_impact REAL DEFAULT 5.0,
             imp_score REAL DEFAULT 5.0,
-            confidence REAL DEFAULT 0.7
+            confidence REAL DEFAULT 0.7,
+            content_hash TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -167,6 +169,7 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_relations_source ON memory_relations(source_id);
         CREATE INDEX IF NOT EXISTS idx_relations_target ON memory_relations(target_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_key ON memories(topic_key) WHERE topic_key IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash) WHERE content_hash IS NOT NULL;
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,

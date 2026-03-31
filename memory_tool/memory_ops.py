@@ -209,6 +209,22 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     """
     tags = auto_tag(content, tags)
 
+    # Content-hash dedup check: prevent exact duplicates within 60 seconds
+    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
+    conn = get_db()
+    recent_dupe = conn.execute("""
+        SELECT id, created_at FROM memories
+        WHERE content_hash = ? AND active = 1
+        AND datetime(created_at) > datetime('now', '-60 seconds')
+        ORDER BY created_at DESC LIMIT 1
+    """, (content_hash,)).fetchone()
+    conn.close()
+
+    if recent_dupe:
+        logger.info(f"⏭ Skipped duplicate (same content within 60s, memory #{recent_dupe['id']})")
+        print(f"⏭ Skipped duplicate (same content within 60s)")
+        return None
+
     # Check for contradictions using semantic search (if available)
     contradiction_warning = check_contradictions(content, category, project)
 
@@ -304,9 +320,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             # Insert new, mark old as superseded
             conn = get_db()
             cur = conn.execute(
-                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
             )
             new_id = cur.lastrowid
 
@@ -350,9 +366,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     # CREATE: Normal insert
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
     )
     mem_id = cur.lastrowid
 
@@ -400,11 +416,14 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         # Check for contradictions even if skipping dedup
         contradiction_warning = check_contradictions(content, category, project)
 
+        # Compute content hash
+        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
+
         conn = get_db()
         cur = conn.execute(
-            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
         )
         mem_id = cur.lastrowid
         if related_to:

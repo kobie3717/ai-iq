@@ -221,6 +221,15 @@ def update_belief_confidence(
         VALUES (?, ?, ?, ?, ?)
     """, (belief_id, old_confidence, new_confidence, reason, revision_type))
 
+    # Log to timeline (Feature 2)
+    try:
+        db.execute("""
+            INSERT INTO belief_timeline (belief_id, old_confidence, new_confidence, reason, source_type)
+            VALUES (?, ?, ?, ?, ?)
+        """, (belief_id, old_confidence, new_confidence, reason, revision_type))
+    except Exception:
+        pass  # Timeline table might not exist yet
+
     db.commit()
 
     logger.debug(f"Updated belief #{belief_id}: {old_confidence:.2f} → {new_confidence:.2f} ({reason})")
@@ -781,3 +790,448 @@ def most_revised(db: sqlite3.Connection, n: int = 10) -> List[Dict[str, Any]]:
     """, (n,)).fetchall()
 
     return [dict(row) for row in rows]
+
+
+# ============================================================================
+# Truth Lifecycle States (Feature 1)
+# ============================================================================
+
+def set_belief_state(
+    db: sqlite3.Connection,
+    belief_id: int,
+    new_state: str,
+    reason: Optional[str] = None
+) -> None:
+    """Transition a belief to a new lifecycle state.
+
+    Args:
+        db: Database connection
+        belief_id: ID of the belief
+        new_state: New state (hypothesis/tested/validated/deprecated/refuted)
+        reason: Optional reason for the transition
+    """
+    valid_states = ['hypothesis', 'tested', 'validated', 'deprecated', 'refuted']
+    if new_state not in valid_states:
+        raise ValueError(f"Invalid state: {new_state}. Must be one of {valid_states}")
+
+    # Get current state
+    row = db.execute("SELECT belief_state, confidence FROM beliefs WHERE id = ?", (belief_id,)).fetchone()
+    if not row:
+        logger.warning(f"Belief #{belief_id} not found")
+        return
+
+    old_state = row['belief_state'] or 'hypothesis'
+
+    # Update state
+    db.execute("""
+        UPDATE beliefs
+        SET belief_state = ?, updated_at = datetime('now')
+        WHERE id = ?
+    """, (new_state, belief_id))
+
+    # Log as a revision
+    reason_text = reason or f"State transition: {old_state} → {new_state}"
+    db.execute("""
+        INSERT INTO belief_revisions (belief_id, old_confidence, new_confidence, reason, revision_type)
+        VALUES (?, ?, ?, ?, 'lifecycle')
+    """, (belief_id, row['confidence'], row['confidence'], reason_text))
+
+    db.commit()
+
+    logger.info(f"Belief #{belief_id} state: {old_state} → {new_state}")
+
+
+def get_belief_state(db: sqlite3.Connection, belief_id: int) -> str:
+    """Get the current lifecycle state of a belief.
+
+    Args:
+        db: Database connection
+        belief_id: ID of the belief
+
+    Returns:
+        Current state (hypothesis/tested/validated/deprecated/refuted)
+    """
+    row = db.execute("SELECT belief_state FROM beliefs WHERE id = ?", (belief_id,)).fetchone()
+    if not row:
+        return 'hypothesis'  # Default
+    return row['belief_state'] or 'hypothesis'
+
+
+def list_beliefs_by_state(
+    db: sqlite3.Connection,
+    state: str,
+    category: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """List beliefs filtered by lifecycle state.
+
+    Args:
+        db: Database connection
+        state: Lifecycle state to filter by
+        category: Optional category filter
+
+    Returns:
+        List of belief dictionaries
+    """
+    query = "SELECT * FROM beliefs WHERE belief_state = ? AND status = 'active'"
+    params: List[Any] = [state]
+
+    if category:
+        query += " AND category = ?"
+        params.append(category)
+
+    query += " ORDER BY confidence DESC, updated_at DESC"
+
+    rows = db.execute(query, params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def auto_transition_on_prediction(
+    db: sqlite3.Connection,
+    prediction_id: int,
+    confirmed: bool
+) -> List[int]:
+    """Auto-transition belief states when predictions are resolved.
+
+    Args:
+        db: Database connection
+        prediction_id: ID of the resolved prediction
+        confirmed: True if prediction was confirmed, False if refuted
+
+    Returns:
+        List of belief IDs that were transitioned
+    """
+    # Get prediction details
+    pred = db.execute("""
+        SELECT memory_id FROM predictions WHERE id = ?
+    """, (prediction_id,)).fetchone()
+
+    if not pred or not pred['memory_id']:
+        return []
+
+    # Find beliefs linked to this memory
+    beliefs = db.execute("""
+        SELECT id, belief_state FROM beliefs
+        WHERE memory_id = ? AND status = 'active'
+    """, (pred['memory_id'],)).fetchall()
+
+    transitioned = []
+
+    for belief_row in beliefs:
+        belief_id = belief_row['id']
+        current_state = belief_row['belief_state'] or 'hypothesis'
+
+        if confirmed:
+            # Prediction confirmed → move to 'validated' (if not already)
+            if current_state in ('hypothesis', 'tested'):
+                set_belief_state(
+                    db, belief_id, 'validated',
+                    f"Prediction #{prediction_id} confirmed"
+                )
+                transitioned.append(belief_id)
+        else:
+            # Prediction refuted → move to 'refuted'
+            if current_state != 'refuted':
+                set_belief_state(
+                    db, belief_id, 'refuted',
+                    f"Prediction #{prediction_id} refuted"
+                )
+                transitioned.append(belief_id)
+
+    return transitioned
+
+
+def auto_deprecate_weak_beliefs(db: sqlite3.Connection, days_inactive: int = 60) -> int:
+    """Auto-deprecate beliefs with low confidence that haven't been accessed recently.
+
+    Called during dream mode to clean up weak, stale beliefs.
+
+    Args:
+        db: Database connection
+        days_inactive: Days of inactivity before deprecation (default 60)
+
+    Returns:
+        Number of beliefs deprecated
+    """
+    cutoff_date = (datetime.now() - timedelta(days=days_inactive)).strftime('%Y-%m-%d')
+
+    # Find beliefs that are:
+    # 1. Low confidence (< 0.2)
+    # 2. Not accessed recently (or never accessed)
+    # 3. Not already deprecated or refuted
+    # 4. Not immune (access_count < 5 on linked memory)
+
+    candidates = db.execute("""
+        SELECT b.id, b.memory_id, b.confidence, b.belief_state
+        FROM beliefs b
+        LEFT JOIN memories m ON b.memory_id = m.id
+        WHERE b.status = 'active'
+        AND b.belief_state NOT IN ('deprecated', 'refuted', 'validated')
+        AND b.confidence < 0.2
+        AND b.updated_at < ?
+        AND (m.access_count IS NULL OR m.access_count < 5)
+    """, (cutoff_date,)).fetchall()
+
+    deprecated_count = 0
+
+    for belief in candidates:
+        set_belief_state(
+            db, belief['id'], 'deprecated',
+            f"Auto-deprecated: low confidence ({belief['confidence']:.2f}) + {days_inactive}+ days inactive"
+        )
+        deprecated_count += 1
+
+    if deprecated_count > 0:
+        logger.info(f"Auto-deprecated {deprecated_count} weak beliefs")
+
+    return deprecated_count
+
+
+# ============================================================================
+# Temporal Timeline View (Feature 2)
+# ============================================================================
+
+def log_confidence_change(
+    db: sqlite3.Connection,
+    belief_id: Optional[int] = None,
+    memory_id: Optional[int] = None,
+    old_confidence: float = 0.0,
+    new_confidence: float = 0.0,
+    reason: str = "",
+    source_type: str = "manual"
+) -> None:
+    """Log a confidence change to the timeline.
+
+    Args:
+        db: Database connection
+        belief_id: ID of the belief (optional)
+        memory_id: ID of the memory (optional)
+        old_confidence: Previous confidence value
+        new_confidence: New confidence value
+        reason: Reason for the change
+        source_type: Type of change source (manual/prediction/evidence/decay)
+    """
+    db.execute("""
+        INSERT INTO belief_timeline (belief_id, memory_id, old_confidence, new_confidence, reason, source_type)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (belief_id, memory_id, old_confidence, new_confidence, reason, source_type))
+    db.commit()
+
+
+def get_timeline(
+    db: sqlite3.Connection,
+    belief_id: Optional[int] = None,
+    memory_id: Optional[int] = None,
+    project: Optional[str] = None,
+    days: int = 30
+) -> List[Dict[str, Any]]:
+    """Get timeline of belief/confidence changes.
+
+    Args:
+        db: Database connection
+        belief_id: Filter by specific belief ID (optional)
+        memory_id: Filter by specific memory ID (optional)
+        project: Filter by project (optional)
+        days: Number of days to look back (default 30)
+
+    Returns:
+        List of timeline entries with confidence changes
+    """
+    cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+    query = """
+        SELECT
+            t.*,
+            b.statement as belief_statement,
+            m.content as memory_content,
+            m.category as memory_category,
+            m.project as memory_project
+        FROM belief_timeline t
+        LEFT JOIN beliefs b ON t.belief_id = b.id
+        LEFT JOIN memories m ON t.memory_id = m.id
+        WHERE t.timestamp >= ?
+    """
+    params = [cutoff_date]
+
+    if belief_id:
+        query += " AND t.belief_id = ?"
+        params.append(belief_id)
+
+    if memory_id:
+        query += " AND t.memory_id = ?"
+        params.append(memory_id)
+
+    if project:
+        query += " AND m.project = ?"
+        params.append(project)
+
+    query += " ORDER BY t.timestamp DESC"
+
+    rows = db.execute(query, params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_confidence_history(db: sqlite3.Connection, identifier: int, is_belief: bool = True) -> List[Dict[str, Any]]:
+    """Get full confidence history for a belief or memory.
+
+    Args:
+        db: Database connection
+        identifier: Belief ID or memory ID
+        is_belief: True if identifier is a belief ID, False if memory ID
+
+    Returns:
+        List of confidence changes over time
+    """
+    if is_belief:
+        # Get history from belief_timeline and belief_revisions
+        timeline_entries = db.execute("""
+            SELECT
+                timestamp as time,
+                old_confidence,
+                new_confidence,
+                reason,
+                source_type,
+                'timeline' as source_table
+            FROM belief_timeline
+            WHERE belief_id = ?
+            ORDER BY timestamp ASC
+        """, (identifier,)).fetchall()
+
+        revision_entries = db.execute("""
+            SELECT
+                created_at as time,
+                old_confidence,
+                new_confidence,
+                reason,
+                revision_type as source_type,
+                'revisions' as source_table
+            FROM belief_revisions
+            WHERE belief_id = ?
+            ORDER BY created_at ASC
+        """, (identifier,)).fetchall()
+
+        # Merge and sort by time
+        all_entries = list(timeline_entries) + list(revision_entries)
+        all_entries.sort(key=lambda x: x['time'])
+
+        return [dict(entry) for entry in all_entries]
+    else:
+        # Get history from belief_updates (for memories)
+        entries = db.execute("""
+            SELECT
+                updated_at as time,
+                old_confidence,
+                new_confidence,
+                reason,
+                'memory' as source_type,
+                'belief_updates' as source_table
+            FROM belief_updates
+            WHERE memory_id = ?
+            ORDER BY updated_at ASC
+        """, (identifier,)).fetchall()
+
+        # Also get from timeline
+        timeline_entries = db.execute("""
+            SELECT
+                timestamp as time,
+                old_confidence,
+                new_confidence,
+                reason,
+                source_type,
+                'timeline' as source_table
+            FROM belief_timeline
+            WHERE memory_id = ?
+            ORDER BY timestamp ASC
+        """, (identifier,)).fetchall()
+
+        # Merge and sort
+        all_entries = list(entries) + list(timeline_entries)
+        all_entries.sort(key=lambda x: x['time'])
+
+        return [dict(entry) for entry in all_entries]
+
+
+def format_timeline_entry(entry: Dict[str, Any]) -> str:
+    """Format a timeline entry for display.
+
+    Args:
+        entry: Timeline entry dictionary
+
+    Returns:
+        Formatted string with arrows showing direction
+    """
+    old_conf = entry['old_confidence']
+    new_conf = entry['new_confidence']
+
+    # Determine arrow direction
+    if new_conf > old_conf:
+        arrow = "↑"
+        color_code = "32"  # Green (ANSI)
+    elif new_conf < old_conf:
+        arrow = "↓"
+        color_code = "31"  # Red (ANSI)
+    else:
+        arrow = "→"
+        color_code = "33"  # Yellow (ANSI)
+
+    timestamp = entry['timestamp'][:16] if 'timestamp' in entry else entry.get('time', '')[:16]
+    reason = entry.get('reason', 'No reason')
+    source_type = entry.get('source_type', 'unknown')
+
+    # Format confidence change
+    conf_change = f"{old_conf:.2f} {arrow} {new_conf:.2f}"
+
+    return f"[{timestamp}] {conf_change} ({source_type}): {reason[:60]}"
+
+
+def get_timeline_summary(db: sqlite3.Connection, days: int = 7) -> Dict[str, Any]:
+    """Get summary statistics for timeline over recent days.
+
+    Args:
+        db: Database connection
+        days: Number of days to analyze (default 7)
+
+    Returns:
+        Dictionary with summary stats
+    """
+    cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+    stats = {}
+
+    # Total changes
+    total = db.execute("""
+        SELECT COUNT(*) as count FROM belief_timeline WHERE timestamp >= ?
+    """, (cutoff_date,)).fetchone()
+    stats['total_changes'] = total['count']
+
+    # Increases vs decreases
+    increases = db.execute("""
+        SELECT COUNT(*) as count FROM belief_timeline
+        WHERE timestamp >= ? AND new_confidence > old_confidence
+    """, (cutoff_date,)).fetchone()
+    stats['increases'] = increases['count']
+
+    decreases = db.execute("""
+        SELECT COUNT(*) as count FROM belief_timeline
+        WHERE timestamp >= ? AND new_confidence < old_confidence
+    """, (cutoff_date,)).fetchone()
+    stats['decreases'] = decreases['count']
+
+    # By source type
+    by_source = db.execute("""
+        SELECT source_type, COUNT(*) as count
+        FROM belief_timeline
+        WHERE timestamp >= ?
+        GROUP BY source_type
+        ORDER BY count DESC
+    """, (cutoff_date,)).fetchall()
+    stats['by_source'] = [dict(row) for row in by_source]
+
+    # Average confidence change
+    avg_change = db.execute("""
+        SELECT AVG(new_confidence - old_confidence) as avg_delta
+        FROM belief_timeline
+        WHERE timestamp >= ?
+    """, (cutoff_date,)).fetchone()
+    stats['avg_confidence_delta'] = avg_change['avg_delta'] or 0.0
+
+    return stats

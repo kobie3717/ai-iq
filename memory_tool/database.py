@@ -1,6 +1,7 @@
 """Database connection and schema initialization."""
 
 import sqlite3
+import time
 from typing import Optional
 from .config import DB_PATH, EMBEDDING_DIM
 
@@ -33,6 +34,7 @@ def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     conn.execute("PRAGMA foreign_keys=ON")
 
     # Load sqlite-vec extension if available
@@ -45,6 +47,22 @@ def get_db() -> sqlite3.Connection:
             pass  # Extension loading failed or not available
 
     return conn
+
+
+def retry_on_busy(func, *args, max_retries: int = 3, backoff_ms: int = 100, **kwargs):
+    """Retry a database operation on SQLITE_BUSY errors.
+
+    Provides application-level retry on top of busy_timeout for extra safety
+    when multiple agents write concurrently.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except sqlite3.OperationalError as e:
+            if ("database is locked" in str(e) or "SQLITE_BUSY" in str(e)) and attempt < max_retries:
+                time.sleep(backoff_ms / 1000.0)
+                continue
+            raise
 
 
 def init_db() -> None:

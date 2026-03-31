@@ -436,5 +436,22 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_belief_timeline_timestamp ON belief_timeline(timestamp);
     """)
 
+    # User feedback table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rating TEXT NOT NULL CHECK(rating IN ('good', 'bad', 'meh')),
+            reason TEXT,
+            session_id TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            linked_memory_id INTEGER REFERENCES memories(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_feedback_rating ON feedback(rating);
+        CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_memory ON feedback(linked_memory_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+    """)
+
     conn.commit()
     conn.close()

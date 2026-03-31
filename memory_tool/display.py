@@ -302,6 +302,9 @@ Run Tracking (Phase 5):
 
 Search Feedback & Learning (Phase 6):
   memory-tool feedback <search_id> <id1,id2,id3>  # Log which search results were used
+  memory-tool feedback good|bad|meh ["reason"]  # Record user feedback on last AI action
+  memory-tool feedback                          # Show recent feedback entries
+  memory-tool feedback --stats                  # Show feedback statistics (good/bad/meh counts)
   memory-tool feedback-stats                    # Show search quality metrics and helpful/unhelpful memories
   memory-tool gaps                              # Show knowledge gaps (queries with poor results)
   memory-tool search-quality                    # Alias for feedback-stats

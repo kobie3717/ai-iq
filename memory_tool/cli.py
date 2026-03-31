@@ -792,7 +792,7 @@ def main() -> None:
             sys.exit(1)
         cmd_capture_correction(text)
 
-    elif cmd == "feedback" and len(sys.argv) >= 4:
+    elif cmd == "feedback" and len(sys.argv) >= 4 and sys.argv[2].isdigit():
         # memory-tool feedback <search_id> <used_id1,used_id2,...>
         search_id = int(sys.argv[2])
         used_ids = [int(x.strip()) for x in sys.argv[3].split(',') if x.strip()]
@@ -882,6 +882,100 @@ def main() -> None:
         conn.commit()
         conn.close()
         print(f"Cleared {count} search log entries")
+
+    elif cmd == "feedback" and len(sys.argv) >= 3 and sys.argv[2] in ["good", "bad", "meh"]:
+        # memory-tool feedback good/bad/meh "reason"
+        rating = sys.argv[2]
+        reason = sys.argv[3] if len(sys.argv) >= 4 else None
+
+        # Get most recent memory
+        conn = get_db()
+        last_memory = conn.execute("""
+            SELECT id FROM memories
+            WHERE active = 1
+            ORDER BY id DESC
+            LIMIT 1
+        """).fetchone()
+        linked_memory_id = last_memory['id'] if last_memory else None
+
+        # Try to get session ID from metrics file
+        session_id = None
+        try:
+            import json
+            from pathlib import Path
+            metrics_file = Path("/tmp/claude-session-metrics.json")
+            if metrics_file.exists():
+                data = json.loads(metrics_file.read_text())
+                session_id = data.get('startedAt', None)
+        except Exception:
+            pass
+
+        # Insert feedback
+        conn.execute("""
+            INSERT INTO feedback (rating, reason, session_id, linked_memory_id)
+            VALUES (?, ?, ?, ?)
+        """, (rating, reason, session_id, linked_memory_id))
+        conn.commit()
+
+        memory_info = f" (linked to memory #{linked_memory_id})" if linked_memory_id else ""
+        print(f"✓ Feedback recorded: {rating}{memory_info}")
+        if reason:
+            print(f"  Reason: {reason}")
+        conn.close()
+
+    elif cmd == "feedback" and len(sys.argv) == 2:
+        # memory-tool feedback (no args) - show recent feedback
+        conn = get_db()
+        rows = conn.execute("""
+            SELECT f.id, f.rating, f.reason, f.created_at, f.linked_memory_id,
+                   m.content as memory_content, m.category
+            FROM feedback f
+            LEFT JOIN memories m ON f.linked_memory_id = m.id
+            ORDER BY f.created_at DESC
+            LIMIT 10
+        """).fetchall()
+        conn.close()
+
+        if rows:
+            print("Recent Feedback")
+            print("=" * 70)
+            for r in rows:
+                created = r['created_at'][:16] if r['created_at'] else "unknown"
+                rating_emoji = "✓" if r['rating'] == "good" else "✗" if r['rating'] == "bad" else "~"
+                print(f"\n{rating_emoji} #{r['id']} [{r['rating'].upper()}] {created}")
+                if r['reason']:
+                    print(f"  Reason: {r['reason']}")
+                if r['linked_memory_id']:
+                    content = r['memory_content'][:60] + "..." if r['memory_content'] and len(r['memory_content']) > 60 else r['memory_content']
+                    print(f"  Memory #{r['linked_memory_id']} [{r['category']}]: {content}")
+            print(f"\n({len(rows)} feedback entries)")
+        else:
+            print("No feedback recorded yet.")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "--stats":
+        # memory-tool feedback --stats
+        conn = get_db()
+        stats = conn.execute("""
+            SELECT
+                rating,
+                COUNT(*) as count,
+                COUNT(DISTINCT session_id) as sessions,
+                COUNT(DISTINCT linked_memory_id) as unique_memories
+            FROM feedback
+            GROUP BY rating
+        """).fetchall()
+        total = conn.execute("SELECT COUNT(*) as c FROM feedback").fetchone()['c']
+        conn.close()
+
+        if total > 0:
+            print("Feedback Statistics")
+            print("=" * 70)
+            for s in stats:
+                pct = (s['count'] / total * 100) if total > 0 else 0
+                print(f"  {s['rating'].upper()}: {s['count']} ({pct:.0f}%) — {s['sessions']} sessions, {s['unique_memories']} memories")
+            print(f"\nTotal: {total} feedback entries")
+        else:
+            print("No feedback recorded yet.")
 
     elif cmd == "feedback-stats":
         # Alias for search-quality

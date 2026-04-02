@@ -60,6 +60,7 @@ memory-tool = "memory_tool.cli:main"
 
 [tool.setuptools]
 packages = ["memory_tool"]
+py-modules = ["ai_iq"]
 
 [tool.setuptools.package-data]
 memory_tool = ["py.typed"]

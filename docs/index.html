@@ -148,6 +148,13 @@ memory-tool dream</code></pre>
         </div>
     </section>
 
+    <section class="demo-section">
+        <div class="container">
+            <h2>See it in action</h2>
+            <div id="demo-player"></div>
+        </div>
+    </section>
+
     <section id="python-api" class="section">
         <div class="container">
             <h2>Python API Reference</h2>
@@ -725,6 +732,21 @@ memory-tool hot  # Show most accessed memories (immune to decay)</code></pre>
             } else {
                 navbar.style.boxShadow = 'none';
             }
+        });
+    </script>
+
+    <!-- Asciinema Player -->
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/asciinema-player@3.7.1/dist/bundle/asciinema-player.css" />
+    <script src="https://unpkg.com/asciinema-player@3.7.1/dist/bundle/asciinema-player.min.js"></script>
+    <script>
+        AsciinemaPlayer.create('demo.cast', document.getElementById('demo-player'), {
+            theme: 'monokai',
+            cols: 100,
+            rows: 30,
+            autoPlay: true,
+            speed: 1.5,
+            fit: 'width',
+            poster: 'npt:0:3'
         });
     </script>
 </body>

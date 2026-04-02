@@ -233,6 +233,29 @@ body {
     line-height: 1.6;
 }
 
+/* Demo Section */
+.demo-section {
+    padding: 4rem 0;
+    background: var(--bg-darker);
+    border-top: 1px solid var(--border);
+}
+
+.demo-section h2 {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+#demo-player {
+    max-width: 900px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
 /* Section */
 .section {
     padding: 4rem 0;

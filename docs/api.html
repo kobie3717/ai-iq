@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python API Reference — AI-IQ</title>
+    <meta name="description" content="Complete Python API reference for AI-IQ memory system. Memory class methods, search modes, and examples.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦀</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; color: var(--text-primary);">
+                    <span class="logo">🦀</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="quickstart.html">Quick Start</a>
+                <a href="api.html" style="color: var(--accent);">API</a>
+                <a href="cli.html">CLI</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section" style="padding-top: 6rem;">
+        <div class="container api-section">
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">Python API Reference</h1>
+            <p class="api-description">
+                Complete reference for using AI-IQ as a Python library. All methods are thread-safe via SQLite WAL mode.
+            </p>
+
+            <h2>Installation</h2>
+            <pre><code class="language-bash"># Basic installation
+pip install ai-iq
+
+# With semantic search (vector embeddings)
+pip install ai-iq[full]</code></pre>
+
+            <h2>Memory Class</h2>
+            <p class="api-description">
+                The <code>Memory</code> class provides the main interface to AI-IQ's persistent memory system.
+            </p>
+
+            <div class="api-method">
+                <h4>Memory(db_path=None)</h4>
+                <p>Initialize memory system with optional custom database path.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>db_path</code> (str, optional) — Path to SQLite database. Defaults to <code>./memories.db</code></li>
+                    </ul>
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python">from ai_iq import Memory
+
+# Default database (./memories.db)
+memory = Memory()
+
+# Custom database path
+memory = Memory("my_memories.db")</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>add(content, category="general", tags=None, project=None, priority=0, related_to=None, expires_at=None)</h4>
+                <p>Add a new memory to the system.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>content</code> (str, required) — The memory content</li>
+                        <li><code>category</code> (str) — Category: <code>project</code>, <code>decision</code>, <code>preference</code>, <code>error</code>, <code>learning</code>, <code>pending</code>, <code>architecture</code>, <code>workflow</code>, <code>contact</code>, <code>general</code></li>
+                        <li><code>tags</code> (str or list) — Comma-separated tags or list of tags</li>
+                        <li><code>project</code> (str) — Project name to associate this memory with</li>
+                        <li><code>priority</code> (int) — Priority level 0-10 (higher = more important)</li>
+                        <li><code>related_to</code> (int) — ID of related memory to link to</li>
+                        <li><code>expires_at</code> (str) — Expiry date in YYYY-MM-DD format</li>
+                    </ul>
+                    <strong>Returns:</strong> <code>int</code> — Memory ID if created, <code>None</code> if duplicate
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python"># Simple add
+memory.add("Docker containers need network_mode: host")
+
+# With full options
+mem_id = memory.add(
+    "Always use environment variables for secrets",
+    category="decision",
+    tags=["security", "best-practice"],
+    project="MyApp",
+    priority=9
+)</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>search(query, mode="hybrid", include_token_estimate=False, compact=True)</h4>
+                <p>Search memories with hybrid keyword + semantic search.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>query</code> (str) — Search query string</li>
+                        <li><code>mode</code> (str) — Search mode: <code>"hybrid"</code> (default), <code>"keyword"</code>, or <code>"semantic"</code></li>
+                        <li><code>include_token_estimate</code> (bool) — Add token_estimate field to results</li>
+                        <li><code>compact</code> (bool) — Return minimal fields (id, content truncated, category, tags). Default: <code>True</code></li>
+                    </ul>
+                    <strong>Returns:</strong> <code>List[Dict]</code> — List of memory dictionaries
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python"># Compact search (default) - minimal data transfer
+results = memory.search("redis caching")
+for r in results:
+    print(f"#{r['id']}: {r['content']}")  # Content truncated to 100 chars
+
+# Full search - get all data
+results = memory.search("redis", compact=False)
+for r in results:
+    print(r['content'])  # Full content
+
+# With token estimates for budget planning
+results = memory.search("redis", include_token_estimate=True)
+total_tokens = sum(r['token_estimate'] for r in results)
+print(f"Reading all results would cost ~{total_tokens} tokens")</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>get(mem_id)</h4>
+                <p>Get full details for a single memory by ID.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>mem_id</code> (int) — Memory ID</li>
+                    </ul>
+                    <strong>Returns:</strong> <code>Dict</code> or <code>None</code> — Dictionary with all memory fields, or None if not found
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python">mem = memory.get(42)
+if mem:
+    print(mem["content"])
+    print(mem["category"])
+    print(mem["created_at"])</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>update(mem_id, content)</h4>
+                <p>Update a memory's content. Auto-updates tags, revision count, and re-generates embeddings.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>mem_id</code> (int) — Memory ID to update</li>
+                        <li><code>content</code> (str) — New content</li>
+                    </ul>
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python">memory.update(42, "Updated content here")</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>delete(mem_id)</h4>
+                <p>Soft-delete a memory (marks as inactive, recoverable).</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>mem_id</code> (int) — Memory ID to delete</li>
+                    </ul>
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python">memory.delete(42)</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>list(category=None, project=None, tag=None, stale_only=False, expired_only=False)</h4>
+                <p>List memories with optional filters.</p>
+                <div class="params">
+                    <strong>Parameters:</strong>
+                    <ul>
+                        <li><code>category</code> (str) — Filter by category</li>
+                        <li><code>project</code> (str) — Filter by project name</li>
+                        <li><code>tag</code> (str) — Filter by tag (partial match)</li>
+                        <li><code>stale_only</code> (bool) — Only show stale memories</li>
+                        <li><code>expired_only</code> (bool) — Only show expired memories</li>
+                    </ul>
+                    <strong>Returns:</strong> <code>List[Dict]</code> — List of memory dictionaries
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python"># Get all memories for a project
+mems = memory.list(project="MyApp")
+
+# Get all pending items
+todos = memory.list(category="pending")
+
+# Get stale memories that need review
+stale = memory.list(stale_only=True)</code></pre>
+                </div>
+            </div>
+
+            <div class="api-method">
+                <h4>stats()</h4>
+                <p>Get database statistics.</p>
+                <div class="params">
+                    <strong>Returns:</strong> <code>Dict</code> — Dictionary with memory counts, vector counts, etc.
+                </div>
+                <div class="code-example">
+                    <pre><code class="language-python">stats = memory.stats()
+print(f"Total memories: {stats['total']}")
+print(f"Active memories: {stats['active']}")
+print(f"Categories: {stats['categories']}")
+print(f"Vector embeddings: {stats['vectors']}")</code></pre>
+                </div>
+            </div>
+
+            <h2>Search Modes</h2>
+            <p class="api-description">AI-IQ supports three search modes, combined via Reciprocal Rank Fusion (RRF).</p>
+
+            <div class="feature-detail">
+                <h3>Hybrid Search (default)</h3>
+                <p>Combines keyword search (FTS5), semantic search (vector similarity), and graph traversal. Best for most use cases.</p>
+                <pre><code class="language-python">results = memory.search("redis caching")</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>Keyword Search</h3>
+                <p>Fast exact/partial text matching using SQLite FTS5. Best for specific terms or technical names.</p>
+                <pre><code class="language-python">results = memory.search("redis", mode="keyword")</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>Semantic Search</h3>
+                <p>Conceptual similarity using vector embeddings (384-dim all-MiniLM-L6-v2). Best for finding related concepts.</p>
+                <pre><code class="language-python">results = memory.search("caching strategy", mode="semantic")</code></pre>
+            </div>
+
+            <h2>Complete Example</h2>
+            <pre><code class="language-python">from ai_iq import Memory
+
+# Initialize
+memory = Memory("my_app.db")
+
+# Add memories
+id1 = memory.add(
+    "Docker containers need network_mode: host for Redis",
+    category="learning",
+    tags=["docker", "redis", "networking"],
+    project="Backend"
+)
+
+id2 = memory.add(
+    "Always use environment variables for secrets",
+    category="decision",
+    tags=["security", "best-practice"],
+    priority=9
+)
+
+# Search
+results = memory.search("docker redis")
+print(f"Found {len(results)} results:")
+for r in results:
+    print(f"  #{r['id']}: {r['content'][:60]}...")
+
+# Get specific memory
+mem = memory.get(id1)
+print(f"\nMemory #{mem['id']}:")
+print(f"  Content: {mem['content']}")
+print(f"  Tags: {mem['tags']}")
+print(f"  Created: {mem['created_at']}")
+
+# Update
+memory.update(id1, "Docker ALWAYS needs network_mode: host for Redis")
+
+# List by project
+backend_mems = memory.list(project="Backend")
+print(f"\n{len(backend_mems)} memories in Backend project")
+
+# Statistics
+stats = memory.stats()
+print(f"\nTotal: {stats['total']}, Active: {stats['active']}")
+print(f"Categories: {list(stats['categories'].keys())}")
+
+# Clean up
+memory.delete(id2)</code></pre>
+
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 AI-IQ. <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE">MIT License</a></p>
+            <p>
+                <a href="https://github.com/kobie3717/ai-iq">GitHub</a> &middot;
+                <a href="https://pypi.org/project/ai-iq/">PyPI</a> &middot;
+                <a href="https://discord.gg/Y2jCXNGgE">Discord</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</body>
+</html>

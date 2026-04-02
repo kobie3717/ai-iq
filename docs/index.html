@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-IQ — Give Your AI Long-Term Memory in 1 Command</title>
+    <meta name="description" content="SQLite for AI memory. No servers, no setup. Hybrid search, knowledge graphs, beliefs with confidence tracking. Works with any Python agent.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦀</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; color: var(--text-primary);">
+                    <span class="logo">🦀</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" style="color: var(--accent);">Home</a>
+                <a href="quickstart.html">Quick Start</a>
+                <a href="api.html">API</a>
+                <a href="cli.html">CLI</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="gradient-text">Give your AI long-term memory</span><br>in 1 command
+                </h1>
+                <p class="hero-subtitle">LLMs forget everything. AI-IQ makes them remember.</p>
+                <p class="hero-description">
+                    Single SQLite file = your AI's brain. No servers, no vector DB, no setup.
+                </p>
+                <div class="hero-install">
+                    <pre><code class="language-bash">pip install ai-iq</code></pre>
+                    <button class="copy-btn" data-clipboard="pip install ai-iq">Copy</button>
+                </div>
+                <div class="hero-badges">
+                    <a href="https://pypi.org/project/ai-iq/" target="_blank" rel="noopener">
+                        <img src="https://img.shields.io/pypi/v/ai-iq?style=flat-square&color=FF6B35" alt="PyPI">
+                    </a>
+                    <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                        <img src="https://img.shields.io/github/stars/kobie3717/ai-iq?style=flat-square&color=FF6B35" alt="GitHub stars">
+                    </a>
+                    <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE" target="_blank" rel="noopener">
+                        <img src="https://img.shields.io/badge/license-MIT-FF6B35?style=flat-square" alt="License">
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="why-section">
+        <div class="container">
+            <h2>Why AI-IQ?</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>Single SQLite File</h3>
+                    <p>Your AI's entire brain in one portable file. No servers, no vector databases, no setup.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>100% Local</h3>
+                    <p>Works offline. Own your data. Zero API keys. Zero cloud dependencies.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔌</div>
+                    <h3>Vendor-Agnostic</h3>
+                    <p>Works with any Python agent. Not locked to Claude, OpenAI, or any vendor.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Hybrid Search</h3>
+                    <p>Keyword (FTS5) + semantic (vector) + graph traversal, fused with RRF.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Natural Decay</h3>
+                    <p>Memories fade naturally using FSRS-6 algorithm, just like human memory.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💤</div>
+                    <h3>Dream Mode</h3>
+                    <p>REM-like consolidation: dedup, conflict detection, pattern strengthening.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="quick-start" class="section">
+        <div class="container">
+            <h2>Quick Start</h2>
+
+            <div class="code-example">
+                <h3>Python API</h3>
+                <pre><code class="language-python">from ai_iq import Memory
+
+memory = Memory()
+
+# Add memories
+memory.add("User prefers dark mode", tags=["preference", "ui"])
+memory.add("Redis bug fixed with network_mode: host", category="learning")
+
+# Search (hybrid keyword + semantic)
+results = memory.search("redis networking")
+for r in results:
+    print(f"#{r['id']}: {r['content']}")
+
+# Update and delete
+memory.update(1, "User STRONGLY prefers dark mode")
+memory.delete(1)</code></pre>
+                <button class="copy-btn" data-clipboard-target="pre">Copy</button>
+            </div>
+
+            <div class="code-example">
+                <h3>Command Line</h3>
+                <pre><code class="language-bash"># Add memories
+memory-tool add learning "Docker needs network_mode: host" --project MyApp
+
+# Search
+memory-tool search "docker networking"
+
+# Consolidate and cleanup
+memory-tool dream</code></pre>
+                <button class="copy-btn" data-clipboard-target="pre">Copy</button>
+            </div>
+
+            <div class="code-example">
+                <h3>Claude Code Plugin</h3>
+                <pre><code class="language-bash"># Install as Claude Code plugin with auto-capture
+/plugin marketplace add kobie3717/ai-iq
+/plugin install ai-iq</code></pre>
+                <button class="copy-btn" data-clipboard-target="pre">Copy</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="python-api" class="section">
+        <div class="container">
+            <h2>Python API Reference</h2>
+
+            <div class="api-section">
+                <h3>Class: <code>Memory</code></h3>
+                <p class="api-description">The main entry point for the AI-IQ memory system.</p>
+
+                <div class="api-method">
+                    <h4><code>Memory(db_path: Optional[str] = None)</code></h4>
+                    <p>Initialize memory system with optional custom database path.</p>
+                    <pre><code class="language-python">memory = Memory()  # Uses ./memories.db
+memory = Memory("my_memories.db")  # Custom path</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>add(content, category="general", tags=None, project=None, priority=0, related_to=None, expires_at=None)</code></h4>
+                    <p>Add a new memory. Returns memory ID or None if duplicate.</p>
+                    <div class="params">
+                        <strong>Parameters:</strong>
+                        <ul>
+                            <li><code>content</code> (str) — Memory content (required)</li>
+                            <li><code>category</code> (str) — One of: project, decision, preference, error, learning, pending, architecture, workflow, contact, general</li>
+                            <li><code>tags</code> (str | list) — Comma-separated tags or list</li>
+                            <li><code>project</code> (str) — Project name</li>
+                            <li><code>priority</code> (int) — Priority 0-10 (higher = more important)</li>
+                            <li><code>related_to</code> (int) — ID of related memory</li>
+                            <li><code>expires_at</code> (str) — Expiry date in YYYY-MM-DD format</li>
+                        </ul>
+                    </div>
+                    <pre><code class="language-python">mem_id = memory.add(
+    "Use Redis for session storage",
+    category="decision",
+    tags=["redis", "caching"],
+    project="MyApp",
+    priority=8
+)</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>search(query, mode="hybrid", include_token_estimate=False, compact=True)</code></h4>
+                    <p>Search memories with hybrid keyword + semantic search.</p>
+                    <div class="params">
+                        <strong>Parameters:</strong>
+                        <ul>
+                            <li><code>query</code> (str) — Search query</li>
+                            <li><code>mode</code> (str) — "hybrid" (default), "keyword", or "semantic"</li>
+                            <li><code>include_token_estimate</code> (bool) — Add token estimates to results</li>
+                            <li><code>compact</code> (bool) — If True (default), truncate content to 100 chars</li>
+                        </ul>
+                    </div>
+                    <pre><code class="language-python"># Compact mode (default)
+results = memory.search("redis caching")
+for r in results:
+    print(f"#{r['id']}: {r['content']}")  # Truncated
+
+# Full mode
+results = memory.search("redis", compact=False)
+for r in results:
+    print(r['content'])  # Full content</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>get(mem_id: int)</code></h4>
+                    <p>Get full details for a single memory by ID. Returns dict or None.</p>
+                    <pre><code class="language-python">mem = memory.get(42)
+if mem:
+    print(mem["content"])</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>update(mem_id: int, content: str)</code></h4>
+                    <p>Update memory content. Auto-updates tags and re-generates embeddings.</p>
+                    <pre><code class="language-python">memory.update(42, "Updated content here")</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>delete(mem_id: int)</code></h4>
+                    <p>Soft-delete a memory (marks as inactive, recoverable).</p>
+                    <pre><code class="language-python">memory.delete(42)</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>list(category=None, project=None, tag=None, stale_only=False, expired_only=False)</code></h4>
+                    <p>List memories with optional filters. Returns list of dicts.</p>
+                    <pre><code class="language-python"># Get all memories for a project
+mems = memory.list(project="MyApp")
+
+# Get all pending items
+todos = memory.list(category="pending")
+
+# Get stale memories that need review
+stale = memory.list(stale_only=True)</code></pre>
+                </div>
+
+                <div class="api-method">
+                    <h4><code>stats()</code></h4>
+                    <p>Get database statistics. Returns dict with memory counts.</p>
+                    <pre><code class="language-python">stats = memory.stats()
+print(f"Total memories: {stats['total']}")
+print(f"Active memories: {stats['active']}")
+print(f"Categories: {stats['categories']}")</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="cli" class="section">
+        <div class="container">
+            <h2>CLI Reference</h2>
+
+            <div class="cli-section">
+                <h3>Core Operations</h3>
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool add &lt;category&gt; "&lt;content&gt;" [options]</code></td>
+                            <td>Create memory with optional --project, --tags, --priority, --expires, --key</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool update &lt;id&gt; "&lt;content&gt;"</code></td>
+                            <td>Update memory (auto re-embeds for semantic search)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool delete &lt;id&gt;</code></td>
+                            <td>Soft delete (recoverable)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool get &lt;id&gt;</code></td>
+                            <td>Full detail view with relationships</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool list [filters]</code></td>
+                            <td>Filter with --project/--category/--tag/--stale/--expired</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cli-section">
+                <h3>Search & Discovery</h3>
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;"</code></td>
+                            <td>Hybrid search (keyword + semantic + graph)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --full</code></td>
+                            <td>Verbose output with full content</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --semantic</code></td>
+                            <td>Semantic-only (vector similarity)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --keyword</code></td>
+                            <td>Keyword-only (FTS5)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool conflicts</code></td>
+                            <td>Find 50-85% similar memories (potential duplicates)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool pending</code></td>
+                            <td>Show TODO items</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool hot</code></td>
+                            <td>Most accessed memories (immune to decay)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cli-section">
+                <h3>Beliefs & Predictions</h3>
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool believe "&lt;statement&gt;" --confidence 0.7</code></td>
+                            <td>Create belief with confidence score (0.01-0.99)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predict "&lt;prediction&gt;" --based-on &lt;id&gt; --deadline YYYY-MM-DD</code></td>
+                            <td>Make testable prediction</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool resolve &lt;pred_id&gt; --confirmed "&lt;outcome&gt;"</code></td>
+                            <td>Resolve prediction (auto-updates belief confidence)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs [--weak|--strong|--conflicts]</code></td>
+                            <td>List beliefs by confidence</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions [--open|--confirmed|--refuted]</code></td>
+                            <td>Filter predictions by status</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cli-section">
+                <h3>Knowledge Graph</h3>
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool graph add &lt;type&gt; &lt;name&gt; [summary]</code></td>
+                            <td>Create entity (person/project/org/feature/concept/tool/service)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph rel &lt;from&gt; &lt;type&gt; &lt;to&gt;</code></td>
+                            <td>Add relationship (uses/depends_on/PREVENTS/RESOLVES/LEADS_TO)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph fact &lt;entity&gt; &lt;key&gt; &lt;value&gt;</code></td>
+                            <td>Set entity metadata (tracks history)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph get &lt;name&gt;</code></td>
+                            <td>Entity details with facts + relationships + linked memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph spread &lt;name&gt; [depth]</code></td>
+                            <td>Spreading activation (find related context)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph auto-link</code></td>
+                            <td>Auto-link all memories to entities by keyword matching</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cli-section">
+                <h3>Maintenance</h3>
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool dream</code></td>
+                            <td>Consolidate duplicates, resolve conflicts, normalize metadata</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool decay</code></td>
+                            <td>Flag stale memories, reduce priorities, expire old TODOs</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool next</code></td>
+                            <td>Smart suggestions: what needs attention now</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool stats</code></td>
+                            <td>Full statistics (memories + vectors + graph + beliefs)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool backup</code></td>
+                            <td>Manual backup to ~/.claude/backups/</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool restore &lt;file&gt;</code></td>
+                            <td>Restore from backup</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="section">
+        <div class="container">
+            <h2>Advanced Features</h2>
+
+            <div class="feature-detail">
+                <h3>🎯 Belief System (Unique to AI-IQ)</h3>
+                <p>Track what your AI thinks it knows with confidence scores (0.01-0.99). When predictions resolve, related beliefs strengthen or weaken automatically via Bayesian-style learning.</p>
+                <pre><code class="language-bash">memory-tool believe "TypeScript reduces bugs vs JavaScript" --confidence 0.75
+memory-tool predict "Next rewrite will have 30% fewer runtime errors" --based-on 1 --deadline 2026-06-01
+memory-tool resolve 1 --confirmed "Runtime errors down 42%"  # Belief → 0.85
+memory-tool beliefs --weak  # Show lowest confidence beliefs</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>💤 Dream Mode (Unique to AI-IQ)</h3>
+                <p>Autonomous consolidation inspired by REM sleep in biological memory. Finds duplicates (85-95% similar), auto-merges with provenance, detects contradictions, and strengthens frequently-accessed patterns.</p>
+                <pre><code class="language-bash">memory-tool dream
+# Output:
+#   Consolidated 5 duplicates (kept newer, marked old as superseded)
+#   Detected 2 potential contradictions (flagged for review)
+#   Normalized 8 dates to ISO format
+#   Strengthened 12 high-access memories (+1 priority)</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>🔗 Knowledge Graph</h3>
+                <p>Build relationships between entities and extract context via spreading activation. Supports causal edges (PREVENTS, RESOLVES, LEADS_TO, REQUIRES) for cause-effect reasoning.</p>
+                <pre><code class="language-bash">memory-tool graph add project WhatsAuction "Real-time auction platform"
+memory-tool graph add tool Redis "In-memory cache"
+memory-tool graph rel WhatsAuction uses Redis "For session storage"
+memory-tool graph rel WhatsAuction REQUIRES Redis "Cache must be up before app"
+memory-tool graph spread WhatsAuction --depth 2  # Find all related context</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>🎭 Identity Layer (Unique to AI-IQ)</h3>
+                <p>Discovers behavioral traits from memory patterns. Detects tendencies like <code>prefers_docker</code>, <code>ships_fast</code>, <code>tests_first</code> with evidence count and confidence tracking.</p>
+                <pre><code class="language-bash">memory-tool identity --discover
+memory-tool identity --snapshot "After WhatsAuction rewrite"
+memory-tool identity --evolution prefers_docker  # Show trait changes over time</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>📖 Narrative Memory (Unique to AI-IQ)</h3>
+                <p>Builds cause-effect stories from causal graph edges. Walks LEADS_TO, PREVENTS, RESOLVES, REQUIRES edges chronologically with linked context.</p>
+                <pre><code class="language-bash">memory-tool narrative WhatsAuction</code></pre>
+            </div>
+
+            <div class="feature-detail">
+                <h3>📊 Meta-Learning (Unique to AI-IQ)</h3>
+                <p>Self-improving search that tracks which results you actually use. Auto-adjusts RRF fusion weights based on keyword vs semantic hit rates.</p>
+                <pre><code class="language-bash">memory-tool search-quality  # View effectiveness metrics
+memory-tool hot  # Show most accessed memories (immune to decay)</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="comparison-section">
+        <div class="container">
+            <h2>Why AI-IQ vs. Others?</h2>
+            <div class="comparison-table-wrapper">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th class="highlight-col">AI-IQ</th>
+                            <th>Mem0</th>
+                            <th>Zep/Graphiti</th>
+                            <th>Letta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Portable single file</td>
+                            <td class="highlight-col">✅ SQLite</td>
+                            <td>❌ Cloud DB</td>
+                            <td>❌ Cloud DB</td>
+                            <td>✅ Filesystem</td>
+                        </tr>
+                        <tr>
+                            <td>Beliefs with confidence</td>
+                            <td class="highlight-col">✅ Full system</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Prediction engine</td>
+                            <td class="highlight-col">✅ Bayesian updates</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Dream consolidation</td>
+                            <td class="highlight-col">✅ REM-like</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Identity layer</td>
+                            <td class="highlight-col">✅ Auto-discovers</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Narrative memory</td>
+                            <td class="highlight-col">✅ Causal chains</td>
+                            <td>❌ None</td>
+                            <td>⚠️ Temporal only</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Meta-learning search</td>
+                            <td class="highlight-col">✅ Feedback loop</td>
+                            <td>❌ Static</td>
+                            <td>❌ Static</td>
+                            <td>❌ Static</td>
+                        </tr>
+                        <tr>
+                            <td>100% local</td>
+                            <td class="highlight-col">✅</td>
+                            <td>❌ Cloud SaaS</td>
+                            <td>❌ Cloud SaaS</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td>No vendor lock-in</td>
+                            <td class="highlight-col">✅ Standard SQL</td>
+                            <td>❌ Proprietary API</td>
+                            <td>❌ Proprietary</td>
+                            <td>✅ Open format</td>
+                        </tr>
+                        <tr>
+                            <td>Knowledge graph</td>
+                            <td class="highlight-col">✅ Entities + relationships</td>
+                            <td>✅ Strong</td>
+                            <td>✅ Very strong</td>
+                            <td>❌ None</td>
+                        </tr>
+                        <tr>
+                            <td>Hybrid search</td>
+                            <td class="highlight-col">✅ RRF fusion</td>
+                            <td>✅ Yes</td>
+                            <td>✅ Yes</td>
+                            <td>⚠️ Tiered only</td>
+                        </tr>
+                        <tr>
+                            <td>Zero dependencies</td>
+                            <td class="highlight-col">✅ Core works bare</td>
+                            <td>❌ Heavy stack</td>
+                            <td>❌ Heavy stack</td>
+                            <td>❌ Heavy stack</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="usage-section">
+        <div class="container">
+            <h2>Production Stats</h2>
+            <p class="stats-intro">Real-world usage from 6 months of daily use:</p>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">220+</div>
+                    <div class="stat-label">Active memories across 7 projects</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">697</div>
+                    <div class="stat-label">Duplicates consolidated via dream mode</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">32</div>
+                    <div class="stat-label">Entities in knowledge graph</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">18</div>
+                    <div class="stat-label">Beliefs with confidence tracking</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Predictions resolved (9 confirmed, 3 refuted)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Data loss or corruption incidents</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>Get Started</h2>
+            <div class="cta-content">
+                <pre><code class="language-bash">pip install ai-iq</code></pre>
+                <button class="copy-btn" data-clipboard="pip install ai-iq">Copy</button>
+            </div>
+            <div class="cta-links">
+                <a href="https://github.com/kobie3717/ai-iq" class="cta-button" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+                <a href="https://pypi.org/project/ai-iq/" class="cta-button secondary" target="_blank" rel="noopener">
+                    PyPI Package
+                </a>
+                <a href="https://github.com/kobie3717/ai-iq/tree/main/examples" class="cta-button secondary" target="_blank" rel="noopener">
+                    View Examples
+                </a>
+            </div>
+            <p class="requirements">Requirements: Python 3.8+ and SQLite 3.37+</p>
+            <p class="requirements">Optional: <code>pip install ai-iq[full]</code> for semantic search</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ by <a href="https://github.com/kobie3717" target="_blank" rel="noopener">kobie3717</a></p>
+            <p>Licensed under <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script>
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const text = button.getAttribute('data-clipboard');
+                const target = button.getAttribute('data-clipboard-target');
+
+                let textToCopy = text;
+                if (target) {
+                    const codeElement = button.closest('.code-example, .hero-install, .cta-content').querySelector(target + ' code');
+                    textToCopy = codeElement ? codeElement.textContent : text;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    button.style.background = '#FF6B35';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                }
+            });
+        });
+
+        // Smooth scroll for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Navbar shadow on scroll
+        window.addEventListener('scroll', () => {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+            } else {
+                navbar.style.boxShadow = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Reference — AI-IQ</title>
+    <meta name="description" content="Complete CLI and Python API reference for AI-IQ persistent memory system.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <style>
+        .reference-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 48px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+        .sidebar {
+            position: sticky;
+            top: 80px;
+            height: fit-content;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .sidebar h3 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        .sidebar nav {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar a {
+            padding: 8px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .sidebar a:hover {
+            background: var(--bg-code);
+            color: var(--accent);
+        }
+        .sidebar a.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .content-section {
+            margin-bottom: 4rem;
+        }
+        .content-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+        .content-section h3 {
+            font-size: 1.5rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        @media (max-width: 1024px) {
+            .reference-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: static;
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                    <span class="logo">🧠</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="quickstart.html">Quick Start</a>
+                <a href="reference.html" style="color: var(--accent);">Reference</a>
+                <a href="plugins.html">Plugins</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="reference-container">
+        <aside class="sidebar">
+            <h3>Navigation</h3>
+            <nav id="sidebar-nav">
+                <a href="#core-operations">Core Operations</a>
+                <a href="#search-discovery">Search & Discovery</a>
+                <a href="#beliefs-predictions">Beliefs & Predictions</a>
+                <a href="#knowledge-graph">Knowledge Graph</a>
+                <a href="#identity-narrative">Identity & Narrative</a>
+                <a href="#meta-learning">Meta-Learning</a>
+                <a href="#session-management">Session Management</a>
+                <a href="#maintenance">Maintenance</a>
+                <a href="#sync">Cross-Tool Sync</a>
+                <a href="#python-api">Python API</a>
+            </nav>
+        </aside>
+
+        <main>
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">Complete Reference</h1>
+            <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem;">
+                Full CLI and Python API documentation for AI-IQ persistent memory system.
+            </p>
+
+            <!-- Core Operations -->
+            <section id="core-operations" class="content-section">
+                <h2>Core Operations</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Basic CRUD operations for creating, reading, updating, and deleting memories.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool add &lt;category&gt; "&lt;content&gt;" [options]</code></td>
+                            <td>Create memory with optional --project, --tags, --priority, --expires, --key</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool update &lt;id&gt; "&lt;content&gt;"</code></td>
+                            <td>Update memory (auto re-embeds for semantic search)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool delete &lt;id&gt;</code></td>
+                            <td>Soft delete (recoverable)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool get &lt;id&gt;</code></td>
+                            <td>Full detail view with relationships</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool list [filters]</code></td>
+                            <td>Filter with --project/--category/--tag/--stale/--expired</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Add memories with metadata
+memory-tool add decision "Chose PostgreSQL for JSONB support" --project BlogAPI --priority 8
+memory-tool add error "CORS fix: add credentials: include" --tags cors,fetch
+
+# Upsert-style with topic keys (updates instead of creating duplicates)
+memory-tool add preference "Dark mode preferred" --key user_theme_preference
+memory-tool add preference "Dark mode with high contrast" --key user_theme_preference  # Updates previous
+
+# Set expiry for temporary TODOs
+memory-tool add pending "Review PR #123" --expires 2026-04-15
+
+# Update existing memory
+memory-tool update 42 "Chose PostgreSQL for JSONB and better full-text search"
+
+# Get full details
+memory-tool get 42
+
+# List with filters
+memory-tool list --project BlogAPI
+memory-tool list --category error
+memory-tool list --tag cors
+memory-tool list --stale           # Show stale memories
+memory-tool list --expired         # Show expired memories</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Search & Discovery -->
+            <section id="search-discovery" class="content-section">
+                <h2>Search & Discovery</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Hybrid search combining keyword (FTS5), semantic (vector), and graph traversal.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;"</code></td>
+                            <td>Hybrid search (default) — keyword + semantic + graph with RRF fusion</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --full</code></td>
+                            <td>Verbose output with full content and metadata</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --semantic</code></td>
+                            <td>Semantic-only (vector similarity using all-MiniLM-L6-v2)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --keyword</code></td>
+                            <td>Keyword-only (FTS5 full-text search)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool conflicts</code></td>
+                            <td>Find 50-85% similar memories (potential duplicates)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool merge &lt;id1&gt; &lt;id2&gt;</code></td>
+                            <td>Merge similar memories (keeps newer)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool supersede &lt;old&gt; &lt;new&gt;</code></td>
+                            <td>Mark old as superseded by new</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool pending</code></td>
+                            <td>Show TODO items (category=pending)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool hot</code></td>
+                            <td>Most accessed memories (access_count >= 5 = immune to decay)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool next</code></td>
+                            <td>Smart suggestions: what needs attention now</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Search with different modes
+memory-tool search "redis cache"              # Hybrid (default)
+memory-tool search "redis cache" --full       # Full details
+memory-tool search "redis cache" --semantic   # Conceptual similarity
+memory-tool search "redis cache" --keyword    # Exact word matching
+
+# Find and resolve conflicts
+memory-tool conflicts                         # Show potential duplicates
+memory-tool merge 42 43                       # Merge #42 and #43 (keeps newer)
+memory-tool supersede 42 43                   # Mark #42 as superseded by #43
+
+# Review action items
+memory-tool pending                           # Show all TODOs
+memory-tool hot                               # Show frequently accessed memories
+memory-tool next                              # Get smart suggestions</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Beliefs & Predictions -->
+            <section id="beliefs-predictions" class="content-section">
+                <h2>Beliefs & Predictions</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    <strong>Unique to AI-IQ:</strong> Track confidence-scored beliefs and testable predictions with Bayesian updates.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool believe "&lt;statement&gt;" --confidence 0.7</code></td>
+                            <td>Create belief with confidence score (0.01-0.99)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predict "&lt;prediction&gt;" --based-on &lt;id&gt; --deadline YYYY-MM-DD</code></td>
+                            <td>Make testable prediction based on a belief</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool resolve &lt;pred_id&gt; --confirmed "&lt;outcome&gt;"</code></td>
+                            <td>Resolve prediction as confirmed (strengthens related beliefs)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool resolve &lt;pred_id&gt; --refuted "&lt;outcome&gt;"</code></td>
+                            <td>Resolve prediction as refuted (weakens related beliefs)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs</code></td>
+                            <td>List all beliefs sorted by confidence</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs --weak</code></td>
+                            <td>Show weakest beliefs (lowest confidence)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs --strong</code></td>
+                            <td>Show strongest beliefs (highest confidence)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs --conflicts</code></td>
+                            <td>Find contradicting beliefs</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions</code></td>
+                            <td>List all predictions</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions --open</code></td>
+                            <td>Open predictions only</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions --confirmed</code></td>
+                            <td>Confirmed predictions</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions --refuted</code></td>
+                            <td>Refuted predictions</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions --expired</code></td>
+                            <td>Past deadline but unresolved</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Create a belief
+memory-tool believe "TypeScript reduces bugs vs JavaScript" --confidence 0.75 --project CompanyCodebase
+
+# Make a testable prediction
+memory-tool predict "Next rewrite will have 30% fewer runtime errors" --based-on 1 --deadline 2026-06-01 --expect "30% reduction"
+
+# Resolve prediction (automatically updates belief confidence)
+memory-tool resolve 1 --confirmed "Runtime errors down 42%"  # Belief #1 → 0.85 confidence
+memory-tool resolve 2 --refuted "No measurable change"       # Belief #1 → 0.65 confidence
+
+# Query beliefs and predictions
+memory-tool beliefs                 # All beliefs
+memory-tool beliefs --weak          # Beliefs < 0.5 confidence
+memory-tool beliefs --strong        # Beliefs > 0.8 confidence
+memory-tool beliefs --conflicts     # Contradicting beliefs
+
+memory-tool predictions             # All predictions
+memory-tool predictions --open      # Active predictions
+memory-tool predictions --expired   # Past deadline</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Knowledge Graph -->
+            <section id="knowledge-graph" class="content-section">
+                <h2>Knowledge Graph</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Build relationships between entities with spreading activation retrieval and causal reasoning.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool graph add &lt;type&gt; &lt;name&gt; [summary]</code></td>
+                            <td>Create entity (person/project/org/feature/concept/tool/service)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph rel &lt;from&gt; &lt;type&gt; &lt;to&gt; [note]</code></td>
+                            <td>Add relationship: knows, works_on, owns, depends_on, built_by, uses, related_to, PREVENTS, RESOLVES, LEADS_TO, REQUIRES</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph fact &lt;entity&gt; &lt;key&gt; &lt;value&gt;</code></td>
+                            <td>Set entity metadata (auto-tracks history)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph get &lt;name&gt;</code></td>
+                            <td>Entity details with facts + relationships + linked memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph list [type]</code></td>
+                            <td>List all entities or filter by type</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph spread &lt;name&gt; [depth]</code></td>
+                            <td>Spreading activation (find related entities, default depth=2)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph link &lt;mem_id&gt; &lt;entity&gt;</code></td>
+                            <td>Link memory to entity manually</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph auto-link</code></td>
+                            <td>Auto-link all memories to entities by keyword matching</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Create entities
+memory-tool graph add project WhatsAuction "Real-time auction platform"
+memory-tool graph add tool Redis "In-memory cache"
+memory-tool graph add person Alice "Frontend lead"
+
+# Add relationships (semantic edges)
+memory-tool graph rel WhatsAuction uses Redis "For session storage"
+memory-tool graph rel Alice works_on WhatsAuction "Lead developer"
+
+# Add causal relationships (causal edges for reasoning)
+memory-tool graph rel WhatsAuction REQUIRES Redis "Cache must be up before app starts"
+memory-tool graph rel Redis PREVENTS SessionLoss "Keeps sessions in memory"
+
+# Set facts
+memory-tool graph fact Redis version "7.2.4"
+memory-tool graph fact Redis port "6379"
+memory-tool graph fact WhatsAuction status "production"
+
+# Query graph
+memory-tool graph get WhatsAuction           # Full details
+memory-tool graph spread WhatsAuction 2      # Find related context (depth=2)
+memory-tool graph list                       # All entities
+memory-tool graph list tool                  # Tools only
+
+# Link memories to entities
+memory-tool graph link 42 WhatsAuction       # Link memory #42
+memory-tool graph auto-link                  # Auto-link all memories</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Identity & Narrative -->
+            <section id="identity-narrative" class="content-section">
+                <h2>Identity & Narrative</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    <strong>Unique to AI-IQ:</strong> Discover behavioral traits and build cause-effect stories from memory patterns.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool identity --discover</code></td>
+                            <td>Detect behavioral traits from memory patterns</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool identity --snapshot "&lt;desc&gt;"</code></td>
+                            <td>Save current trait snapshot with description</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool identity --evolution &lt;trait&gt;</code></td>
+                            <td>Show how a specific trait changed over time</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool narrative &lt;entity&gt;</code></td>
+                            <td>Build cause-effect story from causal graph edges</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Identity layer
+memory-tool identity --discover
+# Output: Discovered traits: prefers_docker (8 instances), ships_fast (5), tests_first (3)
+
+memory-tool identity --snapshot "After WhatsAuction rewrite"
+# Saves current state for comparison
+
+memory-tool identity --evolution prefers_docker
+# Shows how 'prefers_docker' trait changed over time
+
+# Narrative memory
+memory-tool narrative WhatsAuction
+# Builds chronological story: Redis REQUIRES startup → WhatsAuction uses Redis → deployment LEADS_TO scaling</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Meta-Learning -->
+            <section id="meta-learning" class="content-section">
+                <h2>Meta-Learning & Feedback</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    <strong>Unique to AI-IQ:</strong> Search improves from usage patterns, tracking which results you actually use.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool search-quality</code></td>
+                            <td>View keyword/semantic effectiveness metrics</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool feedback &lt;search_id&gt; &lt;used_ids&gt;</code></td>
+                            <td>Manual feedback logging (which results were useful)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool tune-weights</code></td>
+                            <td>Re-calculate RRF fusion weights from feedback data</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># View search quality metrics
+memory-tool search-quality
+# Shows: keyword hit rate 73%, semantic hit rate 45%, RRF weights adjusted
+
+# Provide manual feedback (which results you used)
+memory-tool feedback 42 1,3,5   # Search #42 used memories #1, #3, #5
+
+# Re-tune weights based on feedback
+memory-tool tune-weights</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Session Management -->
+            <section id="session-management" class="content-section">
+                <h2>Session Management</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Track structured workflows with steps, outcomes, and timing.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool snapshot "&lt;summary&gt;" [--project X]</code></td>
+                            <td>Manual session snapshot with summary</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool auto-snapshot</code></td>
+                            <td>Auto-detect changes from git/filesystem</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run start "&lt;task&gt;" --agent &lt;name&gt; --project &lt;name&gt;</code></td>
+                            <td>Start tracked workflow run</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run step &lt;id&gt; "&lt;description&gt;"</code></td>
+                            <td>Add step to active run</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run complete &lt;id&gt; "&lt;outcome&gt;"</code></td>
+                            <td>Mark run as completed</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run fail &lt;id&gt; "&lt;reason&gt;"</code></td>
+                            <td>Mark run as failed</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run cancel &lt;id&gt;</code></td>
+                            <td>Cancel run</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run list [--status running|completed|failed]</code></td>
+                            <td>List runs with filters</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Manual snapshots
+memory-tool snapshot "Fixed authentication bug, added rate limiting" --project BlogAPI
+memory-tool auto-snapshot  # Detects git/file changes
+
+# Tracked workflows
+memory-tool run start "Fix CORS issue" --agent claude --project BlogAPI
+# Returns run_id: 1
+
+memory-tool run step 1 "Identified missing headers in API responses"
+memory-tool run step 1 "Added Access-Control-Allow-Credentials header"
+memory-tool run complete 1 "CORS fixed, all tests passing"
+
+# Query runs
+memory-tool run list
+memory-tool run list --status completed
+memory-tool run list --status failed</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Maintenance -->
+            <section id="maintenance" class="content-section">
+                <h2>Maintenance</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Automated and manual maintenance operations for memory health.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool dream</code></td>
+                            <td>Consolidate duplicates, resolve conflicts, normalize metadata, run decay (REM-like)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool decay</code></td>
+                            <td>Flag stale memories, reduce priorities, expire old TODOs</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool stale</code></td>
+                            <td>Review stale memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool gc [days]</code></td>
+                            <td>Garbage collect inactive memories (default: 180 days)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool reindex</code></td>
+                            <td>Rebuild vector embeddings for all memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool backup</code></td>
+                            <td>Manual backup to ~/.claude/backups/</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool restore &lt;file&gt;</code></td>
+                            <td>Restore from backup</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool stats</code></td>
+                            <td>Full statistics (memories + vectors + graph + beliefs + runs)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Dream mode (autonomous consolidation)
+memory-tool dream
+# Output:
+#   Consolidated 5 duplicates (kept newer, marked old as superseded)
+#   Detected 2 potential contradictions (flagged for review)
+#   Normalized 8 dates to ISO format
+#   Expired 3 pending items past deadline
+#   Strengthened 12 high-access memories (+1 priority)
+#   Weakened 4 low-access memories (-1 priority)
+
+# Manual maintenance
+memory-tool decay        # Run decay logic manually
+memory-tool stale        # Show stale memories for review
+memory-tool gc 90        # Delete memories inactive for 90+ days
+memory-tool reindex      # Rebuild vector embeddings
+
+# Backup & restore
+memory-tool backup
+# Output: Backup saved to ~/.claude/backups/memory_20260402_153045.db
+
+memory-tool restore ~/.claude/backups/memory_20260402_153045.db
+
+# Statistics
+memory-tool stats
+# Shows: total memories, active, inactive, categories, vectors, graph entities, beliefs, predictions</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Cross-Tool Sync -->
+            <section id="sync" class="content-section">
+                <h2>Cross-Tool Sync</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Bidirectional sync with OpenClaw's file-based memory system.
+                </p>
+
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool sync</code></td>
+                            <td>Bidirectional sync (AI-IQ ↔ OpenClaw)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool sync-to</code></td>
+                            <td>Export only (AI-IQ → OpenClaw)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool sync-from</code></td>
+                            <td>Import only (OpenClaw → AI-IQ)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Two-way sync
+memory-tool sync
+
+# One-way export
+memory-tool sync-to
+
+# One-way import
+memory-tool sync-from</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </section>
+
+            <!-- Python API -->
+            <section id="python-api" class="content-section">
+                <h2>Python API Reference</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Complete Python API documentation for the <code>Memory</code> class.
+                </p>
+
+                <div class="feature-detail">
+                    <h3><code>Memory(db_path: Optional[str] = None)</code></h3>
+                    <p>Initialize memory system with optional custom database path.</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">from ai_iq import Memory
+
+memory = Memory()                      # Uses ./memories.db
+memory = Memory("my_memories.db")      # Custom path
+memory = Memory("/path/to/db.sqlite")  # Absolute path</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>add(content, category="general", tags=None, project=None, priority=0, related_to=None, expires_at=None) → Optional[int]</code></h3>
+                    <p>Add a new memory. Returns memory ID or None if duplicate.</p>
+                    <p style="margin-top: 1rem;"><strong>Parameters:</strong></p>
+                    <ul style="list-style: none; padding: 0; margin-top: 0.5rem;">
+                        <li style="padding: 0.25rem 0;"><code>content</code> (str) — Memory content (required)</li>
+                        <li style="padding: 0.25rem 0;"><code>category</code> (str) — One of: project, decision, preference, error, learning, pending, architecture, workflow, contact, general</li>
+                        <li style="padding: 0.25rem 0;"><code>tags</code> (str | list) — Comma-separated tags or list of tags</li>
+                        <li style="padding: 0.25rem 0;"><code>project</code> (str) — Project name</li>
+                        <li style="padding: 0.25rem 0;"><code>priority</code> (int) — Priority 0-10 (higher = more important)</li>
+                        <li style="padding: 0.25rem 0;"><code>related_to</code> (int) — ID of related memory</li>
+                        <li style="padding: 0.25rem 0;"><code>expires_at</code> (str) — Expiry date in YYYY-MM-DD format</li>
+                    </ul>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">mem_id = memory.add(
+    "Use Redis for session storage",
+    category="decision",
+    tags=["redis", "caching"],
+    project="MyApp",
+    priority=8
+)</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>search(query, mode="hybrid", include_token_estimate=False, compact=True) → List[Dict]</code></h3>
+                    <p>Search memories with hybrid keyword + semantic search.</p>
+                    <p style="margin-top: 1rem;"><strong>Parameters:</strong></p>
+                    <ul style="list-style: none; padding: 0; margin-top: 0.5rem;">
+                        <li style="padding: 0.25rem 0;"><code>query</code> (str) — Search query</li>
+                        <li style="padding: 0.25rem 0;"><code>mode</code> (str) — "hybrid" (default), "keyword", or "semantic"</li>
+                        <li style="padding: 0.25rem 0;"><code>include_token_estimate</code> (bool) — Add token estimates to results</li>
+                        <li style="padding: 0.25rem 0;"><code>compact</code> (bool) — If True (default), truncate content to 100 chars</li>
+                    </ul>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python"># Compact mode (default) - minimal data transfer
+results = memory.search("redis caching")
+for r in results:
+    print(f"#{r['id']}: {r['content']}")  # Content truncated
+
+# Full mode - get all data
+results = memory.search("redis", compact=False)
+for r in results:
+    print(r['content'])  # Full content
+
+# Different search modes
+results = memory.search("redis", mode="semantic")   # Semantic-only
+results = memory.search("redis", mode="keyword")    # Keyword-only</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>get(mem_id: int) → Optional[Dict]</code></h3>
+                    <p>Get full details for a single memory by ID. Returns dict or None if not found.</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">mem = memory.get(42)
+if mem:
+    print(mem["content"])
+    print(mem["tags"])
+    print(mem["created_at"])</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>update(mem_id: int, content: str) → None</code></h3>
+                    <p>Update memory content. Auto-updates tags and re-generates embeddings.</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">memory.update(42, "Updated content here")</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>delete(mem_id: int) → None</code></h3>
+                    <p>Soft-delete a memory (marks as inactive, recoverable).</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">memory.delete(42)</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>list(category=None, project=None, tag=None, stale_only=False, expired_only=False) → List[Dict]</code></h3>
+                    <p>List memories with optional filters. Returns list of memory dicts.</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python"># Get all memories for a project
+mems = memory.list(project="MyApp")
+
+# Get all pending items
+todos = memory.list(category="pending")
+
+# Get stale memories that need review
+stale = memory.list(stale_only=True)
+
+# Get memories with specific tag
+tagged = memory.list(tag="redis")</code></pre>
+                    </div>
+                </div>
+
+                <div class="feature-detail">
+                    <h3><code>stats() → Dict[str, Any]</code></h3>
+                    <p>Get database statistics including memory counts, categories, and vector embeddings.</p>
+                    <div style="position: relative; margin-top: 1rem;">
+                        <pre><code class="language-python">stats = memory.stats()
+print(f"Total memories: {stats['total']}")
+print(f"Active memories: {stats['active']}")
+print(f"Inactive memories: {stats['inactive']}")
+print(f"Categories: {stats['categories']}")
+print(f"Vector embeddings: {stats['vectors']}")</code></pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ by <a href="https://github.com/kobie3717" target="_blank" rel="noopener">kobie3717</a></p>
+            <p>Licensed under <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script>
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const text = button.getAttribute('data-clipboard');
+                const target = button.getAttribute('data-clipboard-target');
+
+                let textToCopy = text;
+                if (target) {
+                    const codeElement = button.parentElement.querySelector(target + ' code');
+                    textToCopy = codeElement ? codeElement.textContent : text;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    button.style.background = 'var(--accent)';
+                    button.style.color = 'var(--bg-dark)';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '';
+                        button.style.color = '';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                }
+            });
+        });
+
+        // Sidebar active link tracking
+        const sections = document.querySelectorAll('.content-section');
+        const navLinks = document.querySelectorAll('#sidebar-nav a');
+
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -70% 0px',
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.getAttribute('id');
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === `#${id}`) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => observer.observe(section));
+
+        // Smooth scroll for navigation
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -41,12 +41,15 @@ body {
 
 /* Navbar */
 .navbar {
+    position: -webkit-sticky;
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: var(--bg-dark);
+    background: #0D1117;
     border-bottom: 1px solid var(--border);
     transition: box-shadow 0.3s ease;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
 }
 
 .navbar .container {

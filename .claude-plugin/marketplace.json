@@ -1,0 +1,21 @@
+{
+  "name": "kobie3717",
+  "owner": {
+    "name": "kobie3717"
+  },
+  "metadata": {
+    "description": "AI-IQ: Give your AI long-term memory",
+    "homepage": "https://github.com/kobie3717/ai-iq"
+  },
+  "plugins": [
+    {
+      "name": "ai-iq",
+      "version": "5.4.0",
+      "source": ".",
+      "description": "SQLite-based persistent memory with beliefs, predictions, and knowledge graphs",
+      "category": "memory",
+      "tags": ["memory", "persistence", "knowledge-graph", "sqlite"],
+      "keywords": ["memory", "persistence", "knowledge-graph", "beliefs", "predictions", "sqlite", "ai-memory"]
+    }
+  ]
+}

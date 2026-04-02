@@ -39,6 +39,17 @@ memory-tool search "docker networking"
 memory-tool dream  # Consolidate duplicates, detect conflicts
 ```
 
+## Claude Code Plugin
+
+Use AI-IQ directly in Claude Code with auto-capture:
+
+```bash
+/plugin marketplace add kobie3717/ai-iq
+/plugin install ai-iq
+```
+
+See [CLAUDE_CODE_PLUGIN.md](CLAUDE_CODE_PLUGIN.md) for details.
+
 ## Why AI-IQ?
 
 - **Single SQLite file = your AI's brain** — No servers, no vector DB, no setup

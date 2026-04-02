@@ -166,11 +166,12 @@ class TestFormatRowCompact:
         row = conn.execute("SELECT * FROM memories WHERE id = ?", (mem_id,)).fetchone()
         formatted = display.format_row_compact(row)
 
-        assert f"#{mem_id}" in formatted
-        assert "[learning]" in formatted
-        assert "TestProject" in formatted
+        # New format: [id] category | content
+        assert f"[{mem_id}]" in formatted
+        assert "learning" in formatted
         assert "Short content" in formatted
         assert "(3x)" in formatted
+        assert "tok" in formatted  # Token estimate should be present
         conn.close()
 
     def test_format_row_compact_long_content(self, temp_db):

@@ -75,10 +75,15 @@ def format_row(row: sqlite3.Row) -> str:
 
 
 
-def format_row_compact(row: sqlite3.Row) -> str:
-    """Compact format (v4 Feature #1)."""
-    content_preview = row['content'][:100]
-    if len(row['content']) > 100:
+def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
+    """Compact format (v4 Feature #1 + claude-mem progressive disclosure).
+
+    Args:
+        row: Memory row from database
+        show_tokens: If True, append estimated token cost (default: True)
+    """
+    content_preview = row['content'][:80]
+    if len(row['content']) > 80:
         content_preview += "..."
     proj = f" project:{row['project']}" if row["project"] else ""
     acc = f" ({row['access_count']}x)" if row["access_count"] else ""
@@ -88,7 +93,12 @@ def format_row_compact(row: sqlite3.Row) -> str:
             imp = f" ⚡{row['imp_score']:.1f}"
     except (KeyError, IndexError, TypeError):
         pass
-    return f"#{row['id']} [{row['category']}]{proj} {content_preview}{acc}{imp}"
+
+    # Token estimate (claude-mem style) - always show for progressive disclosure
+    tokens = estimate_tokens(row['content'])
+    token_str = f" ~{tokens}tok"
+
+    return f"[{row['id']}] {row['category']} | {content_preview}{acc}{imp} {token_str}"
 
 
 
@@ -186,33 +196,37 @@ def print_memory_full(mem_id: int) -> None:
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate token count using ~4 chars per token heuristic."""
-    return len(text) // 4
+    """Estimate token count using word count * 1.3 heuristic (claude-mem approach).
+
+    This is more accurate than chars/4 for natural language. Technical text
+    tends to have more tokens per word, so 1.3x is a reasonable conservative estimate.
+    """
+    if not text:
+        return 0
+    word_count = len(text.split())
+    return max(1, int(word_count * 1.3))
 
 
 def show_token_economics(rows: List[sqlite3.Row], compact: bool = True) -> None:
-    """Display token compression line showing context savings."""
-    if len(rows) < 2:
-        return  # Only show for 2+ results
+    """Display token budget summary (claude-mem progressive disclosure).
 
-    # Calculate full content tokens (all memories' full content)
-    full_tokens = sum(estimate_tokens(r['content']) for r in rows)
+    Shows total estimated tokens and suggests using 'get <id>' for full detail.
+    """
+    if not rows:
+        return
 
-    # Calculate displayed tokens (compact or full mode)
+    # Calculate total tokens for all results
+    total_tokens = sum(estimate_tokens(r['content']) for r in rows)
+
+    # In compact mode, show preview token estimate
     if compact:
-        # Compact mode: preview (100 chars) + metadata overhead (~50 chars avg)
-        displayed_tokens = sum(estimate_tokens(r['content'][:100]) + 12 for r in rows)
-
-        if full_tokens > 0:
-            saved_pct = int(((full_tokens - displayed_tokens) / full_tokens) * 100)
-            if saved_pct > 0:
-                print(f"\n💡 Read ~{displayed_tokens} tokens (saved {saved_pct}% vs ~{full_tokens} discovery tokens)")
+        # Estimate tokens shown in preview (80 chars preview + metadata ~30 chars)
+        preview_tokens = sum(estimate_tokens(r['content'][:80]) + 8 for r in rows)
+        avg_tokens = total_tokens // max(1, len(rows))
+        print(f"\n{len(rows)} results (~{total_tokens} tokens total). Use --full for details or `memory-tool get <id>` for single memory.")
     else:
-        # Full mode: show total tokens read (no savings since we show everything)
-        # But still useful to show the cost
-        displayed_tokens = full_tokens + (len(rows) * 20)  # Add metadata overhead
-        if full_tokens > 0:
-            print(f"\n💡 Read ~{displayed_tokens} tokens ({len(rows)} full memories)")
+        # Full mode: show total tokens
+        print(f"\n💰 Full context loaded: ~{total_tokens} tokens")
 
 
 def print_help() -> None:
@@ -228,7 +242,7 @@ Phase 6: FSRS-6 spaced repetition model for intelligent memory decay and retenti
 
 Usage:
   memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"]
-  memory-tool search <query> [--full] [--semantic] [--keyword]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only
+  memory-tool search <query> [--full] [--semantic] [--keyword] [--budget N]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only, --budget to limit tokens
   memory-tool get <id>                          # Show full detail for single memory
   memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired]
   memory-tool update <id> <content>
@@ -266,6 +280,7 @@ Usage:
   memory-tool import-md <file>                  # Import memories from session summary markdown
   memory-tool backup                            # Backup database
   memory-tool restore <file>                    # Restore database from backup
+  memory-tool session-log [--limit N] [--errors]  # Show current session tool executions (default: last 50)
 
 Mode Profiles:
   memory-tool mode                              # Show current mode

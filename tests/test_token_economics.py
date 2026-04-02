@@ -13,14 +13,13 @@ from memory_tool import display, database
 
 def test_estimate_tokens():
     """Test token estimation heuristic."""
-    # ~4 chars per token
+    # Word count * 1.3 heuristic
     assert display.estimate_tokens("test") == 1
-    assert display.estimate_tokens("a" * 40) == 10
-    assert display.estimate_tokens("hello world this is a test") == 6
+    assert display.estimate_tokens("hello world this is a test") == 7  # 6 words * 1.3 = 7.8 -> 7
 
 
 def test_show_token_economics_single_result(temp_db, capsys):
-    """Test that token economics is not shown for single result."""
+    """Test that token economics is shown even for single result."""
     conn = database.get_db()
 
     # Create one memory
@@ -33,10 +32,11 @@ def test_show_token_economics_single_result(temp_db, capsys):
     rows = conn.execute("SELECT * FROM memories").fetchall()
     conn.close()
 
-    # Should not print anything for single result
+    # Should show token economics for any results
     display.show_token_economics(rows, compact=True)
     captured = capsys.readouterr()
-    assert "tokens" not in captured.out.lower()
+    assert "tokens" in captured.out.lower()
+    assert "Reading all" in captured.out
 
 
 def test_show_token_economics_multiple_results_compact(temp_db, capsys):
@@ -65,8 +65,8 @@ def test_show_token_economics_multiple_results_compact(temp_db, capsys):
     captured = capsys.readouterr()
 
     assert "tokens" in captured.out.lower()
-    assert "saved" in captured.out.lower()
-    assert "%" in captured.out
+    assert "Reading all" in captured.out
+    assert "get <id>" in captured.out
 
 
 def test_show_token_economics_multiple_results_full(temp_db, capsys):
@@ -140,7 +140,7 @@ def test_token_economics_zero_savings(temp_db, capsys):
 
 
 def test_token_economics_emoji_present(temp_db, capsys):
-    """Test that lightbulb emoji is in output."""
+    """Test that money bag emoji is in output."""
     conn = database.get_db()
 
     # Create memories
@@ -157,7 +157,7 @@ def test_token_economics_emoji_present(temp_db, capsys):
     display.show_token_economics(rows, compact=True)
     captured = capsys.readouterr()
 
-    assert "💡" in captured.out
+    assert "💰" in captured.out
 
 
 def test_token_economics_format(temp_db, capsys):
@@ -179,8 +179,8 @@ def test_token_economics_format(temp_db, capsys):
 
     output = captured.out
 
-    # Check format: "Read ~N tokens (saved X% vs ~M discovery tokens)"
-    assert "Read ~" in output
-    assert "saved" in output
-    assert "vs ~" in output
-    assert "discovery tokens" in output
+    # Check new format: "💰 Reading all N results: ~X tokens total (~Y each avg)"
+    assert "💰" in output
+    assert "Reading all" in output
+    assert "tokens total" in output
+    assert "each avg" in output

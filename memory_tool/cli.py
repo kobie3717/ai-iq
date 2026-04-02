@@ -72,7 +72,7 @@ def main() -> None:
 
     elif cmd == "search" and len(sys.argv) >= 3:
         from .modes import get_mode_config
-        from .display import show_token_economics
+        from .display import show_token_economics, estimate_tokens
 
         flags, query_parts = parse_flags(sys.argv, 2)
         query = " ".join(query_parts)
@@ -87,11 +87,35 @@ def main() -> None:
         rows, search_id = search_memories(query, mode=search_mode)
         if rows:
             full_mode = flags.get("full", False)
+            show_tokens = flags.get("tokens", False)  # --tokens flag to show individual estimates
+
+            # Token budget: truncate results to fit within budget (claude-mem Steal #2)
+            budget = flags.get("budget")
+            if budget:
+                try:
+                    budget_limit = int(budget)
+                    total_tokens = 0
+                    truncated_rows = []
+                    for r in rows:
+                        tokens = estimate_tokens(r['content'])
+                        if total_tokens + tokens <= budget_limit:
+                            truncated_rows.append(r)
+                            total_tokens += tokens
+                        else:
+                            # Stop when budget exceeded
+                            break
+
+                    if len(truncated_rows) < len(rows):
+                        print(f"⚠️  Token budget: showing {len(truncated_rows)}/{len(rows)} results (fits in ~{total_tokens}/{budget_limit} tokens)\n")
+                    rows = truncated_rows
+                except ValueError:
+                    pass  # Invalid budget, ignore
+
             for r in rows:
                 if full_mode:
                     print(format_row(r))
                 else:
-                    print(format_row_compact(r))
+                    print(format_row_compact(r, show_tokens=show_tokens))
                 # Related in compact mode too
                 if not full_mode:
                     for rel in get_related(r["id"]):
@@ -100,10 +124,8 @@ def main() -> None:
                     for rel in get_related(r["id"]):
                         print(f"      -> #{rel['id']} ({rel['relation_type']}): {rel['content'][:80]}")
 
-            # Show token economics if enabled in mode
-            mode_config = get_mode_config()
-            if mode_config.get("show_tokens", True):
-                show_token_economics(rows, compact=not full_mode)
+            # Show token economics summary (always enabled)
+            show_token_economics(rows, compact=not full_mode)
 
             # Output search_id for feedback tracking (can be parsed by hooks)
             print(f"\n[search_id:{search_id}]")
@@ -1548,6 +1570,70 @@ def main() -> None:
                 print("Run 'memory-tool identity --discover' to build profile from memories.")
 
         conn.close()
+
+    elif cmd == "session-log":
+        from pathlib import Path
+        import json
+
+        SESSION_LOG = Path("/tmp/ai-iq-session-log.jsonl")
+
+        if not SESSION_LOG.exists():
+            print("No session log found. Hook not yet active or no tools executed.")
+            print(f"To enable, install hook: /root/ai-iq/hooks/session-logger.mjs")
+            sys.exit(0)
+
+        # Read and display session log
+        flags, _ = parse_flags(sys.argv, 2)
+        limit = int(flags.get("limit", 50))  # Default last 50 entries
+        show_errors_only = flags.get("errors", False)
+
+        entries = []
+        with open(SESSION_LOG, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    entries.append(entry)
+                except json.JSONDecodeError:
+                    continue
+
+        # Filter if errors-only mode
+        if show_errors_only:
+            entries = [e for e in entries if e.get('tool') == 'Bash' and e.get('exit_code') != 0]
+
+        # Show last N entries
+        recent = entries[-limit:]
+
+        print(f"Session log ({len(recent)} of {len(entries)} total entries):")
+        print()
+
+        for e in recent:
+            ts = e.get('timestamp', '')[:19]  # Trim milliseconds
+            tool = e.get('tool', 'Unknown')
+
+            if tool == 'Bash':
+                cmd = e.get('input', '')
+                exit_code = e.get('exit_code', '?')
+                status = "✓" if exit_code == 0 else "✗"
+                print(f"{ts} [{tool}] {status} {cmd}")
+                if exit_code != 0:
+                    preview = e.get('output_preview', '')
+                    if preview:
+                        print(f"    Error: {preview}")
+            elif tool in ('Read', 'Edit', 'Write'):
+                file_path = e.get('file_path', '')
+                action = e.get('action', '')
+                print(f"{ts} [{tool}] {action} {file_path}")
+            elif tool in ('Glob', 'Grep'):
+                pattern = e.get('pattern', '')
+                preview = e.get('output_preview', '')
+                print(f"{ts} [{tool}] {pattern} → {preview}")
+            else:
+                inp = e.get('input', '')[:50]
+                preview = e.get('output_preview', '')[:50]
+                print(f"{ts} [{tool}] {inp} → {preview}")
+
+        print()
+        print(f"Use --limit N to show more, --errors to show only failures")
 
     elif cmd == "mode":
         from .modes import get_mode, set_mode, list_modes

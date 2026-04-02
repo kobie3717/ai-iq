@@ -117,25 +117,65 @@ class Memory:
         self,
         query: str,
         mode: str = "hybrid",
+        include_token_estimate: bool = False,
+        compact: bool = True,
     ) -> List[Dict[str, Any]]:
         """Search memories with hybrid keyword + semantic search.
 
         Args:
             query: Search query string
             mode: Search mode - "hybrid" (default), "keyword", or "semantic"
+            include_token_estimate: If True, add token_estimate field to each result
+            compact: If True (default), truncate content to 100 chars and return minimal fields.
+                    If False, return full content and all fields.
 
         Returns:
-            List of memory dictionaries with keys: id, content, category, tags,
-            project, priority, created_at, updated_at, confidence, etc.
+            List of memory dictionaries.
+            If compact=True: Returns id, content (truncated to 100 chars), category, tags, token_estimate
+            If compact=False: Returns all fields from database
 
         Example:
+            >>> # Compact mode (default) - minimal data transfer
             >>> results = memory.search("redis caching")
             >>> for r in results:
-            ...     print(f"#{r['id']}: {r['content']}")
+            ...     print(f"#{r['id']}: {r['content']}")  # Content truncated to 100 chars
+            >>>
+            >>> # Full mode - get all data
+            >>> results = memory.search("redis", compact=False)
+            >>> for r in results:
+            ...     print(r['content'])  # Full content
+            >>>
+            >>> # With token estimates for budget planning
+            >>> results = memory.search("redis", include_token_estimate=True)
+            >>> total_tokens = sum(r['token_estimate'] for r in results)
+            >>> print(f"Reading all results would cost ~{total_tokens} tokens")
         """
+        from .display import estimate_tokens
+
         rows, _search_id = _search_memories(query, mode=mode)
+
         # Convert sqlite3.Row objects to dictionaries
-        return [dict(row) for row in rows]
+        results = [dict(row) for row in rows]
+
+        # Add token estimates if requested (always add in compact mode)
+        if include_token_estimate or compact:
+            for r in results:
+                r['token_estimate'] = estimate_tokens(r['content'])
+
+        # In compact mode, truncate content and return minimal fields
+        if compact:
+            compact_results = []
+            for r in results:
+                compact_results.append({
+                    'id': r['id'],
+                    'content': r['content'][:100] + '...' if len(r['content']) > 100 else r['content'],
+                    'category': r['category'],
+                    'tags': r['tags'],
+                    'token_estimate': r['token_estimate'],
+                })
+            return compact_results
+
+        return results
 
     def get(self, mem_id: int) -> Optional[Dict[str, Any]]:
         """Get full details for a single memory by ID.

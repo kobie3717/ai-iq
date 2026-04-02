@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "myapp deploy --production"
+  },
+  "tool_result": "Exit code: 0\nOutput: Deployment successful"
+}

@@ -209,20 +209,21 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     """
     tags = auto_tag(content, tags)
 
-    # Content-hash dedup check: prevent exact duplicates within 60 seconds
-    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
+    # Content-hash dedup check: prevent exact duplicates within 30 seconds (claude-mem pattern)
+    # Use SHA256 hash of category:content (case-insensitive, whitespace-normalized)
+    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
     conn = get_db()
     recent_dupe = conn.execute("""
         SELECT id, created_at FROM memories
         WHERE content_hash = ? AND active = 1
-        AND datetime(created_at) > datetime('now', '-60 seconds')
+        AND datetime(created_at) > datetime('now', '-30 seconds')
         ORDER BY created_at DESC LIMIT 1
     """, (content_hash,)).fetchone()
     conn.close()
 
     if recent_dupe:
-        logger.info(f"⏭ Skipped duplicate (same content within 60s, memory #{recent_dupe['id']})")
-        print(f"⏭ Skipped duplicate (same content within 60s)")
+        # Skip duplicate and notify user
+        logger.info(f"⚡ DEDUP: Blocked duplicate within 30s window (matches #{recent_dupe['id']})")
         return None
 
     # Check for contradictions using semantic search (if available)
@@ -416,8 +417,8 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         # Check for contradictions even if skipping dedup
         contradiction_warning = check_contradictions(content, category, project)
 
-        # Compute content hash
-        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
+        # Compute content hash (truncate to 16 chars to match dedup logic)
+        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
 
         conn = get_db()
         cur = conn.execute(

@@ -163,8 +163,8 @@ class TestCLISearch:
             cli.main()
 
         captured = capsys.readouterr()
-        # Should execute semantic search
-        assert '#' in captured.out or 'No memories found' in captured.out
+        # Should execute semantic search and show results in new format
+        assert '[' in captured.out or 'No memories found' in captured.out
 
     def test_search_keyword_only(self, db_with_samples, monkeypatch, capsys):
         """Test keyword-only search (FTS)."""

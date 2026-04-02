@@ -77,9 +77,10 @@ def test_all_features_together(temp_db, capsys):
     display.show_token_economics(rows[:3], compact=True)
     captured = capsys.readouterr()
 
-    # Should show token savings
+    # Should show token count and progressive disclosure hint
     assert "tokens" in captured.out.lower()
-    assert "saved" in captured.out.lower()
+    assert "results" in captured.out.lower()
+    # New format: "N results (~X tokens total). Use --full for details or `memory-tool get <id>` for single memory."
 
     # Feature 3: Switch to ops mode (disables token display)
     modes.set_mode("ops")

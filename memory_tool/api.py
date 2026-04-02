@@ -152,7 +152,7 @@ class Memory:
         """
         from .display import estimate_tokens
 
-        rows, _search_id = _search_memories(query, mode=mode)
+        rows, _search_id, _temporal_range = _search_memories(query, mode=mode)
 
         # Convert sqlite3.Row objects to dictionaries
         results = [dict(row) for row in rows]

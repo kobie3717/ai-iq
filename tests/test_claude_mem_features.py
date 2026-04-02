@@ -346,7 +346,7 @@ class TestTokenEconomicsDisplay:
         mem.add("Short memory", category="general")
         mem.add("This is a longer memory with more content to show token savings", category="general")
 
-        rows, _ = search_memories("memory")
+        rows, _, _ = search_memories("memory")
         show_token_economics(rows, compact=True)
 
         captured = capsys.readouterr()
@@ -361,7 +361,7 @@ class TestTokenEconomicsDisplay:
         mem = Memory(str(db_path))
 
         mem.add("Test memory", category="general")
-        rows, _ = search_memories("test")
+        rows, _, _ = search_memories("test")
         show_token_economics(rows, compact=False)
 
         captured = capsys.readouterr()

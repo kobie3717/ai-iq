@@ -84,7 +84,22 @@ def main() -> None:
         elif flags.get("keyword"):
             search_mode = "keyword"
 
-        rows, search_id = search_memories(query, mode=search_mode)
+        # Temporal constraints
+        since = flags.get("since")
+        until = flags.get("until")
+
+        # Recency boost control
+        apply_recency = not flags.get("no-recency", False)
+
+        rows, search_id, temporal_range = search_memories(
+            query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency
+        )
+
+        # Show temporal filter info if applied
+        if temporal_range:
+            start, end = temporal_range
+            print(f"📅 Filtered to: {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}\n")
+
         if rows:
             full_mode = flags.get("full", False)
             show_tokens = flags.get("tokens", False)  # --tokens flag to show individual estimates
@@ -143,6 +158,7 @@ def main() -> None:
             tag=flags.get("tag"),
             stale_only="stale" in sys.argv,
             expired_only="--expired" in sys.argv,
+            sort_by_proof="--proven" in sys.argv,
         )
         for r in rows:
             print(format_row(r))

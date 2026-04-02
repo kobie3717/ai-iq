@@ -94,11 +94,19 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
     except (KeyError, IndexError, TypeError):
         pass
 
+    # Proof count indicator (Hindsight Feature #3)
+    proof = ""
+    try:
+        if 'proof_count' in row.keys() and row['proof_count'] and row['proof_count'] > 1:
+            proof = f" (backed by {row['proof_count']} sources)"
+    except (KeyError, IndexError, TypeError):
+        pass
+
     # Token estimate (claude-mem style) - always show for progressive disclosure
     tokens = estimate_tokens(row['content'])
     token_str = f" ~{tokens}tok"
 
-    return f"[{row['id']}] {row['category']} | {content_preview}{acc}{imp} {token_str}"
+    return f"[{row['id']}] {row['category']} | {content_preview}{acc}{imp}{proof} {token_str}"
 
 
 
@@ -182,6 +190,17 @@ def print_memory_full(mem_id: int) -> None:
         if mem["reasoning"]:
             print(f"Reasoning: {mem['reasoning']}")
     except (KeyError, IndexError, TypeError):
+        pass
+
+    # Proof tracking (Hindsight Feature #3)
+    try:
+        if 'proof_count' in mem.keys() and mem["proof_count"] and mem["proof_count"] > 1:
+            print(f"Proof: Confirmed by {mem['proof_count']} sources")
+            if mem["source_memory_ids"]:
+                sources = json.loads(mem["source_memory_ids"])
+                source_ids_str = ", ".join(f"#{s}" for s in sources)
+                print(f"  Source IDs: {source_ids_str}")
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
         pass
 
     # Related memories

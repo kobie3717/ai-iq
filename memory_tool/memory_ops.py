@@ -32,6 +32,27 @@ except ImportError:
     pass
 
 
+def recency_boost(created_at: datetime, alpha: float = 0.2) -> float:
+    """Multiplicative recency boost for search results. Recent = higher score.
+
+    Args:
+        created_at: datetime when memory was created
+        alpha: boost strength (0.2 = 20% max boost/penalty)
+
+    Returns:
+        Multiplier between ~0.9 and ~1.1
+    """
+    if not created_at:
+        return 1.0
+    days_ago = (datetime.now() - created_at).total_seconds() / 86400
+    # Normalize to 0-1 range (recent = 1, old = 0)
+    # Use 365 days as the reference window
+    recency = max(0.1, min(1.0, 1.0 - (days_ago / 365)))
+    # Convert to multiplier: 1.0 + alpha * (recency - 0.5)
+    # Recent memories get +10% boost, old memories get -10% penalty
+    return 1.0 + alpha * (recency - 0.5)
+
+
 # Lazy imports to avoid circular dependencies
 def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
@@ -457,32 +478,78 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
 
 
-def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row], int]:
+def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
     - keyword: FTS only
     - semantic: Vector only
 
+    Args:
+        query: Search query string
+        mode: Search mode (hybrid/keyword/semantic)
+        since: ISO date string for filtering memories created/updated after this date
+        until: ISO date string for filtering memories created/updated before this date
+        apply_recency_boost: Apply recency boost to search scores (default: True)
+
     Returns:
-        Tuple of (rows, search_id) where search_id can be used for feedback logging
+        Tuple of (rows, search_id, temporal_range) where:
+        - rows: List of memory rows
+        - search_id: ID for feedback logging
+        - temporal_range: (start_date, end_date) if temporal filtering applied, None otherwise
     """
     import time
     start_time = time.time()
+
+    # Extract temporal constraints from query if not explicitly provided
+    temporal_range = None
+    if not since and not until:
+        try:
+            from .temporal import extract_temporal_constraint, strip_temporal_expressions
+            temporal_range = extract_temporal_constraint(query)
+            if temporal_range:
+                since = temporal_range[0].isoformat()
+                until = temporal_range[1].isoformat()
+                # Clean query for better matching
+                query = strip_temporal_expressions(query)
+        except ImportError:
+            pass  # temporal module not available
+        except Exception:
+            pass  # Date parsing failed, continue with original query
 
     conn = get_db()
     fts_results = []
     vec_results = []
 
+    # Build date filter clause if temporal constraints provided
+    date_filter_fts = ""
+    date_filter_plain = ""
+    date_params = []
+    if since or until:
+        conditions_fts = []
+        conditions_plain = []
+        if since:
+            conditions_fts.append("(m.created_at >= ? OR m.updated_at >= ?)")
+            conditions_plain.append("(created_at >= ? OR updated_at >= ?)")
+            date_params.extend([since, since])
+        if until:
+            conditions_fts.append("(m.created_at <= ? OR m.updated_at <= ?)")
+            conditions_plain.append("(created_at <= ? OR updated_at <= ?)")
+            date_params.extend([until, until])
+        if conditions_fts:
+            date_filter_fts = " AND " + " AND ".join(conditions_fts)
+            date_filter_plain = " AND " + " AND ".join(conditions_plain)
+
     # 1. FTS keyword search
     if mode in ("hybrid", "keyword"):
         try:
-            rows = conn.execute("""
+            fts_query = f"""
                 SELECT m.id FROM memories m
                 JOIN memories_fts fts ON m.id = fts.rowid
-                WHERE memories_fts MATCH ? AND m.active = 1
+                WHERE memories_fts MATCH ? AND m.active = 1{date_filter_fts}
                 ORDER BY rank LIMIT 20
-            """, (query,)).fetchall()
+            """
+            rows = conn.execute(fts_query, [query] + date_params).fetchall()
             fts_results = [(r['id'], i) for i, r in enumerate(rows)]
         except sqlite3.OperationalError:
             pass
@@ -500,16 +567,20 @@ def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row]
                     ORDER BY distance
                 """, (query_vec,)).fetchall()
 
-                # Filter to active only
-                active_ids = set(r['id'] for r in conn.execute(
-                    "SELECT id FROM memories WHERE active = 1"
-                ).fetchall())
+                # Filter to active only and apply date filter
+                if date_filter_plain:
+                    active_query = f"SELECT id FROM memories WHERE active = 1{date_filter_plain}"
+                    active_ids = set(r['id'] for r in conn.execute(active_query, date_params).fetchall())
+                else:
+                    active_ids = set(r['id'] for r in conn.execute(
+                        "SELECT id FROM memories WHERE active = 1"
+                    ).fetchall())
                 vec_results = [(r['id'], i) for i, r in enumerate(rows) if r['id'] in active_ids]
             except Exception:
                 # Silently fail if vec table doesn't exist yet
                 pass
 
-    # 3. Reciprocal Rank Fusion (combine scores)
+    # 3. Reciprocal Rank Fusion (combine scores) with recency boost
     if mode == "hybrid" and (fts_results or vec_results):
         scores = {}
         for mem_id, rank in fts_results:
@@ -517,7 +588,35 @@ def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row]
         for mem_id, rank in vec_results:
             scores[mem_id] = scores.get(mem_id, 0) + 1.0 / (RRF_K + rank + 1)
 
-        # Sort by combined RRF score
+        # Apply recency boost to final scores (if enabled)
+        if scores and apply_recency_boost:
+            # Fetch created_at and proof_count for all candidates
+            mem_ids = list(scores.keys())
+            placeholders = ','.join('?' * len(mem_ids))
+            date_rows = conn.execute(
+                f"SELECT id, created_at, proof_count FROM memories WHERE id IN ({placeholders})",
+                mem_ids
+            ).fetchall()
+
+            for row in date_rows:
+                mem_id = row['id']
+                created_at = row['created_at']
+                if created_at:
+                    try:
+                        created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00')).replace(tzinfo=None)
+                        boost = recency_boost(created_dt)
+                        scores[mem_id] *= boost
+                    except (ValueError, AttributeError):
+                        pass  # Invalid date, skip boost
+
+                # Apply proof boost: memories confirmed by multiple sources rank higher
+                proof_count = row['proof_count'] or 1
+                if proof_count > 1:
+                    # Boost by up to 50% for well-confirmed memories (capped at 5 sources)
+                    proof_boost = 1.0 + 0.1 * min(proof_count, 5)
+                    scores[mem_id] *= proof_boost
+
+        # Sort by combined RRF score with recency boost and proof boost
         ranked_ids = sorted(scores.keys(), key=lambda x: -scores[x])[:20]
 
         # Fetch full rows
@@ -548,11 +647,13 @@ def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row]
 
     # Fallback to LIKE if no results
     if not rows:
-        rows = conn.execute("""
+        fallback_query = f"""
             SELECT * FROM memories
-            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?)
+            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?){date_filter_plain}
             ORDER BY updated_at DESC LIMIT 20
-        """, (f"%{query}%", f"%{query}%", f"%{query}%")).fetchall()
+        """
+        fallback_params = [f"%{query}%", f"%{query}%", f"%{query}%"] + date_params
+        rows = conn.execute(fallback_query, fallback_params).fetchall()
 
     # Calculate latency
     latency_ms = int((time.time() - start_time) * 1000)
@@ -571,7 +672,9 @@ def search_memories(query: str, mode: str = "hybrid") -> Tuple[List[sqlite3.Row]
         auto_adjust_priority(conn, r["id"])
     conn.commit()
     conn.close()
-    return rows, search_id
+
+    # Return temporal_range if it was applied
+    return rows, search_id, temporal_range
 
 
 
@@ -588,7 +691,7 @@ def get_memory(mem_id: int) -> Optional[sqlite3.Row]:
 
 def list_memories(category: Optional[str] = None, project: Optional[str] = None,
                   tag: Optional[str] = None, stale_only: bool = False,
-                  expired_only: bool = False) -> List[sqlite3.Row]:
+                  expired_only: bool = False, sort_by_proof: bool = False) -> List[sqlite3.Row]:
     conn = get_db()
     query = "SELECT * FROM memories WHERE active = 1"
     params = []
@@ -605,7 +708,12 @@ def list_memories(category: Optional[str] = None, project: Optional[str] = None,
         query += " AND stale = 1"
     if expired_only:
         query += " AND expires_at IS NOT NULL AND expires_at < datetime('now')"
-    query += " ORDER BY priority DESC, updated_at DESC"
+
+    if sort_by_proof:
+        query += " ORDER BY proof_count DESC, updated_at DESC"
+    else:
+        query += " ORDER BY priority DESC, updated_at DESC"
+
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return rows

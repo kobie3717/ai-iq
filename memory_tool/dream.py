@@ -338,7 +338,7 @@ def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
 
     # Phase 1: Find and merge near-duplicate memories (>85% content overlap)
     active = conn.execute("""
-        SELECT id, content, category, project, tags, imp_score, access_count
+        SELECT id, content, category, project, tags, imp_score, access_count, proof_count, source_memory_ids
         FROM memories WHERE active = 1
         ORDER BY imp_score DESC
     """).fetchall()
@@ -361,9 +361,33 @@ def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
 
                 keep = a if keep_a else b
                 discard = b if keep == a else a
+
+                # Track proof: increment proof_count and append source IDs
+                keep_id = keep["id"]
+                discard_id = discard["id"]
+
+                # Get current proof tracking data
+                keep_proof_count = keep["proof_count"] or 1
+                discard_proof_count = discard["proof_count"] or 1
+                new_proof_count = keep_proof_count + discard_proof_count
+
+                # Merge source_memory_ids (JSON arrays)
+                keep_sources = json.loads(keep["source_memory_ids"]) if keep["source_memory_ids"] else []
+                discard_sources = json.loads(discard["source_memory_ids"]) if discard["source_memory_ids"] else []
+
+                # Add the discarded memory's ID to sources
+                new_sources = keep_sources + discard_sources + [discard_id]
+                new_sources_json = json.dumps(new_sources)
+
+                # Update keep memory with proof tracking
+                conn.execute(
+                    "UPDATE memories SET proof_count = ?, source_memory_ids = ? WHERE id = ?",
+                    (new_proof_count, new_sources_json, keep_id)
+                )
+
                 # Merge: soft delete discard
-                conn.execute("UPDATE memories SET active = 0 WHERE id = ?", (discard["id"],))
-                seen_ids.add(discard["id"])
+                conn.execute("UPDATE memories SET active = 0 WHERE id = ?", (discard_id,))
+                seen_ids.add(discard_id)
                 results["merged"] += 1
 
     # Phase 2: Find recurring patterns across error memories

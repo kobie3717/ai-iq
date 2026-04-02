@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-iq"
-version = "5.4.0"
+version = "5.6.0"
 description = "Give your AI long-term memory in 1 command. SQLite-based, no setup, no servers."
 authors = [
     {name = "Kobus Wentzel", email = "kobie@pop.co.za"}
@@ -33,7 +33,9 @@ classifiers = [
     "Topic :: Text Processing :: Indexing",
 ]
 
-dependencies = []
+dependencies = [
+    "dateparser>=1.1.0",
+]
 
 [project.optional-dependencies]
 full = [

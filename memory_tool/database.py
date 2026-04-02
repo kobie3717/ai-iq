@@ -93,6 +93,8 @@ def init_db() -> None:
         "imp_score": "ALTER TABLE memories ADD COLUMN imp_score REAL DEFAULT 5.0",
         "confidence": "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
         "content_hash": "ALTER TABLE memories ADD COLUMN content_hash TEXT DEFAULT NULL",
+        "proof_count": "ALTER TABLE memories ADD COLUMN proof_count INTEGER DEFAULT 1",
+        "source_memory_ids": "ALTER TABLE memories ADD COLUMN source_memory_ids TEXT DEFAULT NULL",
     }
 
     # Whitelist for beliefs table migrations
@@ -153,7 +155,9 @@ def init_db() -> None:
             imp_impact REAL DEFAULT 5.0,
             imp_score REAL DEFAULT 5.0,
             confidence REAL DEFAULT 0.7,
-            content_hash TEXT DEFAULT NULL
+            content_hash TEXT DEFAULT NULL,
+            proof_count INTEGER DEFAULT 1,
+            source_memory_ids TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (

@@ -739,14 +739,19 @@ memory-tool hot  # Show most accessed memories (immune to decay)</code></pre>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/asciinema-player@3.7.1/dist/bundle/asciinema-player.css" />
     <script src="https://unpkg.com/asciinema-player@3.7.1/dist/bundle/asciinema-player.min.js"></script>
     <script>
-        AsciinemaPlayer.create('demo.cast', document.getElementById('demo-player'), {
-            theme: 'monokai',
-            cols: 100,
-            rows: 30,
-            autoPlay: true,
-            speed: 1.5,
-            fit: 'width',
-            poster: 'npt:0:3'
+        document.addEventListener('DOMContentLoaded', function() {
+            var el = document.getElementById('demo-player');
+            if (el && typeof AsciinemaPlayer !== 'undefined') {
+                AsciinemaPlayer.create('demo.cast', el, {
+                    theme: 'monokai',
+                    cols: 100,
+                    rows: 30,
+                    autoPlay: true,
+                    speed: 1.5,
+                    fit: 'width',
+                    poster: 'npt:0:3'
+                });
+            }
         });
     </script>
 </body>

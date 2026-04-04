@@ -172,6 +172,8 @@ memory-tool focus "docker" --full
 Focus pulls together:
 - Top matching memories (hybrid search)
 - Knowledge graph entity + facts + relationships
+- Last session snapshot mentioning the topic
+- Active runs in progress for the topic
 - Pending TODOs for the topic
 - Beliefs and predictions
 - Suggested next actions

@@ -122,7 +122,62 @@ def focus_topic(topic: str, full: bool = False) -> str:
         logger.error(f"Error retrieving graph entity: {e}")
         output.append("## Knowledge Graph\n_Error retrieving entity._\n")
 
-    # ── 3. Pending Items ──
+    # ── 3. Last Session ──
+    try:
+        # Find latest snapshot mentioning this topic
+        snapshot_row = conn.execute("""
+            SELECT id, summary, created_at, project
+            FROM session_snapshots
+            WHERE LOWER(summary) LIKE LOWER(?)
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (f"%{topic}%",)).fetchone()
+
+        if snapshot_row:
+            output.append("## Last Session\n")
+            date = snapshot_row['created_at'][:10]
+            proj = f"[{snapshot_row['project']}] " if snapshot_row['project'] else ""
+            # Truncate summary to ~200 chars
+            summary = snapshot_row['summary']
+            if len(summary) > 200:
+                summary = summary[:197] + "..."
+            output.append(f"{proj}{summary} _{date}_\n")
+    except Exception as e:
+        logger.debug(f"Error retrieving last session: {e}")
+
+    # ── 4. Active Runs ──
+    try:
+        # Find in-progress runs matching topic
+        active_runs = conn.execute("""
+            SELECT id, task, agent, started_at, steps, project
+            FROM runs
+            WHERE status IN ('running', 'active')
+            AND (LOWER(task) LIKE LOWER(?) OR LOWER(project) LIKE LOWER(?))
+            ORDER BY started_at DESC
+            LIMIT 5
+        """, (f"%{topic}%", f"%{topic}%")).fetchall()
+
+        if active_runs:
+            output.append(f"## Active Runs ({len(active_runs)} in progress)\n")
+            for run in active_runs:
+                import json
+                try:
+                    steps = json.loads(run['steps']) if run['steps'] else []
+                    step_count = len(steps)
+                except (json.JSONDecodeError, TypeError):
+                    step_count = 0
+
+                proj = f"[{run['project']}] " if run['project'] else ""
+                task_preview = run['task'][:60]
+                if len(run['task']) > 60:
+                    task_preview += "..."
+                agent_info = f" ({run['agent']})" if run['agent'] != 'claw' else ""
+                output.append(f"- **#{run['id']}** {proj}{task_preview}{agent_info} - {step_count} steps")
+            output.append("")
+    except Exception as e:
+        logger.debug(f"Error retrieving active runs: {e}")
+
+    # ── 5. Pending Items ──
     try:
         # Search pending category for mentions of topic
         pending_rows = conn.execute("""
@@ -146,7 +201,7 @@ def focus_topic(topic: str, full: bool = False) -> str:
     except Exception as e:
         logger.debug(f"Error retrieving pending items: {e}")
 
-    # ── 4. Beliefs ──
+    # ── 6. Beliefs ──
     try:
         beliefs = conn.execute("""
             SELECT id, statement, confidence, category, updated_at
@@ -168,7 +223,7 @@ def focus_topic(topic: str, full: bool = False) -> str:
     except Exception as e:
         logger.debug(f"Error retrieving beliefs: {e}")
 
-    # ── 5. Predictions ──
+    # ── 7. Predictions ──
     try:
         predictions = conn.execute("""
             SELECT id, prediction, confidence, status, deadline, updated_at
@@ -191,7 +246,7 @@ def focus_topic(topic: str, full: bool = False) -> str:
     except Exception as e:
         logger.debug(f"Error retrieving predictions: {e}")
 
-    # ── 6. Suggested Actions ──
+    # ── 8. Suggested Actions ──
     suggestions = []
 
     # Check for stale memories related to topic

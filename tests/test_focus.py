@@ -98,9 +98,12 @@ def test_focus_compact_vs_full(test_db):
     compact = focus_topic("docker", full=False)
     full = focus_topic("docker", full=True)
 
-    # Compact should show max 5, full should show max 10
+    # Compact should show max 5 memories, full should show max 10 memories
     assert "## Key Memories (5 of" in compact or "## Key Memories (5 matches)" in compact
-    assert compact.count("**#") <= 7  # 5 memories + possible other sections
+    # Count just the memory IDs in the Key Memories section (before "## Knowledge Graph")
+    key_mem_section = compact.split("## Knowledge Graph")[0] if "## Knowledge Graph" in compact else compact
+    memory_ids = key_mem_section.count("- **#")
+    assert memory_ids <= 5  # Max 5 memories in compact mode
 
 
 def test_focus_suggestions(test_db):
@@ -137,4 +140,73 @@ def test_focus_multi_word_topic(test_db):
     result = focus_topic("unit tests", full=False)
 
     assert "# Focus: unit tests" in result
+    assert "## Key Memories" in result
+
+
+def test_focus_with_last_session(test_db):
+    """Test focus with last session snapshot."""
+    from memory_tool.snapshots import save_snapshot
+
+    # Add a snapshot mentioning Docker
+    save_snapshot(
+        "FlashVault: modified 10 files in vpn-backend; Added Docker compose config for Redis",
+        project="FlashVault"
+    )
+
+    # Add another snapshot without Docker
+    save_snapshot(
+        "WhatsAuction: fixed authentication bug",
+        project="WhatsAuction"
+    )
+
+    # Add memory to ensure focus works
+    add_memory("learning", "Docker compose is useful", tags="docker")
+
+    result = focus_topic("docker", full=False)
+
+    assert "# Focus: docker" in result
+    assert "## Last Session" in result
+    assert "Docker compose config" in result or "Docker" in result
+    assert "[FlashVault]" in result
+
+
+def test_focus_with_active_runs(test_db):
+    """Test focus with active runs."""
+    from memory_tool.runs import start_run, add_run_step
+
+    # Start a run related to Docker
+    run_id = start_run(
+        task="Set up Docker environment for production",
+        agent="coder",
+        project="FlashVault"
+    )
+    add_run_step(run_id, "Created Dockerfile")
+    add_run_step(run_id, "Configured docker-compose.yml")
+
+    # Start another run
+    run_id2 = start_run(
+        task="Refactor Docker networking",
+        agent="claw",
+        project="FlashVault"
+    )
+
+    # Add memory to ensure focus works
+    add_memory("learning", "Docker is great", tags="docker")
+
+    result = focus_topic("docker", full=False)
+
+    assert "# Focus: docker" in result
+    assert "## Active Runs" in result
+    assert "Set up Docker environment" in result or "Refactor Docker networking" in result
+    assert "in progress" in result
+
+
+def test_focus_no_session_or_runs(test_db):
+    """Test focus when there are no sessions or runs matching topic."""
+    add_memory("learning", "Docker basics", tags="docker")
+
+    result = focus_topic("docker", full=False)
+
+    assert "# Focus: docker" in result
+    # Should not show Last Session or Active Runs sections if no matches
     assert "## Key Memories" in result

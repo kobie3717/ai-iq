@@ -157,6 +157,27 @@ memory-tool graph link 42 Redis
 memory-tool graph auto-link
 ```
 
+### Focus (Context Loading)
+
+Instantly load all context for a topic — memories, graph, pending items, beliefs, predictions.
+
+```bash
+# Quick context brief
+memory-tool focus "whatsauction"
+
+# Detailed view
+memory-tool focus "docker" --full
+```
+
+Focus pulls together:
+- Top matching memories (hybrid search)
+- Knowledge graph entity + facts + relationships
+- Pending TODOs for the topic
+- Beliefs and predictions
+- Suggested next actions
+
+Use this at the start of a session to get up to speed on any topic.
+
 ### Maintenance
 
 ```bash

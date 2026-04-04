@@ -17,6 +17,10 @@ memory-tool search "docker networking"
 memory-tool believe "TypeScript improves quality" --confidence 0.8
 memory-tool predict "Auth flow reduces tickets 20%" --deadline 2026-05-01
 
+# Focus (context loading)
+memory-tool focus "project-name"       # Instant context brief
+memory-tool focus "topic" --full       # Detailed view
+
 # Maintenance
 memory-tool next    # Smart suggestions
 memory-tool dream   # AI consolidation

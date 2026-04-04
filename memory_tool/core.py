@@ -32,3 +32,4 @@ from .meta_learning import (
     apply_learned_weights, get_meta_stats, get_weight_history
 )
 from .identity import discover_traits, get_identity, save_identity_snapshot, get_identity_evolution, compare_identity_snapshots
+from .focus import focus_topic, cmd_focus

@@ -1,6 +1,6 @@
 {
   "name": "ai-iq",
-  "version": "5.6.0",
+  "version": "5.7.0",
   "description": "Give your AI long-term memory. SQLite-based persistent memory with beliefs, predictions, and knowledge graphs.",
   "author": {
     "name": "kobie3717",

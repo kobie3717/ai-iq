@@ -721,6 +721,13 @@ def main() -> None:
     elif cmd == "next":
         suggest_next()
 
+    elif cmd == "focus" and len(sys.argv) >= 3:
+        from .focus import cmd_focus
+        flags, topic_parts = parse_flags(sys.argv, 2)
+        topic = " ".join(topic_parts) if topic_parts else sys.argv[2]
+        full = flags.get("full", False)
+        cmd_focus(topic, full)
+
     elif cmd == "dream":
         cmd_dream()
 

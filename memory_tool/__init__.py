@@ -16,7 +16,7 @@ Python API Usage:
     results = memory.search("bitcoin")
 """
 
-__version__ = "5.2.0"
+__version__ = "5.6.0"
 
 # Export the main API class for "from ai_iq import Memory"
 from .api import Memory

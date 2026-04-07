@@ -261,7 +261,7 @@ class TestContentHashDedup:
 
         assert "content_hash" in dict(row)
         assert row["content_hash"] is not None
-        assert len(row["content_hash"]) == 16  # Truncated to 16 chars
+        assert len(row["content_hash"]) == 64  # Full SHA256 hex (256 bits)
 
 
 class TestToolCapture:

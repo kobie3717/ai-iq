@@ -263,6 +263,7 @@ Usage:
   memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"]
   memory-tool search <query> [--full] [--semantic] [--keyword] [--budget N]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only, --budget to limit tokens
   memory-tool get <id>                          # Show full detail for single memory
+  memory-tool passport <id>                     # Show memory's complete identity card (graph, relations, provenance, score)
   memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired]
   memory-tool update <id> <content>
   memory-tool delete <id>

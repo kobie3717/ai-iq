@@ -101,23 +101,44 @@ This isn't metaphor. Every feature maps to a biological memory mechanism.
 
 ---
 
-### 6. Meta-Cognition (Self-Tuning)
+### 6. Meta-Cognition (Search Feedback)
 
 **Biology**: Your brain monitors its own performance. If visual memory works better than verbal for you, it strengthens visual pathways. This is meta-learning.
 
-**AI-IQ**: Meta-learning layer tracks search effectiveness:
+**AI-IQ**: Feedback layer tracks search effectiveness:
 - Logs which search mode (keyword/semantic/graph) produced results that were actually used
 - Calculates precision/recall/F1 per mode
-- Auto-adjusts RRF fusion weights to favor modes that work better
-- Self-improves over time with no manual tuning
+- RRF fusion combines keyword and semantic results with recency and proof boosting
+- Tracks helpful vs unhelpful memories to identify knowledge gaps
 
-**Implementation**: `memory_tool/meta_learning.py` — tracks search feedback, calculates metrics, tunes RRF weights
+**Implementation**: `memory_tool/meta_learning.py` — tracks search feedback, calculates metrics, identifies patterns
 
-**Commands**: `memory-tool next` (suggests tuning if search precision is low)
+**Commands**: `memory-tool feedback-stats`, `memory-tool gaps`, `memory-tool hot`
 
 ---
 
-### 7. Identity Layer (Self-Model)
+### 7. Passport System (Complete Identity Card)
+
+**Biology**: When you think about a memory, you don't just recall the content — you recall context, emotions, when it happened, who was involved, why it matters. A memory is not just text; it's a web of connections.
+
+**AI-IQ**: Passport System provides complete memory dossier:
+- **Core identity**: content, category, project, metadata
+- **Graph connections**: linked entities with their relationships (1-hop traversal)
+- **Memory relationships**: derived-from chains, related memories, supersedes links
+- **Provenance**: citations, reasoning, source memories (full audit trail)
+- **Usage patterns**: access count, revisions, FSRS retention state
+- **Passport score**: composite 0-10 score from priority (30%), access patterns (20%), proof count (20%), graph connections (15%), recency (15%)
+- **Spreading activation**: discovers related entities via graph traversal
+
+Like a traveler's passport that proves identity and history, a memory passport is its complete dossier across all dimensions.
+
+**Implementation**: `memory_tool/passport.py` — aggregates data from memories, graph, relations, calculates composite score, runs spreading activation
+
+**Commands**: `memory-tool passport <id>`
+
+---
+
+### 8. Identity Layer (Self-Model)
 
 **Biology**: Your brain maintains a model of "you" — your preferences, habits, behavioral patterns. This self-model guides decisions.
 
@@ -133,7 +154,7 @@ This isn't metaphor. Every feature maps to a biological memory mechanism.
 
 ---
 
-### 8. Causal Reasoning (Narrative Construction)
+### 9. Causal Reasoning (Narrative Construction)
 
 **Biology**: Your brain builds cause-effect stories. "I didn't sleep → I'm tired → I drank coffee → I feel better."
 
@@ -171,6 +192,7 @@ Walk these edges to construct narratives: "Error X → Investigation Y → Decis
 │  database      → SQLite connection, schema init         │
 │  embedding     → Vector embeddings (all-MiniLM-L6-v2)   │
 │  graph         → Entities, relationships, spread        │
+│  passport      → Complete memory identity card          │
 │  beliefs       → Basic belief tracking                  │
 │  beliefs_ext   → Bayesian updates, evidence, calib      │
 │  dream         → Consolidation, reconsolidation, prune  │
@@ -183,7 +205,7 @@ Walk these edges to construct narratives: "Error X → Investigation Y → Decis
 │  sync          → OpenClaw bidirectional bridge          │
 │  runs          → Workflow tracking (steps, timing)      │
 │  identity      → Trait discovery, self-model            │
-│  meta_learning → Search tuning, feedback loop           │
+│  meta_learning → Search feedback, metrics tracking      │
 │  narrative     → Causal story construction              │
 │  feedback      → Search result usage tracking           │
 │  corrections   → Captures self-corrections              │

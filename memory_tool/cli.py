@@ -164,6 +164,17 @@ def main() -> None:
     elif cmd == "get" and len(sys.argv) >= 3:
         print_memory_full(int(sys.argv[2]))
 
+    elif cmd == "passport" and len(sys.argv) >= 3:
+        from .passport import get_passport, display_passport
+        try:
+            mem_id = int(sys.argv[2])
+            passport = get_passport(mem_id)
+            display_passport(passport)
+        except ValueError:
+            print(f"Error: Invalid memory ID '{sys.argv[2]}'")
+        except Exception as e:
+            print(f"Error generating passport: {e}")
+
     elif cmd == "list":
         flags, _ = parse_flags(sys.argv, 2)
         rows = list_memories(

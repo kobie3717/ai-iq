@@ -62,12 +62,32 @@ See [CLAUDE_CODE_PLUGIN.md](CLAUDE_CODE_PLUGIN.md) for details.
 
 See [docs/REFERENCE.md](docs/REFERENCE.md) for complete documentation:
 
+- **Passport System** — Complete identity card for any memory (graph connections, provenance chain, access patterns, confidence score)
 - **Beliefs & Predictions** — Confidence tracking with Bayesian updates
 - **Knowledge Graph** — Entities, relationships, spreading activation
 - **Dream Mode** — REM-like consolidation (dedup, conflict detection)
 - **Identity Layer** — Auto-discovers behavioral traits
 - **Narrative Memory** — Builds cause-effect stories from causal graph
 - **Meta-Learning** — Search improves from feedback loops
+
+### Passport System
+
+Every memory has a "passport" — its complete identity card across all dimensions:
+
+```bash
+memory-tool passport 42
+```
+
+Shows:
+- **Core identity**: content, category, project, tags
+- **Graph connections**: linked entities with their relationships
+- **Memory relationships**: derived-from, related, supersedes chains
+- **Provenance**: citations, reasoning, source memories
+- **Usage stats**: access count, revisions, FSRS state
+- **Passport score**: composite 0-10 score from priority, access patterns, proof count, graph connections, and recency
+- **Spreading activation**: related entities discovered via graph traversal
+
+Like a traveler's passport proves who you are and where you've been, a memory passport is its complete dossier.
 
 ## Example
 

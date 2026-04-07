@@ -232,7 +232,7 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
     # Content-hash dedup check: prevent exact duplicates within 30 seconds (claude-mem pattern)
     # Use SHA256 hash of category:content (case-insensitive, whitespace-normalized)
-    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
+    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
     conn = get_db()
     recent_dupe = conn.execute("""
         SELECT id, created_at FROM memories
@@ -439,7 +439,7 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         contradiction_warning = check_contradictions(content, category, project)
 
         # Compute content hash (truncate to 16 chars to match dedup logic)
-        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
+        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
 
         conn = get_db()
         cur = conn.execute(
@@ -529,13 +529,13 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
         conditions_fts = []
         conditions_plain = []
         if since:
-            conditions_fts.append("(m.created_at >= ? OR m.updated_at >= ?)")
-            conditions_plain.append("(created_at >= ? OR updated_at >= ?)")
-            date_params.extend([since, since])
+            conditions_fts.append("m.created_at >= ?")
+            conditions_plain.append("created_at >= ?")
+            date_params.append(since)
         if until:
-            conditions_fts.append("(m.created_at <= ? OR m.updated_at <= ?)")
-            conditions_plain.append("(created_at <= ? OR updated_at <= ?)")
-            date_params.extend([until, until])
+            conditions_fts.append("m.created_at <= ?")
+            conditions_plain.append("created_at <= ?")
+            date_params.append(until)
         if conditions_fts:
             date_filter_fts = " AND " + " AND ".join(conditions_fts)
             date_filter_plain = " AND " + " AND ".join(conditions_plain)

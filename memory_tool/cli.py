@@ -971,7 +971,6 @@ def main() -> None:
         # Try to get session ID from metrics file
         session_id = None
         try:
-            import json
             from pathlib import Path
             metrics_file = Path("/tmp/claude-session-metrics.json")
             if metrics_file.exists():
@@ -1621,7 +1620,6 @@ def main() -> None:
 
     elif cmd == "session-log":
         from pathlib import Path
-        import json
 
         SESSION_LOG = Path("/tmp/ai-iq-session-log.jsonl")
 

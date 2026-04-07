@@ -242,7 +242,7 @@ def show_token_economics(rows: List[sqlite3.Row], compact: bool = True) -> None:
         # Estimate tokens shown in preview (80 chars preview + metadata ~30 chars)
         preview_tokens = sum(estimate_tokens(r['content'][:80]) + 8 for r in rows)
         avg_tokens = total_tokens // max(1, len(rows))
-        print(f"\n{len(rows)} results (~{total_tokens} tokens total). Use --full for details or `memory-tool get <id>` for single memory.")
+        print(f"\n💰 Reading all {len(rows)} results: ~{total_tokens} tokens total (~{avg_tokens} each avg). Use --full for details or `memory-tool get <id>` for single memory.")
     else:
         # Full mode: show total tokens
         print(f"\n💰 Full context loaded: ~{total_tokens} tokens")

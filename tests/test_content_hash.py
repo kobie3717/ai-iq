@@ -78,8 +78,8 @@ def test_content_hash_stored_in_db(temp_db):
     assert row is not None
     assert row["content_hash"] is not None
 
-    # Verify hash matches expected (first 16 chars only)
-    expected_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
+    # Verify hash matches expected (full 64-char SHA256)
+    expected_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
     assert row["content_hash"] == expected_hash
 
 

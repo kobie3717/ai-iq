@@ -42,7 +42,7 @@ def test_search_logging(temp_db, capsys):
     add_memory("decision", "Use pytest for testing", skip_dedup=True)
 
     # Perform a search
-    results, search_id = search_memories("python", mode="keyword")
+    results, search_id, _ = search_memories("python", mode="keyword")
 
     # Verify search was logged
     conn = get_db()
@@ -65,7 +65,7 @@ def test_feedback_logging(temp_db, capsys):
     mem3 = add_memory("learning", "Kubernetes deployment", skip_dedup=True)
 
     # Search
-    results, search_id = search_memories("docker", mode="keyword")
+    results, search_id, _ = search_memories("docker", mode="keyword")
 
     # Mark only mem1 and mem2 as used
     log_search_feedback(search_id, [mem1, mem2])
@@ -99,10 +99,10 @@ def test_search_quality_stats(temp_db, capsys):
     mem3 = add_memory("learning", "Vue.js components", skip_dedup=True)
 
     # Perform multiple searches with feedback
-    results1, sid1 = search_memories("react", mode="keyword")
+    results1, sid1, _ = search_memories("react", mode="keyword")
     log_search_feedback(sid1, [mem1, mem2])  # 100% hit rate (if both returned)
 
-    results2, sid2 = search_memories("vue", mode="keyword")
+    results2, sid2, _ = search_memories("vue", mode="keyword")
     log_search_feedback(sid2, [])  # 0% hit rate
 
     # Get stats
@@ -191,7 +191,7 @@ def test_hit_rate_calculation(temp_db, capsys):
     mem3 = add_memory("learning", "Memory C", skip_dedup=True)
 
     # Search that returns all 3
-    results, search_id = search_memories("memory", mode="keyword")
+    results, search_id, _ = search_memories("memory", mode="keyword")
 
     # Only use 2 out of 3
     log_search_feedback(search_id, [mem1, mem2])
@@ -209,7 +209,7 @@ def test_hit_rate_calculation(temp_db, capsys):
 
 def test_no_results_search(temp_db, capsys):
     """Test that searches with no results are handled gracefully."""
-    results, search_id = search_memories("nonexistent query xyz", mode="keyword")
+    results, search_id, _ = search_memories("nonexistent query xyz", mode="keyword")
 
     # Should return empty results
     assert len(results) == 0
@@ -236,7 +236,7 @@ def test_feedback_with_invalid_search_id(temp_db, capsys):
 def test_empty_feedback(temp_db, capsys):
     """Test logging feedback with empty used_ids list."""
     mem1 = add_memory("learning", "Test memory", skip_dedup=True)
-    results, search_id = search_memories("test", mode="keyword")
+    results, search_id, _ = search_memories("test", mode="keyword")
 
     # Log empty feedback (nothing was used)
     log_search_feedback(search_id, [])
@@ -254,8 +254,8 @@ def test_search_modes_logged(temp_db, capsys):
     add_memory("learning", "Test content", skip_dedup=True)
 
     # Test each mode
-    results_hybrid, sid_hybrid = search_memories("test", mode="hybrid")
-    results_keyword, sid_keyword = search_memories("test", mode="keyword")
+    results_hybrid, sid_hybrid, _ = search_memories("test", mode="hybrid")
+    results_keyword, sid_keyword, _ = search_memories("test", mode="keyword")
     # Semantic mode requires embeddings, skip if not available
 
     conn = get_db()
@@ -270,7 +270,7 @@ def test_search_modes_logged(temp_db, capsys):
 def test_log_usage(temp_db, capsys):
     """Test logging individual memory usage."""
     mem1 = add_memory("learning", "Test memory 1", skip_dedup=True)
-    results, search_id = search_memories("test", mode="keyword")
+    results, search_id, _ = search_memories("test", mode="keyword")
 
     conn = get_db()
 
@@ -406,7 +406,7 @@ def test_cli_feedback_stats(temp_db, capsys):
 
     # Add some test data
     mem1 = add_memory("learning", "Test memory for CLI", skip_dedup=True)
-    results, search_id = search_memories("test", mode="keyword")
+    results, search_id, _ = search_memories("test", mode="keyword")
     log_search_feedback(search_id, [mem1])
 
     # Run command
@@ -450,7 +450,7 @@ def test_cli_gaps(temp_db, capsys):
 def test_search_returns_search_id(temp_db, capsys):
     """Test that search command returns search_id in output."""
     mem1 = add_memory("learning", "Test memory", skip_dedup=True)
-    results, search_id = search_memories("test", mode="keyword")
+    results, search_id, _ = search_memories("test", mode="keyword")
 
     assert search_id is not None
     assert search_id > 0

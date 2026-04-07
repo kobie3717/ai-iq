@@ -17,5 +17,6 @@
     "predictions",
     "sqlite",
     "ai-memory"
-  ]
+  ],
+  "skills": "skills"
 }

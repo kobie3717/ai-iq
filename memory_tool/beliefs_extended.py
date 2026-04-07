@@ -12,7 +12,6 @@ This module adds a layer on top for explicit beliefs with evidence.
 """
 
 import sqlite3
-import math
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from difflib import SequenceMatcher
@@ -481,10 +480,10 @@ def resolve_prediction(
 
             if correct:
                 # Boost belief confidence
-                new_conf = bayesian_update(db, belief_id, 'supports', 0.7)
+                bayesian_update(db, belief_id, 'supports', 0.7)
             else:
                 # Weaken belief confidence
-                new_conf = bayesian_update(db, belief_id, 'contradicts', 0.7)
+                bayesian_update(db, belief_id, 'contradicts', 0.7)
 
             updated_beliefs.append(belief_id)
 
@@ -1165,13 +1164,10 @@ def format_timeline_entry(entry: Dict[str, Any]) -> str:
     # Determine arrow direction
     if new_conf > old_conf:
         arrow = "↑"
-        color_code = "32"  # Green (ANSI)
     elif new_conf < old_conf:
         arrow = "↓"
-        color_code = "31"  # Red (ANSI)
     else:
         arrow = "→"
-        color_code = "33"  # Yellow (ANSI)
 
     timestamp = entry['timestamp'][:16] if 'timestamp' in entry else entry.get('time', '')[:16]
     reason = entry.get('reason', 'No reason')

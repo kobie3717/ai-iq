@@ -1,14 +1,14 @@
 # Installation Guide
 
-Complete installation instructions for ai-memory-sqlite.
+Complete installation instructions for ai-iq.
 
 ## Quick Install
 
 For Claude Code users on Linux/macOS:
 
 ```bash
-git clone https://github.com/kobie3717/ai-memory-sqlite.git
-cd ai-memory-sqlite
+git clone https://github.com/kobie3717/ai-iq.git
+cd ai-iq
 ./scripts/install.sh
 ```
 
@@ -32,8 +32,8 @@ memory-tool search "test"
 ### Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/kobie3717/ai-memory-sqlite.git
-cd ai-memory-sqlite
+git clone https://github.com/kobie3717/ai-iq.git
+cd ai-iq
 ```
 
 ### Step 2: Choose Installation Location
@@ -45,7 +45,7 @@ INSTALL_DIR="$HOME/.claude/projects/-root/memory"
 
 For other tools:
 ```bash
-INSTALL_DIR="$HOME/.config/ai-memory"
+INSTALL_DIR="$HOME/.config/ai-iq"
 ```
 
 ### Step 3: Copy Files
@@ -501,7 +501,7 @@ cp ~/.claude/projects/-root/memory/memories.db ~/memory-backup.db
 To upgrade to latest version:
 
 ```bash
-cd ai-memory-sqlite
+cd ai-iq
 git pull
 ./scripts/install.sh
 ```
@@ -560,4 +560,4 @@ If all commands succeed, installation is complete.
 For issues, see:
 - [Troubleshooting](#troubleshooting)
 - [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
-- GitHub Issues: https://github.com/yourusername/ai-memory-sqlite/issues
+- GitHub Issues: https://github.com/yourusername/ai-iq/issues

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Persistent Memory System (IMPORTANT - USE EVERY SESSION)
 
-SQLite-backed memory at `~/.local/share/ai-memory/`:
+SQLite-backed memory at `~/.local/share/ai-iq/`:
 - **memories.db** - Source of truth (SQLite + FTS5 full-text search)
 - **MEMORY.md** - Auto-generated from DB, auto-loaded every session with smart context
 - **memory-tool** - CLI tool (global command) to manage memories
@@ -16,12 +16,14 @@ SQLite-backed memory at `~/.local/share/ai-memory/`:
 
 ### Core Commands (run via Bash tool)
 ```bash
-memory-tool add <category> "<content>" --project X --tags t1,t2 --priority N --related <id> --expires YYYY-MM-DD
-memory-tool search "<query>"              # FTS search (auto-tracks access, boosts priority)
-memory-tool search --mode semantic "<query>"   # Semantic search using embeddings
-memory-tool search --mode hybrid "<query>"     # Combined FTS + semantic search
+memory-tool add <category> "<content>" --project X --tags t1,t2 --priority N --related <id> --expires YYYY-MM-DD --key <topic-key> --derived-from <ids> --citations <sources> --reasoning <why>
+memory-tool search "<query>"              # Hybrid search: FTS + semantic (RRF fusion)
+memory-tool search "<query>" --semantic   # Semantic-only (vector similarity)
+memory-tool search "<query>" --keyword    # Keyword-only (FTS)
+memory-tool search "<query>" --full       # Verbose output
+memory-tool get <id>                      # Full detail for single memory
 memory-tool list --project ProjectName   # Filter by project/category/tag/--stale/--expired
-memory-tool update <id> "<new content>"   # Update (auto re-tags)
+memory-tool update <id> "<new content>"   # Update (auto re-tags + re-embeds)
 memory-tool delete <id>                   # Soft-delete (recoverable)
 memory-tool relate <id1> <id2> [type]     # Link related memories
 memory-tool pending                       # Show TODOs
@@ -32,20 +34,29 @@ memory-tool backup                        # Manual backup
 memory-tool restore <file>                # Restore from backup
 memory-tool decay                         # Flag stale, deprioritize, expire
 memory-tool stale                         # Review stale memories
+memory-tool hot                           # Show most frequently accessed memories (immune to decay)
 memory-tool gc [days]                     # Purge old inactive (default 180d)
+memory-tool next                          # Smart suggestions: what needs attention now
+memory-tool dream                         # Review transcripts, extract insights, consolidate duplicates
 memory-tool stats                         # Full statistics
+memory-tool reindex                       # Bulk-embed all memories for vector search
 
-# Graph/Knowledge Base Commands
-memory-tool graph add-entity <name> <type> [description]
-memory-tool graph add-relationship <entity1> <entity2> <type> [properties]
-memory-tool graph set-fact <entity> <property> <value>
-memory-tool graph get <entity>
-memory-tool graph spread <entity> [depth]
+# Graph Intelligence Commands
+memory-tool graph                         # Graph summary
+memory-tool graph add <type> <name> [summary]  # Add entity (person/project/org/feature/concept/tool/service)
+memory-tool graph rel <from> <rel_type> <to> [note]  # Add relationship
+memory-tool graph fact <entity> <key> <value>  # Set fact (auto-tracks history)
+memory-tool graph get <name>              # Entity with facts + relationships + linked memories
+memory-tool graph list [type]             # List entities
+memory-tool graph spread <name> [depth]   # Spreading activation (find related entities)
+memory-tool graph link <mem_id> <entity>  # Link memory to entity
+memory-tool graph auto-link               # Auto-link all memories to entities
 
 # Topic/Conflict Commands
-memory-tool topics                        # List all topics
-memory-tool conflicts                     # Show conflicting memories
-memory-tool merge <id1> <id2>             # Merge duplicate memories
+memory-tool topics                        # Generate per-project .md files
+memory-tool conflicts                     # Find 50-85% similar pairs
+memory-tool merge <id1> <id2>             # Merge two memories (keep newer)
+memory-tool supersede <old> <new>         # Mark old as superseded
 ```
 
 ### Categories
@@ -70,9 +81,9 @@ memory-tool merge <id1> <id2>             # Merge duplicate memories
 - **When discovering conflicts**: Use `memory-tool conflicts` to find, `memory-tool merge` to resolve
 
 ### Search Modes
-- **keyword** (default): Fast FTS5 full-text search, best for exact terms
-- **semantic**: Vector similarity search using embeddings, best for conceptual matches
-- **hybrid**: Combines both keyword and semantic results, best overall accuracy
+- **hybrid** (default): Combines FTS5 keyword + semantic search via Reciprocal Rank Fusion, best overall accuracy
+- **semantic**: Vector similarity search using embeddings (all-MiniLM-L6-v2), best for conceptual matches
+- **keyword**: Fast FTS5 full-text search, best for exact terms
 
 ### Graph/Knowledge Base
 The memory system includes a knowledge graph for structured data:

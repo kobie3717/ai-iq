@@ -1,6 +1,6 @@
 # Installation Scripts
 
-This directory contains scripts for installing and setting up the AI Memory SQLite system.
+This directory contains scripts for installing and setting up the AI-IQ system.
 
 ## Files
 
@@ -15,7 +15,7 @@ bash scripts/install.sh
 
 **What it does:**
 - Checks Python 3.8+ and SQLite 3.37+ requirements
-- Creates `~/.local/share/ai-memory/` directory
+- Creates `~/.local/share/ai-iq/` directory
 - Copies `memory-tool.py` to the installation directory
 - Creates symlink at `~/.local/bin/memory-tool`
 - Adds `~/.local/bin` to PATH (if needed)

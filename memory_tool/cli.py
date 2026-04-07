@@ -3,14 +3,17 @@
 import sys
 import json
 import sqlite3
+import logging
 from datetime import datetime
+from typing import Tuple, Dict, Any, List
 
 # Import all operations from the core module (which re-exports everything)
 from . import core
 from .core import *
+from .config import get_logger
 
 
-def parse_flags(argv, start=2):
+def parse_flags(argv: List[str], start: int = 2) -> Tuple[Dict[str, Any], List[str]]:
     """Parse --flag value pairs from argv starting at position `start`.
     Returns (flags_dict, remaining_args).
     """
@@ -31,8 +34,24 @@ def parse_flags(argv, start=2):
             remaining.append(arg)
             i += 1
     return flags, remaining
-def main():
+
+
+def main() -> None:
     init_db()
+
+    # Handle global flags for logging
+    if '--verbose' in sys.argv or '-v' in sys.argv:
+        logging.getLogger().setLevel(logging.DEBUG)
+        if '--verbose' in sys.argv:
+            sys.argv.remove('--verbose')
+        if '-v' in sys.argv:
+            sys.argv.remove('-v')
+    elif '--quiet' in sys.argv or '-q' in sys.argv:
+        logging.getLogger().setLevel(logging.WARNING)
+        if '--quiet' in sys.argv:
+            sys.argv.remove('--quiet')
+        if '-q' in sys.argv:
+            sys.argv.remove('-q')
 
     if len(sys.argv) < 2:
         print_help()

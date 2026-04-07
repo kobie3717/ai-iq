@@ -1,4 +1,5 @@
 """Dream mode - memory consolidation and insight extraction (Phase 6 feature)."""
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 import sqlite3
 import sys
@@ -44,7 +45,7 @@ def _get_export_memory_md():
     return export_memory_md
 
 
-def cmd_dream():
+def cmd_dream() -> None:
     """Review session transcripts, consolidate memories, normalize dates — like REM sleep for AI memory."""
     print("🌙 Dreaming: processing session transcripts...")
 
@@ -297,7 +298,7 @@ CORRECTION_PATTERNS = [
 
 
 
-def consolidate_memories(conn):
+def consolidate_memories(conn: Any) -> Dict[str, int]:
     """Cross-memory consolidation — like REM sleep for AI memory.
     Replays memories, finds patterns, merges duplicates, generates insights."""
 
@@ -431,7 +432,7 @@ def consolidate_memories(conn):
     return results
 
 
-def reconsolidate_memories(conn):
+def reconsolidate_memories(conn: Any) -> int:
     """Reconsolidation phase: find near-duplicates (85-95% similarity) and auto-merge them.
     This phase happens after standard dedup but catches memories that are almost identical
     but have minor differences (like updated timestamps, slightly different wording, etc.)."""

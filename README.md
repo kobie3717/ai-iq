@@ -4,6 +4,7 @@
 
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)
 ![SQLite 3.37+](https://img.shields.io/badge/sqlite-3.37%2B-blue)
+![Tests](https://img.shields.io/badge/tests-195%20passing-brightgreen)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
 [![GitHub](https://img.shields.io/github/stars/kobie3717/ai-iq?style=social)](https://github.com/kobie3717/ai-iq)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/Y2jCXNGgE)
@@ -56,7 +57,7 @@ AI-IQ gives your AI assistant persistent, searchable context that survives acros
 Get up and running in 60 seconds:
 
 ```bash
-# Option 1: Install from PyPI (when published)
+# Option 1: Install from PyPI
 pip install ai-iq
 
 # Option 2: Install from source

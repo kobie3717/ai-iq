@@ -1,6 +1,6 @@
 # Architecture
 
-Technical deep-dive into ai-memory-sqlite implementation.
+Technical deep-dive into AI-IQ implementation.
 
 ## Database Schema
 

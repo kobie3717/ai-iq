@@ -1,4 +1,5 @@
 """Graph intelligence operations (Phase 3 feature)."""
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 import sqlite3
 import sys
@@ -29,7 +30,7 @@ except ImportError:
     pass
 
 
-def graph_add_entity(name, entity_type, summary="", importance=3):
+def graph_add_entity(name: str, entity_type: str, summary: str = "", importance: int = 3) -> int:
     """Add or update an entity. Returns entity id."""
     conn = get_db()
     try:
@@ -144,7 +145,7 @@ def graph_set_fact(entity_name, key, value, confidence=1.0, source=""):
 
 
 
-def graph_get_entity(name):
+def graph_get_entity(name: str) -> Optional[Dict[str, Any]]:
     """Get entity with all its facts and relationships."""
     conn = get_db()
 
@@ -208,7 +209,7 @@ def graph_get_entity(name):
 
 
 
-def graph_list_entities(entity_type=None):
+def graph_list_entities(entity_type: Optional[str] = None) -> List[Dict[str, Any]]:
     """List all entities, optionally filtered by type."""
     conn = get_db()
     if entity_type:
@@ -303,7 +304,7 @@ def graph_remove_fact(entity_name, key):
 
 
 
-def graph_spread(start_entity_name, depth=2):
+def graph_spread(start_entity_name: str, depth: int = 2) -> List[Dict[str, Any]]:
     """
     Spreading activation: starting from an entity, find connected entities
     up to `depth` hops. Returns entities with activation scores (closer = higher).
@@ -541,7 +542,7 @@ def graph_import_openclaw():
 
 
 
-def graph_stats():
+def graph_stats() -> Dict[str, Any]:
     """Get graph statistics."""
     conn = get_db()
 

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-IQ Logo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #ffffff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .logo-wrapper {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+            letter-spacing: 2px;
+        }
+
+        /* Dark mode version */
+        .dark {
+            background: #1a1a1a;
+        }
+
+        .dark .logo-wrapper {
+            background: #1a1a1a;
+        }
+
+        .dark svg rect,
+        .dark svg circle,
+        .dark svg line {
+            fill: #00ff00 !important;
+            stroke: #00ff00 !important;
+        }
+
+        .dark .subtitle {
+            color: #00ff00;
+        }
+
+        .toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #000;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .toggle:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle" onclick="document.body.classList.toggle('dark')">TOGGLE THEME</button>
+
+    <div class="container">
+        <div class="logo-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+                <!-- A in "AI" -->
+                <!-- Left leg of A -->
+                <rect x="40" y="180" width="15" height="80" fill="#000"/>
+                <circle cx="47.5" cy="180" r="4" fill="#000"/>
+
+                <!-- Right leg of A -->
+                <rect x="105" y="180" width="15" height="80" fill="#000"/>
+                <circle cx="112.5" cy="180" r="4" fill="#000"/>
+
+                <!-- Top of A -->
+                <rect x="55" y="80" width="50" height="15" fill="#000"/>
+                <circle cx="55" cy="87.5" r="4" fill="#000"/>
+                <circle cx="105" cy="87.5" r="4" fill="#000"/>
+
+                <!-- Crossbar of A -->
+                <rect x="55" y="160" width="50" height="12" fill="#000"/>
+                <circle cx="55" cy="166" r="4" fill="#000"/>
+                <circle cx="105" cy="166" r="4" fill="#000"/>
+
+                <!-- Traces connecting A parts -->
+                <line x1="47.5" y1="180" x2="47.5" y2="87.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="47.5" y1="87.5" x2="55" y2="87.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="105" y1="87.5" x2="112.5" y2="87.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="112.5" y1="87.5" x2="112.5" y2="180" stroke="#000" stroke-width="3" fill="none"/>
+
+                <!-- I in "AI" -->
+                <!-- Top block -->
+                <rect x="180" y="80" width="50" height="15" fill="#000"/>
+                <circle cx="205" cy="87.5" r="4" fill="#000"/>
+
+                <!-- Vertical stem -->
+                <rect x="197.5" y="95" width="15" height="150" fill="#000"/>
+
+                <!-- Bottom block -->
+                <rect x="180" y="245" width="50" height="15" fill="#000"/>
+                <circle cx="205" cy="252.5" r="4" fill="#000"/>
+
+                <!-- Trace connecting I -->
+                <line x1="205" y1="95" x2="205" y2="245" stroke="#000" stroke-width="3" fill="none"/>
+
+                <!-- DASH/HYPHEN between AI and IQ -->
+                <!-- Circuit trace routing -->
+                <line x1="230" y1="150" x2="280" y2="150" stroke="#000" stroke-width="3" fill="none"/>
+                <circle cx="230" cy="150" r="4" fill="#000"/>
+                <circle cx="280" cy="150" r="4" fill="#000"/>
+
+                <!-- Dash block -->
+                <rect x="295" y="145" width="60" height="10" fill="#000"/>
+                <circle cx="295" cy="150" r="4" fill="#000"/>
+                <circle cx="355" cy="150" r="4" fill="#000"/>
+
+                <!-- Trace to IQ -->
+                <line x1="355" y1="150" x2="405" y2="150" stroke="#000" stroke-width="3" fill="none"/>
+                <circle cx="405" cy="150" r="4" fill="#000"/>
+
+                <!-- I in "IQ" -->
+                <!-- Top block -->
+                <rect x="420" y="80" width="50" height="15" fill="#000"/>
+                <circle cx="445" cy="87.5" r="4" fill="#000"/>
+
+                <!-- Vertical stem -->
+                <rect x="437.5" y="95" width="15" height="150" fill="#000"/>
+
+                <!-- Bottom block -->
+                <rect x="420" y="245" width="50" height="15" fill="#000"/>
+                <circle cx="445" cy="252.5" r="4" fill="#000"/>
+
+                <!-- Trace connecting I -->
+                <line x1="445" y1="95" x2="445" y2="245" stroke="#000" stroke-width="3" fill="none"/>
+
+                <!-- Q in "IQ" -->
+                <!-- Outer circle made from rectangles -->
+                <!-- Top -->
+                <rect x="550" y="80" width="80" height="15" fill="#000"/>
+                <circle cx="550" cy="87.5" r="4" fill="#000"/>
+                <circle cx="630" cy="87.5" r="4" fill="#000"/>
+
+                <!-- Left -->
+                <rect x="535" y="95" width="15" height="130" fill="#000"/>
+                <circle cx="542.5" cy="95" r="4" fill="#000"/>
+                <circle cx="542.5" cy="225" r="4" fill="#000"/>
+
+                <!-- Right -->
+                <rect x="630" y="95" width="15" height="130" fill="#000"/>
+                <circle cx="637.5" cy="95" r="4" fill="#000"/>
+                <circle cx="637.5" cy="225" r="4" fill="#000"/>
+
+                <!-- Bottom -->
+                <rect x="550" y="225" width="60" height="15" fill="#000"/>
+                <circle cx="550" cy="232.5" r="4" fill="#000"/>
+                <circle cx="610" cy="232.5" r="4" fill="#000"/>
+
+                <!-- Q tail (diagonal) -->
+                <rect x="615" y="220" width="55" height="12" fill="#000" transform="rotate(40 615 226)"/>
+                <circle cx="615" cy="226" r="4" fill="#000"/>
+                <circle cx="658" cy="250" r="5" fill="#000"/>
+
+                <!-- Inner circle blocks (hollow Q) -->
+                <rect x="570" y="120" width="40" height="12" fill="#000"/>
+                <rect x="570" y="175" width="40" height="12" fill="#000"/>
+
+                <!-- Traces for Q -->
+                <line x1="542.5" y1="87.5" x2="550" y2="87.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="630" y1="87.5" x2="637.5" y2="87.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="542.5" y1="225" x2="542.5" y2="95" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="637.5" y1="95" x2="637.5" y2="225" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="542.5" y1="232.5" x2="550" y2="232.5" stroke="#000" stroke-width="3" fill="none"/>
+                <line x1="610" y1="232.5" x2="637.5" y2="232.5" stroke="#000" stroke-width="3" fill="none"/>
+
+                <!-- Connection traces between letters -->
+                <!-- Trace from AI to dash -->
+                <line x1="212.5" y1="150" x2="230" y2="150" stroke="#000" stroke-width="2.5" fill="none"/>
+                <circle cx="212.5" cy="150" r="3.5" fill="#000"/>
+
+                <!-- Trace from dash to IQ -->
+                <line x1="405" y1="150" x2="437.5" y2="150" stroke="#000" stroke-width="2.5" fill="none"/>
+                <circle cx="437.5" cy="150" r="3.5" fill="#000"/>
+
+                <!-- Trace from I to Q -->
+                <line x1="470" y1="150" x2="535" y2="150" stroke="#000" stroke-width="2.5" fill="none"/>
+                <circle cx="470" cy="150" r="3.5" fill="#000"/>
+                <circle cx="535" cy="150" r="3.5" fill="#000"/>
+                <line x1="535" y1="150" x2="535" y2="162" stroke="#000" stroke-width="2.5" fill="none"/>
+                <circle cx="535" cy="162" r="3.5" fill="#000"/>
+            </svg>
+        </div>
+
+        <div class="subtitle">SQLite-Backed AI Memory System</div>
+    </div>
+</body>
+</html>

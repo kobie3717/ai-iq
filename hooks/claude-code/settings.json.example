@@ -1,10 +1,10 @@
 {
   "hooks": {
     "Stop": [
-      "bash ~/.local/share/ai-memory/hooks/session-hook.sh"
+      "bash ~/.local/share/ai-iq/hooks/session-hook.sh"
     ],
     "PostToolUse": [
-      "bash ~/.local/share/ai-memory/hooks/error-hook.sh"
+      "bash ~/.local/share/ai-iq/hooks/error-hook.sh"
     ]
   }
 }

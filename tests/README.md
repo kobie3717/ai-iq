@@ -1,6 +1,6 @@
 # Test Suite
 
-This directory contains test scripts for the AI Memory SQLite system.
+This directory contains test scripts for the AI-IQ system.
 
 ## Files
 
@@ -76,14 +76,14 @@ bash tests/test_basic.sh 2>&1 | tee test-results.log
 
 ### Run from any directory:
 ```bash
-cd /path/to/ai-memory-sqlite
+cd /path/to/ai-iq
 bash tests/test_basic.sh
 ```
 
 ## Expected Output
 
 ```
-AI Memory SQLite - Basic Test Suite
+AI-IQ - Basic Test Suite
 ====================================
 Test directory: /tmp/tmp.XXXXXXXXXX
 

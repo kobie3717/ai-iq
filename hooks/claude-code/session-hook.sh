@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI Memory SQLite - Session Hook
+# AI-IQ - Session Hook
 # Designed for Claude Code "Stop" hook
 # Runs auto-snapshot, decay, export, and daily backup check
 
@@ -23,7 +23,7 @@ fi
 "$MT" export 2>/dev/null || true
 
 # Daily backup check: only backup once per day
-BACKUP_MARKER="${XDG_DATA_HOME:-$HOME/.local/share}/ai-memory/.last_backup"
+BACKUP_MARKER="${XDG_DATA_HOME:-$HOME/.local/share}/ai-iq/.last_backup"
 TODAY=$(date +%Y-%m-%d)
 
 if [ ! -f "$BACKUP_MARKER" ] || [ "$(cat "$BACKUP_MARKER" 2>/dev/null)" != "$TODAY" ]; then

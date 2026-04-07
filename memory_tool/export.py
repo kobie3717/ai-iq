@@ -1,4 +1,5 @@
 """Export, maintenance, and housekeeping operations."""
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 import sqlite3
 import sys
@@ -37,7 +38,7 @@ def _get_relations_functions():
     return find_conflicts, get_snapshots
 
 
-def export_memory_md(focus_project=None):
+def export_memory_md(focus_project: Optional[str] = None) -> None:
     conn = get_db()
     lines = []
     lines.append("# Persistent Memory (Auto-Generated)")
@@ -194,7 +195,7 @@ def export_memory_md(focus_project=None):
 
 
 
-def export_topics():
+def export_topics() -> None:
     """Generate topic .md files per project."""
     TOPICS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -267,7 +268,7 @@ def export_topics():
 
 
 
-def run_decay():
+def run_decay() -> None:
     """Run decay process using FSRS retention model."""
     conn = get_db()
     now = datetime.now()
@@ -331,7 +332,7 @@ def run_decay():
 
 
 
-def get_stale():
+def get_stale() -> List[Dict[str, Any]]:
     conn = get_db()
     rows = conn.execute("SELECT * FROM memories WHERE active = 1 AND stale = 1 ORDER BY category, updated_at ASC").fetchall()
     conn.close()
@@ -342,7 +343,7 @@ def get_stale():
 
 
 
-def garbage_collect(days=180):
+def garbage_collect(days: int = 180) -> None:
     conn = get_db()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cur = conn.execute("DELETE FROM memories WHERE active = 0 AND updated_at < ?", (cutoff,))
@@ -383,7 +384,7 @@ def garbage_collect(days=180):
 
 
 
-def backup_db():
+def backup_db() -> None:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = BACKUP_DIR / f"memories_{timestamp}.db"
@@ -408,7 +409,7 @@ def backup_db():
 
 
 
-def restore_db(backup_file):
+def restore_db(backup_file: str) -> None:
     path = Path(backup_file)
     if not path.exists():
         print(f"Backup not found: {backup_file}")
@@ -439,7 +440,7 @@ def restore_db(backup_file):
 
 
 
-def suggest_next():
+def suggest_next() -> None:
     """Suggest next actions based on current memory state."""
     conn = get_db()
     suggestions = []
@@ -552,7 +553,7 @@ def suggest_next():
 
 
 
-def reindex_embeddings():
+def reindex_embeddings() -> None:
     """Bulk-embed all active memories that don't have embeddings yet."""
     if not has_vec_support():
         print("Error: Vector search not available (missing dependencies or model files)")

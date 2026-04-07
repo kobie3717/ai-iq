@@ -1,6 +1,7 @@
 """Configuration constants for memory-tool."""
 
 import os
+import logging
 from pathlib import Path
 from typing import Dict, List
 
@@ -53,3 +54,15 @@ AUTO_TAG_RULES: Dict[str, List[str]] = {
     "react": ["react", "vite", "tailwind", "frontend", "tsx", "jsx"],
     "api": ["endpoint", "route", "controller", "middleware", "express"],
 }
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger for the specified module."""
+    return logging.getLogger(f"ai_iq.{name}")
+
+
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'  # Keep output clean for CLI
+)

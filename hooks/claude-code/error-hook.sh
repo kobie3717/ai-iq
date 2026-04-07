@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI Memory SQLite - Error Hook
+# AI-IQ - Error Hook
 # Designed for Claude Code "PostToolUse" hook
 # Captures failed Bash commands as error memories
 

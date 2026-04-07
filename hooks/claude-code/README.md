@@ -1,6 +1,6 @@
 # Claude Code Integration Guide
 
-This guide shows you how to integrate the AI Memory SQLite system with Claude Code, enabling persistent memory across all your coding sessions.
+This guide shows you how to integrate the AI-IQ system with Claude Code, enabling persistent memory across all your coding sessions.
 
 ## Overview
 
@@ -27,7 +27,7 @@ bash scripts/install.sh
 ```
 
 This will:
-- Install memory-tool to `~/.local/share/ai-memory/`
+- Install memory-tool to `~/.local/share/ai-iq/`
 - Create a symlink at `~/.local/bin/memory-tool`
 - Add `~/.local/bin` to your PATH (if not already there)
 - Initialize the database
@@ -59,14 +59,14 @@ Claude Code settings are typically at:
 
 ```bash
 # Create hooks directory
-mkdir -p ~/.local/share/ai-memory/hooks
+mkdir -p ~/.local/share/ai-iq/hooks
 
 # Copy hook scripts
-cp hooks/claude-code/session-hook.sh ~/.local/share/ai-memory/hooks/
-cp hooks/claude-code/error-hook.sh ~/.local/share/ai-memory/hooks/
+cp hooks/claude-code/session-hook.sh ~/.local/share/ai-iq/hooks/
+cp hooks/claude-code/error-hook.sh ~/.local/share/ai-iq/hooks/
 
 # Make them executable
-chmod +x ~/.local/share/ai-memory/hooks/*.sh
+chmod +x ~/.local/share/ai-iq/hooks/*.sh
 ```
 
 #### c. Add hooks to settings.json
@@ -77,10 +77,10 @@ Edit `~/.config/claude-code/settings.json` (create if it doesn't exist):
 {
   "hooks": {
     "Stop": [
-      "bash ~/.local/share/ai-memory/hooks/session-hook.sh"
+      "bash ~/.local/share/ai-iq/hooks/session-hook.sh"
     ],
     "PostToolUse": [
-      "bash ~/.local/share/ai-memory/hooks/error-hook.sh"
+      "bash ~/.local/share/ai-iq/hooks/error-hook.sh"
     ]
   }
 }
@@ -96,7 +96,7 @@ Add the memory system documentation to your project's `CLAUDE.md` file so Claude
 
 ```bash
 # In your project directory
-cat /path/to/ai-memory-sqlite/hooks/claude-code/CLAUDE.md.example >> CLAUDE.md
+cat /path/to/ai-iq/hooks/claude-code/CLAUDE.md.example >> CLAUDE.md
 ```
 
 Then edit `CLAUDE.md` to add your project-specific context.
@@ -114,27 +114,27 @@ Add a daily cron job to run maintenance tasks:
 crontab -e
 
 # Add this line (runs at 3:17 AM daily)
-17 3 * * * bash ~/.local/share/ai-memory/hooks/daily-maintenance.sh
+17 3 * * * bash ~/.local/share/ai-iq/hooks/daily-maintenance.sh
 ```
 
 Or copy the maintenance script:
 ```bash
-cp hooks/claude-code/daily-maintenance.sh ~/.local/share/ai-memory/hooks/
-chmod +x ~/.local/share/ai-memory/hooks/daily-maintenance.sh
+cp hooks/claude-code/daily-maintenance.sh ~/.local/share/ai-iq/hooks/
+chmod +x ~/.local/share/ai-iq/hooks/daily-maintenance.sh
 ```
 
 ### 5. Verify Everything Works
 
 #### Test the Stop hook:
 ```bash
-bash ~/.local/share/ai-memory/hooks/session-hook.sh
+bash ~/.local/share/ai-iq/hooks/session-hook.sh
 memory-tool stats
 ```
 
 #### Test the PostToolUse hook:
 ```bash
 # Create a mock PostToolUse event
-echo '{"tool":"Bash","parameters":{"command":"false"},"result":{"exitCode":1,"stderr":"Command failed"}}' | bash ~/.local/share/ai-memory/hooks/error-hook.sh
+echo '{"tool":"Bash","parameters":{"command":"false"},"result":{"exitCode":1,"stderr":"Command failed"}}' | bash ~/.local/share/ai-iq/hooks/error-hook.sh
 
 # Check if error was captured
 memory-tool list --category error
@@ -207,8 +207,8 @@ bash scripts/setup-embedding-model.sh
 
 Then use:
 ```bash
-memory-tool search --mode semantic "authentication issues"
-memory-tool search --mode hybrid "rate limiting"  # Best of both worlds
+memory-tool search "authentication issues" --semantic
+memory-tool search "rate limiting"  # Hybrid is default (best of both worlds)
 ```
 
 ### Knowledge Graph
@@ -247,14 +247,14 @@ memory-tool merge 42 43  # Merge duplicate memories
 
 1. Check hook permissions:
    ```bash
-   ls -la ~/.local/share/ai-memory/hooks/
+   ls -la ~/.local/share/ai-iq/hooks/
    # Should show -rwxr-xr-x
    ```
 
 2. Test hooks manually:
    ```bash
-   bash ~/.local/share/ai-memory/hooks/session-hook.sh
-   echo '{"tool":"Bash","parameters":{"command":"ls"},"result":{"exitCode":0}}' | bash ~/.local/share/ai-memory/hooks/error-hook.sh
+   bash ~/.local/share/ai-iq/hooks/session-hook.sh
+   echo '{"tool":"Bash","parameters":{"command":"ls"},"result":{"exitCode":0}}' | bash ~/.local/share/ai-iq/hooks/error-hook.sh
    ```
 
 3. Check Claude Code settings:
@@ -281,30 +281,30 @@ memory-tool merge 42 43  # Merge duplicate memories
 
 1. Check database location:
    ```bash
-   ls -la ~/.local/share/ai-memory/memories.db
+   ls -la ~/.local/share/ai-iq/memories.db
    ```
 
 2. Reinitialize if corrupted:
    ```bash
    memory-tool backup  # Backup first!
-   mv ~/.local/share/ai-memory/memories.db ~/.local/share/ai-memory/memories.db.backup
+   mv ~/.local/share/ai-iq/memories.db ~/.local/share/ai-iq/memories.db.backup
    memory-tool --init
    ```
 
 3. Restore from backup:
    ```bash
-   memory-tool restore ~/.local/share/ai-memory/backups/memories_YYYYMMDD_HHMMSS.db
+   memory-tool restore ~/.local/share/ai-iq/backups/memories_YYYYMMDD_HHMMSS.db
    ```
 
 ## File Locations
 
-- **Database**: `~/.local/share/ai-memory/memories.db`
-- **Auto-generated context**: `~/.local/share/ai-memory/MEMORY.md`
-- **Backups**: `~/.local/share/ai-memory/backups/`
-- **Logs**: `~/.local/share/ai-memory/logs/`
-- **Models**: `~/.local/share/ai-memory/models/` (if semantic search enabled)
-- **Hooks**: `~/.local/share/ai-memory/hooks/`
-- **Tool**: `~/.local/bin/memory-tool` → `~/.local/share/ai-memory/memory-tool.py`
+- **Database**: `~/.local/share/ai-iq/memories.db`
+- **Auto-generated context**: `~/.local/share/ai-iq/MEMORY.md`
+- **Backups**: `~/.local/share/ai-iq/backups/`
+- **Logs**: `~/.local/share/ai-iq/logs/`
+- **Models**: `~/.local/share/ai-iq/models/` (if semantic search enabled)
+- **Hooks**: `~/.local/share/ai-iq/hooks/`
+- **Tool**: `~/.local/bin/memory-tool` → `~/.local/share/ai-iq/memory-tool.py`
 
 ## Customization
 

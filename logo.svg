@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 220" width="960" height="220">
+  <!-- AI-IQ Circuit Board Logo -->
+
+  <!-- ═══ LETTER A ═══ -->
+  <!-- Top peak -->
+  <rect x="60" y="20" width="45" height="18" fill="#000"/>
+  <rect x="48" y="20" width="18" height="18" fill="#000"/>
+  <rect x="100" y="20" width="18" height="18" fill="#000"/>
+  <!-- Upper left -->
+  <rect x="30" y="42" width="35" height="18" fill="#000"/>
+  <rect x="22" y="42" width="15" height="15" fill="#000"/>
+  <!-- Upper right -->
+  <rect x="95" y="42" width="35" height="18" fill="#000"/>
+  <rect x="125" y="42" width="15" height="15" fill="#000"/>
+  <!-- Left stem blocks -->
+  <rect x="15" y="65" width="30" height="20" fill="#000"/>
+  <rect x="10" y="88" width="35" height="22" fill="#000"/>
+  <rect x="10" y="114" width="30" height="20" fill="#000"/>
+  <!-- Right stem blocks -->
+  <rect x="115" y="65" width="30" height="20" fill="#000"/>
+  <rect x="115" y="88" width="35" height="22" fill="#000"/>
+  <rect x="120" y="114" width="30" height="20" fill="#000"/>
+  <!-- Crossbar -->
+  <rect x="40" y="100" width="80" height="18" fill="#000"/>
+  <rect x="35" y="96" width="15" height="12" fill="#000"/>
+  <rect x="110" y="96" width="15" height="12" fill="#000"/>
+  <!-- Lower left -->
+  <rect x="8" y="138" width="32" height="22" fill="#000"/>
+  <rect x="5" y="164" width="35" height="20" fill="#000"/>
+  <rect x="5" y="188" width="30" height="18" fill="#000"/>
+  <!-- Lower right -->
+  <rect x="120" y="138" width="32" height="22" fill="#000"/>
+  <rect x="122" y="164" width="35" height="20" fill="#000"/>
+  <rect x="125" y="188" width="30" height="18" fill="#000"/>
+  <!-- A traces -->
+  <line x1="37" y1="38" x2="37" y2="42" stroke="#000" stroke-width="2.5"/>
+  <line x1="118" y1="38" x2="118" y2="42" stroke="#000" stroke-width="2.5"/>
+  <line x1="25" y1="57" x2="25" y2="65" stroke="#000" stroke-width="2.5"/>
+  <line x1="133" y1="57" x2="133" y2="65" stroke="#000" stroke-width="2.5"/>
+  <line x1="25" y1="110" x2="25" y2="114" stroke="#000" stroke-width="2.5"/>
+  <line x1="135" y1="110" x2="135" y2="114" stroke="#000" stroke-width="2.5"/>
+  <line x1="20" y1="134" x2="20" y2="138" stroke="#000" stroke-width="2.5"/>
+  <line x1="140" y1="134" x2="140" y2="138" stroke="#000" stroke-width="2.5"/>
+  <line x1="18" y1="160" x2="18" y2="164" stroke="#000" stroke-width="2.5"/>
+  <line x1="142" y1="160" x2="142" y2="164" stroke="#000" stroke-width="2.5"/>
+  <line x1="18" y1="184" x2="18" y2="188" stroke="#000" stroke-width="2.5"/>
+  <line x1="140" y1="184" x2="140" y2="188" stroke="#000" stroke-width="2.5"/>
+  <circle cx="70" cy="29" r="3" fill="#000"/>
+  <circle cx="42" cy="108" r="3" fill="#000"/>
+  <circle cx="115" cy="108" r="3" fill="#000"/>
+
+  <!-- ═══ LETTER I (first) ═══ -->
+  <!-- Top serif -->
+  <rect x="185" y="20" width="25" height="18" fill="#000"/>
+  <rect x="210" y="20" width="40" height="18" fill="#000"/>
+  <rect x="250" y="20" width="25" height="18" fill="#000"/>
+  <rect x="195" y="18" width="15" height="12" fill="#000"/>
+  <rect x="248" y="18" width="15" height="12" fill="#000"/>
+  <!-- Stem -->
+  <rect x="215" y="42" width="30" height="22" fill="#000"/>
+  <rect x="212" y="68" width="35" height="20" fill="#000"/>
+  <rect x="215" y="92" width="30" height="22" fill="#000"/>
+  <rect x="212" y="118" width="35" height="20" fill="#000"/>
+  <rect x="215" y="142" width="30" height="22" fill="#000"/>
+  <rect x="212" y="168" width="35" height="20" fill="#000"/>
+  <!-- Bottom serif -->
+  <rect x="185" y="192" width="25" height="18" fill="#000"/>
+  <rect x="210" y="192" width="40" height="18" fill="#000"/>
+  <rect x="250" y="192" width="25" height="18" fill="#000"/>
+  <rect x="195" y="196" width="15" height="12" fill="#000"/>
+  <rect x="248" y="196" width="15" height="12" fill="#000"/>
+  <!-- I traces -->
+  <line x1="230" y1="38" x2="230" y2="42" stroke="#000" stroke-width="2.5"/>
+  <line x1="230" y1="188" x2="230" y2="192" stroke="#000" stroke-width="2.5"/>
+  <circle cx="230" cy="55" r="3" fill="#000"/>
+  <circle cx="230" cy="130" r="3" fill="#000"/>
+
+  <!-- ═══ HYPHEN ═══ -->
+  <line x1="275" y1="108" x2="310" y2="108" stroke="#000" stroke-width="2.5"/>
+  <circle cx="310" cy="108" r="3.5" fill="#000"/>
+  <rect x="318" y="96" width="50" height="12" fill="#000"/>
+  <rect x="325" y="108" width="55" height="14" fill="#000"/>
+  <rect x="320" y="82" width="15" height="15" fill="#000"/>
+  <rect x="365" y="82" width="15" height="15" fill="#000"/>
+  <rect x="315" y="105" width="12" height="20" fill="#000"/>
+  <rect x="378" y="105" width="12" height="20" fill="#000"/>
+  <circle cx="395" cy="108" r="3.5" fill="#000"/>
+  <line x1="395" y1="108" x2="430" y2="108" stroke="#000" stroke-width="2.5"/>
+
+  <!-- ═══ LETTER I (second) ═══ -->
+  <!-- Top serif -->
+  <rect x="430" y="20" width="25" height="18" fill="#000"/>
+  <rect x="455" y="20" width="40" height="18" fill="#000"/>
+  <rect x="495" y="20" width="25" height="18" fill="#000"/>
+  <rect x="440" y="18" width="15" height="12" fill="#000"/>
+  <rect x="493" y="18" width="15" height="12" fill="#000"/>
+  <!-- Stem -->
+  <rect x="460" y="42" width="30" height="22" fill="#000"/>
+  <rect x="457" y="68" width="35" height="20" fill="#000"/>
+  <rect x="460" y="92" width="30" height="22" fill="#000"/>
+  <rect x="457" y="118" width="35" height="20" fill="#000"/>
+  <rect x="460" y="142" width="30" height="22" fill="#000"/>
+  <rect x="457" y="168" width="35" height="20" fill="#000"/>
+  <!-- Bottom serif -->
+  <rect x="430" y="192" width="25" height="18" fill="#000"/>
+  <rect x="455" y="192" width="40" height="18" fill="#000"/>
+  <rect x="495" y="192" width="25" height="18" fill="#000"/>
+  <rect x="440" y="196" width="15" height="12" fill="#000"/>
+  <rect x="493" y="196" width="15" height="12" fill="#000"/>
+  <line x1="475" y1="38" x2="475" y2="42" stroke="#000" stroke-width="2.5"/>
+  <line x1="475" y1="188" x2="475" y2="192" stroke="#000" stroke-width="2.5"/>
+  <circle cx="475" cy="55" r="3" fill="#000"/>
+  <circle cx="475" cy="130" r="3" fill="#000"/>
+
+  <!-- ═══ LETTER Q ═══ -->
+  <line x1="520" y1="108" x2="560" y2="108" stroke="#000" stroke-width="2.5"/>
+  <circle cx="540" cy="108" r="3" fill="#000"/>
+  <!-- Top bar -->
+  <rect x="590" y="18" width="25" height="18" fill="#000"/>
+  <rect x="615" y="18" width="55" height="18" fill="#000"/>
+  <rect x="670" y="18" width="25" height="18" fill="#000"/>
+  <rect x="580" y="16" width="18" height="14" fill="#000"/>
+  <rect x="692" y="16" width="18" height="14" fill="#000"/>
+  <!-- Left side -->
+  <rect x="565" y="36" width="28" height="22" fill="#000"/>
+  <rect x="560" y="60" width="30" height="20" fill="#000"/>
+  <rect x="558" y="84" width="28" height="22" fill="#000"/>
+  <rect x="560" y="110" width="30" height="20" fill="#000"/>
+  <rect x="558" y="134" width="28" height="22" fill="#000"/>
+  <rect x="560" y="160" width="30" height="20" fill="#000"/>
+  <!-- Right side -->
+  <rect x="698" y="36" width="28" height="22" fill="#000"/>
+  <rect x="700" y="60" width="30" height="20" fill="#000"/>
+  <rect x="702" y="84" width="28" height="22" fill="#000"/>
+  <rect x="700" y="110" width="30" height="20" fill="#000"/>
+  <rect x="698" y="134" width="28" height="22" fill="#000"/>
+  <rect x="700" y="160" width="30" height="20" fill="#000"/>
+  <!-- Bottom bar -->
+  <rect x="585" y="184" width="25" height="18" fill="#000"/>
+  <rect x="610" y="184" width="55" height="18" fill="#000"/>
+  <rect x="665" y="184" width="25" height="18" fill="#000"/>
+  <rect x="578" y="186" width="14" height="14" fill="#000"/>
+  <!-- Inner bars -->
+  <rect x="595" y="70" width="95" height="10" fill="#000"/>
+  <rect x="595" y="145" width="95" height="10" fill="#000"/>
+  <!-- Q tail -->
+  <rect x="680" y="175" width="22" height="18" fill="#000"/>
+  <rect x="700" y="190" width="25" height="16" fill="#000"/>
+  <rect x="722" y="198" width="30" height="18" fill="#000"/>
+  <line x1="700" y1="193" x2="700" y2="198" stroke="#000" stroke-width="2.5"/>
+  <circle cx="745" cy="207" r="4" fill="#000"/>
+  <!-- Q traces -->
+  <line x1="575" y1="30" x2="580" y2="30" stroke="#000" stroke-width="2.5"/>
+  <line x1="695" y1="30" x2="698" y2="30" stroke="#000" stroke-width="2.5"/>
+  <line x1="575" y1="36" x2="575" y2="30" stroke="#000" stroke-width="2.5"/>
+  <line x1="716" y1="36" x2="716" y2="30" stroke="#000" stroke-width="2.5"/>
+  <line x1="575" y1="180" x2="575" y2="186" stroke="#000" stroke-width="2.5"/>
+  <line x1="710" y1="180" x2="710" y2="184" stroke="#000" stroke-width="2.5"/>
+  <circle cx="640" cy="27" r="3" fill="#000"/>
+  <circle cx="640" cy="193" r="3" fill="#000"/>
+  <circle cx="570" cy="108" r="3" fill="#000"/>
+  <circle cx="722" cy="108" r="3" fill="#000"/>
+</svg>

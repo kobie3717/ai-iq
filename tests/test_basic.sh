@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI Memory SQLite - Basic Test Suite
+# AI-IQ - Basic Test Suite
 # Tests core functionality in an isolated environment
 
 set -e
@@ -19,7 +19,7 @@ TESTS_FAILED=0
 TEST_DIR=$(mktemp -d)
 export MEMORY_DIR="$TEST_DIR"
 
-echo -e "${GREEN}AI Memory SQLite - Basic Test Suite${NC}"
+echo -e "${GREEN}AI-IQ - Basic Test Suite${NC}"
 echo "===================================="
 echo "Test directory: $TEST_DIR"
 echo ""

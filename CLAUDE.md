@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Persistent Memory System
 
-This project uses [ai-memory-sqlite](https://github.com/kobie3717/ai-memory-sqlite) for persistent memory across sessions.
+This project uses [AI-IQ](https://github.com/kobie3717/ai-iq) for persistent memory across sessions.
 
 **Memory location**: `~/.claude/projects/<project-name>/memory/`
 - **memories.db** - SQLite database (source of truth)

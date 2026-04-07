@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI Memory SQLite - Daily Maintenance
+# AI-IQ - Daily Maintenance
 # Designed to run as a daily cron job
 # Runs decay, garbage collection, backup, and export
 
@@ -14,14 +14,14 @@ if ! command -v "$MT" &> /dev/null; then
 fi
 
 # Log file for cron output
-LOG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-memory/logs"
+LOG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-iq/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/daily-maintenance.log"
 
 # Redirect output to log file
 exec >> "$LOG_FILE" 2>&1
 
-echo "=== AI Memory Daily Maintenance ==="
+echo "=== AI-IQ Daily Maintenance ==="
 echo "Started: $(date)"
 echo ""
 

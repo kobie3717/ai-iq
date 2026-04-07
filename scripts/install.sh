@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# AI Memory SQLite Installer
+# AI-IQ Installer
 # One-command installation script
 
 GREEN='\033[0;32m'
@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}AI Memory SQLite Installer${NC}"
+echo -e "${GREEN}AI-IQ Installer${NC}"
 echo "================================"
 
 # Check Python version
@@ -46,7 +46,7 @@ else
 fi
 
 # Determine installation directory
-INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-memory"
+INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-iq"
 BIN_DIR="$HOME/.local/bin"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_FILE="$SCRIPT_DIR/../memory-tool.py"
@@ -54,7 +54,7 @@ SOURCE_FILE="$SCRIPT_DIR/../memory-tool.py"
 # Check if source file exists
 if [ ! -f "$SOURCE_FILE" ]; then
     echo -e "${RED}ERROR:${NC} memory-tool.py not found at $SOURCE_FILE"
-    echo "Please run this script from the ai-memory-sqlite repository."
+    echo "Please run this script from the ai-iq repository."
     exit 1
 fi
 
@@ -109,7 +109,7 @@ else
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "" >> "$SHELL_RC"
-        echo "# Added by ai-memory-sqlite installer" >> "$SHELL_RC"
+        echo "# Added by ai-iq installer" >> "$SHELL_RC"
         echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$SHELL_RC"
         echo -e "  ${GREEN}Added!${NC} Restart your shell or run: source $SHELL_RC"
     else
@@ -137,5 +137,5 @@ echo "  3. Add your first memory: memory-tool add learning \"Your first memory\"
 echo "  4. (Optional) Set up semantic search: bash scripts/setup-embedding-model.sh"
 echo "  5. (Optional) Configure Claude Code hooks: see hooks/claude-code/README.md"
 echo ""
-echo "Documentation: https://github.com/kobie3717/ai-memory-sqlite"
+echo "Documentation: https://github.com/kobie3717/ai-iq"
 echo ""

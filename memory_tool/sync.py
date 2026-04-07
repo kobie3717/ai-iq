@@ -1,4 +1,5 @@
 """OpenClaw bridge bidirectional sync (Phase 4 feature)."""
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 import sqlite3
 import sys
@@ -29,7 +30,7 @@ except ImportError:
     pass
 
 
-def load_sync_state():
+def load_sync_state() -> Dict[str, Any]:
     """Load sync state (checksums) from JSON."""
     if SYNC_STATE_FILE.exists():
         try:
@@ -41,7 +42,7 @@ def load_sync_state():
 
 
 
-def save_sync_state(state):
+def save_sync_state(state: Dict[str, Any]) -> None:
     """Save sync state to JSON."""
     SYNC_STATE_FILE.write_text(json.dumps(state, indent=2))
 
@@ -55,7 +56,7 @@ def file_checksum(content):
 
 
 
-def sync_to_openclaw():
+def sync_to_openclaw() -> None:
     """Export memories and graph data to OpenClaw's workspace format."""
     if not OPENCLAW_MEMORY_DIR.exists():
         print(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
@@ -406,7 +407,7 @@ def graph_sync_to_openclaw_db():
 
 
 
-def sync_from_openclaw():
+def sync_from_openclaw() -> None:
     """Import new memories from OpenClaw's daily notes and topic files."""
     if not OPENCLAW_MEMORY_DIR.exists():
         print(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
@@ -462,7 +463,7 @@ def sync_from_openclaw():
 
 
 
-def sync_bidirectional():
+def sync_bidirectional() -> None:
     """Run both sync-to and sync-from."""
     print("=== Syncing to OpenClaw ===")
     sync_to_openclaw()

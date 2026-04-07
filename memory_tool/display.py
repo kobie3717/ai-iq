@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Dict, Any, Tuple, Callable
 
 # Import from our modular components
 from .config import *
@@ -30,14 +31,14 @@ except ImportError:
 
 
 # Lazy imports to avoid circular dependency
-def _get_memory_functions():
+def _get_memory_functions() -> Tuple[Callable, Callable]:
     """Lazy import of memory functions to avoid circular dependency."""
     from .memory_ops import get_memory
     from .relations import get_related
     return get_memory, get_related
 
 
-def format_row(row):
+def format_row(row: Dict[str, Any]) -> str:
     """Full verbose format."""
     tags = f" tags:{row['tags']}" if row["tags"] else ""
     proj = f" project:{row['project']}" if row["project"] else ""
@@ -74,7 +75,7 @@ def format_row(row):
 
 
 
-def format_row_compact(row):
+def format_row_compact(row: Dict[str, Any]) -> str:
     """Compact format (v4 Feature #1)."""
     content_preview = row['content'][:100]
     if len(row['content']) > 100:
@@ -92,7 +93,7 @@ def format_row_compact(row):
 
 
 
-def print_memory_full(mem_id):
+def print_memory_full(mem_id: int) -> None:
     """Print full detail for a single memory (v4 Feature #1)."""
     get_memory_func, get_related_func = _get_memory_functions()
     mem = get_memory_func(mem_id)
@@ -184,7 +185,7 @@ def print_memory_full(mem_id):
 
 
 
-def print_help():
+def print_help() -> None:
     """Print comprehensive help documentation."""
     help_text = """
 Claude Code Persistent Memory System v5 + FSRS-6 Spaced Repetition

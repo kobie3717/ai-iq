@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, Dict, Any
 
 # Import from our modular components
 from .config import *
@@ -29,7 +30,7 @@ except ImportError:
     pass
 
 
-def detect_correction(text):
+def detect_correction(text: str) -> Optional[Dict[str, Any]]:
     """Check if text contains a correction pattern. Returns dict with details or None."""
     import re
     text_lower = text.lower().strip()
@@ -48,7 +49,7 @@ def detect_correction(text):
 
 
 
-def cmd_capture_correction(text):
+def cmd_capture_correction(text: str) -> None:
     """Detect and store corrections from user messages."""
     import re
 

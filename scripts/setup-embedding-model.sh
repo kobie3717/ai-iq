@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# AI Memory SQLite - Semantic Search Setup
+# AI-IQ - Semantic Search Setup
 # Downloads all-MiniLM-L6-v2 ONNX model for embeddings
 
 GREEN='\033[0;32m'
@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}AI Memory SQLite - Semantic Search Setup${NC}"
+echo -e "${GREEN}AI-IQ - Semantic Search Setup${NC}"
 echo "=========================================="
 echo ""
 echo "This script will:"
@@ -26,7 +26,7 @@ if ! command -v memory-tool &> /dev/null; then
 fi
 
 # Determine model directory
-MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-memory/models/all-MiniLM-L6-v2"
+MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ai-iq/models/all-MiniLM-L6-v2"
 
 echo "Model will be installed to: $MODEL_DIR"
 echo ""
@@ -188,8 +188,8 @@ echo ""
 echo -e "${GREEN}Setup complete!${NC}"
 echo ""
 echo "Semantic search is now enabled. Try:"
-echo "  memory-tool search --mode semantic \"your query\""
-echo "  memory-tool search --mode hybrid \"your query\""
+echo "  memory-tool search \"your query\" --semantic"
+echo "  memory-tool search \"your query\"  # Hybrid is default"
 echo ""
 echo "The system will automatically generate embeddings for new memories."
 echo ""

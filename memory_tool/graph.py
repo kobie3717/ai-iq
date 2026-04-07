@@ -13,6 +13,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -22,6 +23,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -30,7 +33,7 @@ except ImportError:
     pass
 
 
-def graph_add_entity(name: str, entity_type: str, summary: str = "", importance: int = 3) -> int:
+def graph_add_entity(name: str, entity_type: str, summary: str = "", importance: int = 3) -> Optional[int]:
     """Add or update an entity. Returns entity id."""
     conn = get_db()
     try:
@@ -50,14 +53,14 @@ def graph_add_entity(name: str, entity_type: str, summary: str = "", importance:
         conn.close()
         return entity_id
     except sqlite3.IntegrityError as e:
-        print(f"Error adding entity: {e}")
+        logger.error(f"Error adding entity: {e}")
         conn.close()
         return None
 
 
 
 
-def graph_get_or_create_entity(name, entity_type="concept", summary=""):
+def graph_get_or_create_entity(name: str, entity_type: str = "concept", summary: str = "") -> Optional[int]:
     """Get entity by name, create if doesn't exist. Case-insensitive lookup."""
     conn = get_db()
     # Case-insensitive lookup
@@ -77,7 +80,7 @@ def graph_get_or_create_entity(name, entity_type="concept", summary=""):
 
 
 
-def graph_add_relationship(from_name, to_name, relation_type, note=""):
+def graph_add_relationship(from_name: str, to_name: str, relation_type: str, note: str = "") -> bool:
     """Add a relationship between two entities (by name). Creates entities if they don't exist."""
     from_id = graph_get_or_create_entity(from_name)
     to_id = graph_get_or_create_entity(to_name)
@@ -98,14 +101,14 @@ def graph_add_relationship(from_name, to_name, relation_type, note=""):
         conn.close()
         return True
     except sqlite3.IntegrityError as e:
-        print(f"Error adding relationship: {e}")
+        logger.error(f"Error adding relationship: {e}")
         conn.close()
         return False
 
 
 
 
-def graph_set_fact(entity_name, key, value, confidence=1.0, source=""):
+def graph_set_fact(entity_name: str, key: str, value: str, confidence: float = 1.0, source: str = "") -> bool:
     """Set a fact on an entity. If key exists, update it and log history."""
     entity_id = graph_get_or_create_entity(entity_name)
     if not entity_id:
@@ -209,7 +212,7 @@ def graph_get_entity(name: str) -> Optional[Dict[str, Any]]:
 
 
 
-def graph_list_entities(entity_type: Optional[str] = None) -> List[Dict[str, Any]]:
+def graph_list_entities(entity_type: Optional[str] = None) -> List[sqlite3.Row]:
     """List all entities, optionally filtered by type."""
     conn = get_db()
     if entity_type:
@@ -227,7 +230,7 @@ def graph_list_entities(entity_type: Optional[str] = None) -> List[Dict[str, Any
 
 
 
-def graph_delete_entity(name):
+def graph_delete_entity(name: str) -> bool:
     """Delete an entity and its relationships/facts."""
     conn = get_db()
     result = conn.execute(
@@ -242,7 +245,7 @@ def graph_delete_entity(name):
 
 
 
-def graph_remove_relationship(from_name, to_name, relation_type=None):
+def graph_remove_relationship(from_name: str, to_name: str, relation_type: Optional[str] = None) -> bool:
     """Remove a relationship."""
     conn = get_db()
 
@@ -279,7 +282,7 @@ def graph_remove_relationship(from_name, to_name, relation_type=None):
 
 
 
-def graph_remove_fact(entity_name, key):
+def graph_remove_fact(entity_name: str, key: str) -> bool:
     """Remove a fact from an entity."""
     conn = get_db()
 
@@ -392,7 +395,7 @@ def graph_spread(start_entity_name: str, depth: int = 2) -> List[Dict[str, Any]]
 
 
 
-def link_memory_to_entity(memory_id, entity_name):
+def link_memory_to_entity(memory_id: int, entity_name: str) -> bool:
     """Link a memory to a graph entity."""
     entity_id = graph_get_or_create_entity(entity_name)
     if not entity_id:
@@ -408,14 +411,14 @@ def link_memory_to_entity(memory_id, entity_name):
         conn.close()
         return True
     except sqlite3.Error as e:
-        print(f"Error linking memory to entity: {e}")
+        logger.error(f"Error linking memory to entity: {e}")
         conn.close()
         return False
 
 
 
 
-def auto_link_memory(memory_id, content):
+def auto_link_memory(memory_id: int, content: str) -> int:
     """Auto-detect entity mentions in content and create links."""
     conn = get_db()
 
@@ -446,7 +449,7 @@ def auto_link_memory(memory_id, content):
 
 
 
-def graph_auto_link_all():
+def graph_auto_link_all() -> Tuple[int, int]:
     """Auto-link all existing memories to entities."""
     conn = get_db()
     memories = conn.execute("SELECT id, content FROM memories WHERE active = 1").fetchall()
@@ -462,13 +465,13 @@ def graph_auto_link_all():
 
 
 
-def graph_import_openclaw():
+def graph_import_openclaw() -> None:
     """Import entities, relationships, and facts from OpenClaw's graph DB."""
     from .config import OPENCLAW_GRAPH_DB
     openclaw_path = OPENCLAW_GRAPH_DB
 
     if not openclaw_path.exists():
-        print(f"OpenClaw graph DB not found at {openclaw_path}")
+        logger.error(f"OpenClaw graph DB not found at {openclaw_path}")
         return
 
     try:
@@ -488,7 +491,7 @@ def graph_import_openclaw():
             )
             entity_map[e['id']] = new_id
 
-        print(f"Imported {len(entities)} entities")
+        logger.info(f"Imported {len(entities)} entities")
 
         # Import relationships
         relationships = source.execute("SELECT * FROM relationships").fetchall()
@@ -510,7 +513,7 @@ def graph_import_openclaw():
                 except sqlite3.Error:
                     conn.close()
 
-        print(f"Imported {len(relationships)} relationships")
+        logger.info(f"Imported {len(relationships)} relationships")
 
         # Import facts
         facts = source.execute("SELECT * FROM facts").fetchall()
@@ -532,12 +535,12 @@ def graph_import_openclaw():
                 except sqlite3.Error:
                     conn.close()
 
-        print(f"Imported {imported_facts} facts")
+        logger.info(f"Imported {imported_facts} facts")
 
         source.close()
 
     except sqlite3.Error as e:
-        print(f"Error importing from OpenClaw: {e}")
+        logger.error(f"Error importing from OpenClaw: {e}")
 
 
 

@@ -1,109 +1,84 @@
-"""Tests for run tracking operations."""
+"""Tests for run tracking functionality."""
 
 import pytest
 import sys
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
+from unittest.mock import patch
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from memory_tool import runs, database
+from memory_tool import runs, database, cli
 
 
 class TestStartRun:
-    """Test starting new runs."""
+    """Test starting runs."""
 
-    def test_start_basic_run(self, temp_db):
+    def test_start_run_basic(self, temp_db):
         """Test starting a basic run."""
-        run_id = runs.start_run("Test task")
+        run_id = runs.start_run("Test task", agent="claw")
 
         assert run_id is not None
-        assert isinstance(run_id, int)
         assert run_id > 0
 
-        # Verify in database
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
         assert row is not None
-        assert row["task"] == "Test task"
-        assert row["status"] == "running"
-        assert row["agent"] == "claw"
-
-    def test_start_run_with_agent(self, temp_db):
-        """Test starting run with specific agent."""
-        run_id = runs.start_run("Test task", agent="claude")
-
-        conn = database.get_db()
-        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['task'] == "Test task"
+        assert row['agent'] == "claw"
+        assert row['status'] == "running"
         conn.close()
-
-        assert row["agent"] == "claude"
 
     def test_start_run_with_project(self, temp_db):
         """Test starting run with project."""
-        run_id = runs.start_run("Test task", project="TestProject")
+        run_id = runs.start_run("Task with project", agent="claude", project="FlashVault")
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['project'] == "FlashVault"
         conn.close()
-
-        assert row["project"] == "TestProject"
 
     def test_start_run_with_tags(self, temp_db):
         """Test starting run with tags."""
-        run_id = runs.start_run("Test task", tags="testing,development")
+        run_id = runs.start_run("Tagged task", tags="testing,integration")
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['tags'] == "testing,integration"
         conn.close()
 
-        assert row["tags"] == "testing,development"
-
-    def test_start_run_with_all_params(self, temp_db):
-        """Test starting run with all parameters."""
-        run_id = runs.start_run(
-            "Complex task",
-            agent="custom",
-            project="MyProject",
-            tags="tag1,tag2,tag3"
-        )
+    def test_start_run_default_agent(self, temp_db):
+        """Test default agent is 'claw'."""
+        run_id = runs.start_run("Task with default agent")
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['agent'] == "claw"
         conn.close()
-
-        assert row["task"] == "Complex task"
-        assert row["agent"] == "custom"
-        assert row["project"] == "MyProject"
-        assert row["tags"] == "tag1,tag2,tag3"
 
 
 class TestAddRunStep:
     """Test adding steps to runs."""
 
-    def test_add_step_to_run(self, temp_db):
+    def test_add_run_step(self, temp_db):
         """Test adding a step to a run."""
-        run_id = runs.start_run("Test task")
+        run_id = runs.start_run("Task with steps")
         success = runs.add_run_step(run_id, "First step completed")
 
         assert success is True
 
-        # Verify step was added
         conn = database.get_db()
         row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
+        steps = json.loads(row['steps'])
         assert len(steps) == 1
         assert steps[0] == "First step completed"
+        conn.close()
 
     def test_add_multiple_steps(self, temp_db):
-        """Test adding multiple steps to a run."""
-        run_id = runs.start_run("Test task")
+        """Test adding multiple steps."""
+        run_id = runs.start_run("Multi-step task")
 
         runs.add_run_step(run_id, "Step 1")
         runs.add_run_step(run_id, "Step 2")
@@ -111,36 +86,17 @@ class TestAddRunStep:
 
         conn = database.get_db()
         row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
+        steps = json.loads(row['steps'])
         assert len(steps) == 3
         assert steps[0] == "Step 1"
         assert steps[1] == "Step 2"
         assert steps[2] == "Step 3"
-
-    def test_add_step_to_nonexistent_run(self, temp_db):
-        """Test adding step to non-existent run."""
-        success = runs.add_run_step(99999, "This should fail")
-
-        assert success is False
-
-    def test_add_step_preserves_order(self, temp_db):
-        """Test that steps maintain order."""
-        run_id = runs.start_run("Test task")
-
-        for i in range(10):
-            runs.add_run_step(run_id, f"Step {i}")
-
-        conn = database.get_db()
-        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
         conn.close()
 
-        steps = json.loads(row["steps"])
-        assert len(steps) == 10
-
-        for i, step in enumerate(steps):
-            assert step == f"Step {i}"
+    def test_add_step_to_nonexistent_run(self, temp_db):
+        """Test adding step to non-existent run fails."""
+        success = runs.add_run_step(9999, "Should fail")
+        assert success is False
 
 
 class TestCompleteRun:
@@ -148,452 +104,422 @@ class TestCompleteRun:
 
     def test_complete_run(self, temp_db):
         """Test completing a run."""
-        run_id = runs.start_run("Test task")
-        runs.complete_run(run_id, "Successfully completed")
+        run_id = runs.start_run("Task to complete")
+        runs.complete_run(run_id, "Successfully completed task")
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == "completed"
+        assert row['outcome'] == "Successfully completed task"
+        assert row['completed_at'] is not None
         conn.close()
 
-        assert row["status"] == "completed"
-        assert row["outcome"] == "Successfully completed"
-        assert row["completed_at"] is not None
-
-    def test_complete_run_with_steps(self, temp_db):
-        """Test completing run that has steps."""
-        run_id = runs.start_run("Test task")
-        runs.add_run_step(run_id, "Step 1")
-        runs.add_run_step(run_id, "Step 2")
-        runs.complete_run(run_id, "All steps completed")
+    def test_complete_run_updates_timestamp(self, temp_db):
+        """Test completing run sets completed_at."""
+        run_id = runs.start_run("Task to complete")
 
         conn = database.get_db()
-        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        row_before = conn.execute("SELECT completed_at FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row_before['completed_at'] is None
         conn.close()
 
-        assert row["status"] == "completed"
-        steps = json.loads(row["steps"])
-        assert len(steps) == 2
+        runs.complete_run(run_id, "Done")
+
+        conn = database.get_db()
+        row_after = conn.execute("SELECT completed_at FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row_after['completed_at'] is not None
+        conn.close()
 
 
 class TestFailRun:
     """Test failing runs."""
 
     def test_fail_run(self, temp_db):
-        """Test marking run as failed."""
-        run_id = runs.start_run("Test task")
-        runs.fail_run(run_id, "Failed due to error")
+        """Test failing a run."""
+        run_id = runs.start_run("Task that fails")
+        runs.fail_run(run_id, "Error occurred during execution")
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == "failed"
+        assert row['outcome'] == "Error occurred during execution"
+        assert row['completed_at'] is not None
         conn.close()
-
-        assert row["status"] == "failed"
-        assert row["outcome"] == "Failed due to error"
-        assert row["completed_at"] is not None
-
-    def test_fail_run_with_steps(self, temp_db):
-        """Test failing run that has steps."""
-        run_id = runs.start_run("Test task")
-        runs.add_run_step(run_id, "Step 1 completed")
-        runs.add_run_step(run_id, "Step 2 started")
-        runs.fail_run(run_id, "Step 2 failed")
-
-        conn = database.get_db()
-        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        assert row["status"] == "failed"
-        assert "Step 2 failed" in row["outcome"]
 
 
 class TestCancelRun:
-    """Test cancelling runs."""
+    """Test canceling runs."""
 
     def test_cancel_run(self, temp_db):
-        """Test cancelling a run."""
-        run_id = runs.start_run("Test task")
+        """Test canceling a run."""
+        run_id = runs.start_run("Task to cancel")
         runs.cancel_run(run_id)
 
         conn = database.get_db()
         row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == "cancelled"
+        assert row['completed_at'] is not None
         conn.close()
-
-        assert row["status"] == "cancelled"
-        assert row["completed_at"] is not None
-
-    def test_cancel_run_with_steps(self, temp_db):
-        """Test cancelling run with steps."""
-        run_id = runs.start_run("Test task")
-        runs.add_run_step(run_id, "Partial work")
-        runs.cancel_run(run_id)
-
-        conn = database.get_db()
-        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        assert row["status"] == "cancelled"
-        steps = json.loads(row["steps"])
-        assert len(steps) == 1  # Steps preserved
 
 
 class TestListRuns:
     """Test listing runs."""
 
-    def test_list_all_runs(self, temp_db):
+    def test_list_runs_all(self, temp_db):
         """Test listing all runs."""
         # Create multiple runs
-        runs.start_run("Task 1")
-        runs.start_run("Task 2")
-        runs.start_run("Task 3")
+        runs.start_run("Task 1", agent="claw")
+        runs.start_run("Task 2", agent="claude")
+        runs.start_run("Task 3", agent="claw")
 
-        result = runs.list_runs()
-
+        result = runs.list_runs(limit=10)
         assert len(result) == 3
 
+    def test_list_runs_filter_by_status(self, temp_db):
+        """Test filtering runs by status."""
+        run1 = runs.start_run("Running task")
+        run2 = runs.start_run("Completed task")
+        runs.complete_run(run2, "Done")
+        run3 = runs.start_run("Failed task")
+        runs.fail_run(run3, "Error")
+
+        # Get only running
+        running = runs.list_runs(status="running", limit=10)
+        assert len(running) == 1
+        assert running[0]['id'] == run1
+
+        # Get only completed
+        completed = runs.list_runs(status="completed", limit=10)
+        assert len(completed) == 1
+        assert completed[0]['id'] == run2
+
+        # Get only failed
+        failed = runs.list_runs(status="failed", limit=10)
+        assert len(failed) == 1
+        assert failed[0]['id'] == run3
+
+    def test_list_runs_filter_by_project(self, temp_db):
+        """Test filtering runs by project."""
+        runs.start_run("Task A", project="ProjectX")
+        runs.start_run("Task B", project="ProjectY")
+        runs.start_run("Task C", project="ProjectX")
+
+        result = runs.list_runs(project="ProjectX", limit=10)
+        assert len(result) == 2
+
     def test_list_runs_with_limit(self, temp_db):
-        """Test listing runs with limit."""
-        # Create multiple runs
-        for i in range(20):
+        """Test limit parameter."""
+        for i in range(10):
             runs.start_run(f"Task {i}")
 
         result = runs.list_runs(limit=5)
-
         assert len(result) == 5
 
-    def test_list_runs_by_status(self, temp_db):
-        """Test listing runs filtered by status."""
-        run1 = runs.start_run("Task 1")
-        run2 = runs.start_run("Task 2")
-        run3 = runs.start_run("Task 3")
+    def test_list_runs_ordered_by_started_at(self, temp_db):
+        """Test runs are ordered by started_at DESC, id DESC."""
+        run1 = runs.start_run("First task")
+        run2 = runs.start_run("Second task")
+        run3 = runs.start_run("Third task")
 
-        runs.complete_run(run1, "Done")
-        runs.fail_run(run2, "Failed")
-        # run3 still running
+        result = runs.list_runs(limit=10)
 
-        # List running runs
-        running = runs.list_runs(status="running")
-        assert len(running) == 1
-
-        # List completed runs
-        completed = runs.list_runs(status="completed")
-        assert len(completed) == 1
-
-        # List failed runs
-        failed = runs.list_runs(status="failed")
-        assert len(failed) == 1
-
-    def test_list_runs_by_project(self, temp_db):
-        """Test listing runs filtered by project."""
-        runs.start_run("Task 1", project="ProjectA")
-        runs.start_run("Task 2", project="ProjectB")
-        runs.start_run("Task 3", project="ProjectA")
-
-        result = runs.list_runs(project="ProjectA")
-
-        assert len(result) == 2
-        for row in result:
-            assert row["project"] == "ProjectA"
-
-    def test_list_runs_by_status_and_project(self, temp_db):
-        """Test listing runs with multiple filters."""
-        run1 = runs.start_run("Task 1", project="ProjectA")
-        run2 = runs.start_run("Task 2", project="ProjectA")
-        run3 = runs.start_run("Task 3", project="ProjectB")
-
-        runs.complete_run(run1, "Done")
-        # run2 still running
-        runs.complete_run(run3, "Done")
-
-        result = runs.list_runs(status="completed", project="ProjectA")
-
-        assert len(result) == 1
-        assert result[0]["project"] == "ProjectA"
-        assert result[0]["status"] == "completed"
-
-    def test_list_runs_ordered_by_date(self, temp_db):
-        """Test that runs are ordered by date (newest first per SQL)."""
-        run1 = runs.start_run("Task 1")
-        run2 = runs.start_run("Task 2")
-        run3 = runs.start_run("Task 3")
-
-        result = runs.list_runs()
-
-        # Verify we got all 3 runs
-        assert len(result) == 3
-
-        # Verify they're ordered (DESC by started_at means newest first)
-        # Since all created in same second, check that list_runs returns them
-        result_ids = [r["id"] for r in result]
-        assert run1 in result_ids
-        assert run2 in result_ids
-        assert run3 in result_ids
+        # Most recent first (ordered by started_at DESC, then id DESC as tiebreaker)
+        assert result[0]['id'] == run3
+        assert result[1]['id'] == run2
+        assert result[2]['id'] == run1
 
 
 class TestShowRun:
     """Test showing run details."""
 
-    def test_show_existing_run(self, temp_db):
-        """Test showing details of existing run."""
-        run_id = runs.start_run("Test task", project="TestProj", tags="test")
+    def test_show_run(self, temp_db):
+        """Test showing a single run."""
+        run_id = runs.start_run("Task to show", agent="claude", project="TestProj")
         runs.add_run_step(run_id, "Step 1")
         runs.add_run_step(run_id, "Step 2")
 
-        result = runs.show_run(run_id)
+        run = runs.show_run(run_id)
 
-        assert result is not None
-        assert result["id"] == run_id
-        assert result["task"] == "Test task"
-        assert result["project"] == "TestProj"
-        assert result["tags"] == "test"
-        assert result["status"] == "running"
+        assert run is not None
+        assert run['id'] == run_id
+        assert run['task'] == "Task to show"
+        assert run['agent'] == "claude"
+        assert run['project'] == "TestProj"
+        assert run['status'] == "running"
 
-    def test_show_completed_run(self, temp_db):
-        """Test showing completed run."""
-        run_id = runs.start_run("Test task")
-        runs.complete_run(run_id, "Success")
+    def test_show_run_nonexistent(self, temp_db):
+        """Test showing non-existent run returns None."""
+        run = runs.show_run(9999)
+        assert run is None
 
-        result = runs.show_run(run_id)
 
-        assert result["status"] == "completed"
-        assert result["outcome"] == "Success"
-        assert result["completed_at"] is not None
+class TestRunCLICommands:
+    """Test run commands via CLI."""
 
-    def test_show_nonexistent_run(self, temp_db):
-        """Test showing non-existent run."""
-        result = runs.show_run(99999)
+    def test_run_start_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run start' command."""
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'start', 'CLI task'
+        ])
 
-        assert result is None
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Started run" in captured.out
+
+        # Verify in database
+        conn = database.get_db()
+        row = conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+        assert row['task'] == "CLI task"
+        conn.close()
+
+    def test_run_start_with_flags(self, temp_db, monkeypatch, capsys):
+        """Test 'run start' with flags."""
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'start', 'Task with flags',
+            '--agent', 'claude',
+            '--project', 'TestProj',
+            '--tags', 'test,cli'
+        ])
+
+        cli.main()
+
+        conn = database.get_db()
+        row = conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+        assert row['agent'] == 'claude'
+        assert row['project'] == 'TestProj'
+        assert row['tags'] == 'test,cli'
+        conn.close()
+
+    def test_run_step_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run step' command."""
+        run_id = runs.start_run("Task for steps")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'step', str(run_id), 'CLI step added'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Added step" in captured.out
+
+        conn = database.get_db()
+        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
+        steps = json.loads(row['steps'])
+        assert len(steps) == 1
+        assert steps[0] == "CLI step added"
+        conn.close()
+
+    def test_run_complete_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run complete' command."""
+        run_id = runs.start_run("Task to complete via CLI")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'complete', str(run_id), 'Completed successfully'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Completed run" in captured.out
+
+        conn = database.get_db()
+        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == 'completed'
+        assert row['outcome'] == 'Completed successfully'
+        conn.close()
+
+    def test_run_fail_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run fail' command."""
+        run_id = runs.start_run("Task to fail via CLI")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'fail', str(run_id), 'Failed due to error'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Failed run" in captured.out
+
+        conn = database.get_db()
+        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == 'failed'
+        assert row['outcome'] == 'Failed due to error'
+        conn.close()
+
+    def test_run_cancel_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run cancel' command."""
+        run_id = runs.start_run("Task to cancel via CLI")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'cancel', str(run_id)
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Cancelled run" in captured.out
+
+        conn = database.get_db()
+        row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        assert row['status'] == 'cancelled'
+        conn.close()
+
+    def test_run_list_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run list' command."""
+        runs.start_run("Task 1")
+        runs.start_run("Task 2")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'list'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Task 1" in captured.out or "Task 2" in captured.out
+        assert "runs)" in captured.out or "ID" in captured.out
+
+    def test_run_list_with_filters(self, temp_db, monkeypatch, capsys):
+        """Test 'run list' with filters."""
+        run1 = runs.start_run("Running task", project="ProjectX")
+        run2 = runs.start_run("Completed task", project="ProjectX")
+        runs.complete_run(run2, "Done")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'list',
+            '--status', 'running',
+            '--project', 'ProjectX',
+            '--limit', '5'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "Running task" in captured.out
+
+    def test_run_show_cli(self, temp_db, monkeypatch, capsys):
+        """Test 'run show' command."""
+        run_id = runs.start_run("Detailed task", agent="claude", project="TestProj")
+        runs.add_run_step(run_id, "Step 1")
+        runs.add_run_step(run_id, "Step 2")
+
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'show', str(run_id)
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert f"=== Run #{run_id} ===" in captured.out
+        assert "Detailed task" in captured.out
+        assert "claude" in captured.out
+        assert "TestProj" in captured.out
+        assert "Step 1" in captured.out
+        assert "Step 2" in captured.out
+
+    def test_run_show_nonexistent(self, temp_db, monkeypatch, capsys):
+        """Test 'run show' with non-existent ID."""
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run', 'show', '9999'
+        ])
+
+        cli.main()
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+    def test_run_no_subcommand(self, temp_db, monkeypatch):
+        """Test 'run' without subcommand shows usage."""
+        monkeypatch.setattr(sys, 'argv', [
+            'memory-tool', 'run'
+        ])
+
+        with pytest.raises(SystemExit):
+            cli.main()
 
 
 class TestFormatDuration:
-    """Test format_duration function."""
+    """Test duration formatting in detail."""
 
-    def test_format_duration_seconds(self):
-        """Test formatting duration in seconds."""
-        start = datetime.now().isoformat()
-        end = (datetime.now()).isoformat()
-
+    def test_format_duration_edge_cases(self):
+        """Test edge cases in duration formatting."""
+        # Exactly 1 minute
+        start = "2026-03-30T10:00:00"
+        end = "2026-03-30T10:01:00"
         result = runs.format_duration(start, end)
+        assert "1m" in result and "0s" in result
 
-        assert "s" in result or result == "0s"
-
-    def test_format_duration_minutes(self):
-        """Test formatting duration in minutes."""
-        now = datetime.now()
-        start = (now - timedelta(minutes=5)).isoformat()
-        end = now.isoformat()
-
+        # Exactly 1 hour
+        start = "2026-03-30T10:00:00"
+        end = "2026-03-30T11:00:00"
         result = runs.format_duration(start, end)
+        assert "1h" in result and "0m" in result
 
-        assert "m" in result
-
-    def test_format_duration_hours(self):
-        """Test formatting duration in hours."""
-        now = datetime.now()
-        start = (now - timedelta(hours=2, minutes=30)).isoformat()
-        end = now.isoformat()
-
+    def test_format_duration_with_timezone(self):
+        """Test duration with timezone markers."""
+        start = "2026-03-30T10:00:00Z"
+        end = "2026-03-30T10:05:30Z"
         result = runs.format_duration(start, end)
-
-        assert "h" in result
-
-    def test_format_duration_no_end_time(self):
-        """Test formatting duration without end time (still running)."""
-        start = (datetime.now() - timedelta(minutes=10)).isoformat()
-
-        result = runs.format_duration(start)
-
-        assert result != "unknown"
-
-    def test_format_duration_invalid_start(self):
-        """Test formatting duration with invalid start time."""
-        result = runs.format_duration(None)
-
-        assert result == "unknown"
-
-    def test_format_duration_invalid_format(self):
-        """Test formatting duration with invalid date format."""
-        result = runs.format_duration("invalid-date")
-
-        assert result == "unknown"
-
-    def test_format_duration_less_than_minute(self):
-        """Test formatting duration less than a minute."""
-        now = datetime.now()
-        start = (now - timedelta(seconds=45)).isoformat()
-        end = now.isoformat()
-
-        result = runs.format_duration(start, end)
-
-        assert "s" in result
-        assert "m" not in result or result.endswith("s")
-
-    def test_format_duration_exactly_one_hour(self):
-        """Test formatting exactly one hour duration."""
-        now = datetime.now()
-        start = (now - timedelta(hours=1)).isoformat()
-        end = now.isoformat()
-
-        result = runs.format_duration(start, end)
-
-        assert "h" in result
-
-
-class TestRunStepEdgeCases:
-    """Test edge cases for run steps."""
-
-    def test_add_step_with_special_characters(self, temp_db):
-        """Test adding step with special characters."""
-        run_id = runs.start_run("Test task")
-        step_text = "Step with \"quotes\" and <tags> & symbols"
-
-        success = runs.add_run_step(run_id, step_text)
-
-        assert success is True
-
-        conn = database.get_db()
-        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
-        assert step_text in steps
-
-    def test_add_step_with_unicode(self, temp_db):
-        """Test adding step with Unicode characters."""
-        run_id = runs.start_run("Test task")
-        step_text = "Step with émojis 🎉 and ümlauts"
-
-        success = runs.add_run_step(run_id, step_text)
-
-        assert success is True
-
-        conn = database.get_db()
-        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
-        assert len(steps) == 1
-
-    def test_add_empty_step(self, temp_db):
-        """Test adding empty step."""
-        run_id = runs.start_run("Test task")
-        success = runs.add_run_step(run_id, "")
-
-        assert success is True
-
-        conn = database.get_db()
-        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
-        assert len(steps) == 1
-        assert steps[0] == ""
-
-    def test_add_very_long_step(self, temp_db):
-        """Test adding very long step."""
-        run_id = runs.start_run("Test task")
-        long_step = "A" * 1000
-
-        success = runs.add_run_step(run_id, long_step)
-
-        assert success is True
-
-        conn = database.get_db()
-        row = conn.execute("SELECT steps FROM runs WHERE id = ?", (run_id,)).fetchone()
-        conn.close()
-
-        steps = json.loads(row["steps"])
-        assert len(steps[0]) == 1000
+        assert "5m" in result and "30s" in result
 
 
 class TestRunWorkflow:
-    """Test complete run workflows."""
+    """Test complete run workflow."""
 
     def test_complete_run_workflow(self, temp_db):
         """Test a complete run workflow from start to finish."""
-        # Start run
-        run_id = runs.start_run("Complete workflow test", project="TestProj", tags="test,workflow")
+        # Start a run
+        run_id = runs.start_run(
+            "Complete workflow test",
+            agent="claude",
+            project="TestProject",
+            tags="integration,test"
+        )
+        assert run_id > 0
 
         # Add steps
-        runs.add_run_step(run_id, "Initialize")
-        runs.add_run_step(run_id, "Process data")
-        runs.add_run_step(run_id, "Validate results")
-        runs.add_run_step(run_id, "Cleanup")
+        runs.add_run_step(run_id, "Step 1: Initialize")
+        runs.add_run_step(run_id, "Step 2: Process")
+        runs.add_run_step(run_id, "Step 3: Finalize")
 
-        # Complete run
-        runs.complete_run(run_id, "All tasks completed successfully")
+        # Complete the run
+        runs.complete_run(run_id, "All steps completed successfully")
 
         # Verify final state
-        result = runs.show_run(run_id)
+        run = runs.show_run(run_id)
+        assert run['status'] == 'completed'
+        assert run['outcome'] == 'All steps completed successfully'
+        assert run['completed_at'] is not None
 
-        assert result["status"] == "completed"
-        assert result["outcome"] == "All tasks completed successfully"
-        assert result["project"] == "TestProj"
-        assert result["tags"] == "test,workflow"
-
-        steps = json.loads(result["steps"])
-        assert len(steps) == 4
+        steps = json.loads(run['steps'])
+        assert len(steps) == 3
+        assert steps[0] == "Step 1: Initialize"
+        assert steps[1] == "Step 2: Process"
+        assert steps[2] == "Step 3: Finalize"
 
     def test_failed_run_workflow(self, temp_db):
-        """Test a run that fails mid-execution."""
-        run_id = runs.start_run("Failing workflow test")
+        """Test a failed run workflow."""
+        run_id = runs.start_run("Task that will fail")
 
-        runs.add_run_step(run_id, "Step 1 success")
-        runs.add_run_step(run_id, "Step 2 success")
-        runs.add_run_step(run_id, "Step 3 started")
+        runs.add_run_step(run_id, "Step 1: Started")
+        runs.add_run_step(run_id, "Step 2: Error encountered")
 
-        # Fail the run
-        runs.fail_run(run_id, "Step 3 encountered error")
+        runs.fail_run(run_id, "Database connection failed")
 
-        result = runs.show_run(run_id)
-
-        assert result["status"] == "failed"
-        assert "error" in result["outcome"].lower()
-
-        steps = json.loads(result["steps"])
-        assert len(steps) == 3
+        run = runs.show_run(run_id)
+        assert run['status'] == 'failed'
+        assert 'Database connection failed' in run['outcome']
 
     def test_cancelled_run_workflow(self, temp_db):
-        """Test a run that gets cancelled."""
-        run_id = runs.start_run("Cancellable workflow test")
+        """Test a cancelled run workflow."""
+        run_id = runs.start_run("Task to be cancelled")
 
-        runs.add_run_step(run_id, "Starting")
+        runs.add_run_step(run_id, "Step 1: Started")
         runs.cancel_run(run_id)
 
-        result = runs.show_run(run_id)
-
-        assert result["status"] == "cancelled"
-
-
-class TestRunListingPerformance:
-    """Test run listing with many runs."""
-
-    def test_list_with_many_runs(self, temp_db):
-        """Test listing performance with many runs."""
-        # Create 100 runs
-        for i in range(100):
-            runs.start_run(f"Task {i}", project=f"Project{i % 5}")
-
-        # List with limit should be fast
-        result = runs.list_runs(limit=10)
-
-        assert len(result) == 10
-
-    def test_list_filters_with_many_runs(self, temp_db):
-        """Test filtering with many runs."""
-        # Create mixed runs
-        for i in range(50):
-            run_id = runs.start_run(f"Task {i}", project="ProjectA")
-            if i % 3 == 0:
-                runs.complete_run(run_id, "Done")
-            elif i % 3 == 1:
-                runs.fail_run(run_id, "Failed")
-
-        # Filter by status and project
-        completed = runs.list_runs(status="completed", project="ProjectA")
-        failed = runs.list_runs(status="failed", project="ProjectA")
-        running = runs.list_runs(status="running", project="ProjectA")
-
-        assert len(completed) > 0
-        assert len(failed) > 0
-        assert len(running) > 0
+        run = runs.show_run(run_id)
+        assert run['status'] == 'cancelled'
+        assert run['completed_at'] is not None

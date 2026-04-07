@@ -25,3 +25,11 @@ from .dream import *
 from .corrections import *
 from .export import *
 from .display import *
+from .feedback import *
+from .narrative import build_narrative, get_entity_stories, get_causal_chains
+from .meta_learning import (
+    get_current_weights, save_weights, calculate_effectiveness,
+    apply_learned_weights, get_meta_stats, get_weight_history
+)
+from .identity import discover_traits, get_identity, save_identity_snapshot, get_identity_evolution, compare_identity_snapshots
+from .focus import focus_topic, cmd_focus

@@ -13,6 +13,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -24,6 +25,8 @@ from .embedding import embed_and_store, embed_text, semantic_search
 from .relations import find_conflicts, merge_memories
 from .export import run_decay
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -33,13 +36,13 @@ except ImportError:
 
 
 # Lazy import to avoid circular dependency
-def _get_add_memory():
+def _get_add_memory() -> Any:
     """Lazy import of add_memory to avoid circular dependency."""
     from .memory_ops import add_memory
     return add_memory
 
 
-def _get_export_memory_md():
+def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
     from .export import export_memory_md
     return export_memory_md
@@ -47,7 +50,7 @@ def _get_export_memory_md():
 
 def cmd_dream() -> None:
     """Review session transcripts, consolidate memories, normalize dates — like REM sleep for AI memory."""
-    print("🌙 Dreaming: processing session transcripts...")
+    print("🌙 Dreaming: processing session transcripts...")  # User-facing output
 
     # Find transcript directories
     transcript_paths = []
@@ -66,7 +69,7 @@ def cmd_dream() -> None:
                 transcript_paths.append(jsonl_file)
 
     if not transcript_paths:
-        print("No session transcripts found.")
+        logger.info("No session transcripts found.")
         return
 
     conn = get_db()
@@ -78,12 +81,12 @@ def cmd_dream() -> None:
     unprocessed = [p for p in transcript_paths if str(p) not in processed_files][:50]
 
     if not unprocessed:
-        print(f"All {len(transcript_paths)} transcripts already processed.")
-        print("Run 'memory-tool decay' to prune stale memories or 'memory-tool conflicts' to find duplicates.")
+        logger.info(f"All {len(transcript_paths)} transcripts already processed.")
+        logger.info("Run 'memory-tool decay' to prune stale memories or 'memory-tool conflicts' to find duplicates.")
         conn.close()
         return
 
-    print(f"Found {len(unprocessed)} new transcripts to process (out of {len(transcript_paths)} total)")
+    logger.debug(f"Found {len(unprocessed)} new transcripts to process (out of {len(transcript_paths)} total)")
 
     total_insights = 0
     total_dates_normalized = 0
@@ -101,7 +104,7 @@ def cmd_dream() -> None:
             file_size = transcript_path.stat().st_size
             insights_found = 0
 
-            print(f"  Processing: {transcript_path.name} ({file_size // 1024}KB)...", end=' ')
+            logger.debug(f"  Processing: {transcript_path.name} ({file_size // 1024}KB)...")
 
             with open(transcript_path, 'r', encoding='utf-8') as f:
                 for line_num, line in enumerate(f):
@@ -162,17 +165,17 @@ def cmd_dream() -> None:
             )
             conn.commit()
 
-            print(f"{insights_found} insights")
+            logger.info(f"  {transcript_path.name}: {insights_found} insights")
             total_insights += insights_found
 
         except Exception as e:
-            print(f"Error processing {transcript_path.name}: {e}")
+            logger.error(f"Error processing {transcript_path.name}: {e}")
             continue
 
-    print(f"\n📊 Extracted {total_insights} new insights from {len(unprocessed)} transcripts")
+    logger.info(f"📊 Extracted {total_insights} new insights from {len(unprocessed)} transcripts")
 
     # 2. Consolidate similar memories (run conflicts logic)
-    print("\n🔍 Consolidating duplicate memories...")
+    logger.info("🔍 Consolidating duplicate memories...")
     conflicts = find_conflicts()
     auto_merged = 0
 
@@ -182,18 +185,18 @@ def cmd_dream() -> None:
             merge_memories(conflict['id1'], conflict['id2'])
             auto_merged += 1
 
-    print(f"   Merged {auto_merged} highly similar memories")
+    logger.info(f"   Merged {auto_merged} highly similar memories")
 
     if len(conflicts) - auto_merged > 0:
-        print(f"   {len(conflicts) - auto_merged} potential duplicates need manual review — run: memory-tool conflicts")
+        logger.info(f"   {len(conflicts) - auto_merged} potential duplicates need manual review — run: memory-tool conflicts")
 
     # 2.5 Reconsolidation: find near-duplicates (85-95% similarity) and auto-merge
-    print("\n🧠 Reconsolidating near-duplicate memories...")
+    logger.info("🧠 Reconsolidating near-duplicate memories...")
     reconsolidated = reconsolidate_memories(conn)
-    print(f"   Reconsolidated {reconsolidated} near-duplicates")
+    logger.info(f"   Reconsolidated {reconsolidated} near-duplicates")
 
     # 3. Normalize relative dates in memory content
-    print("\n📅 Normalizing relative dates...")
+    logger.info("📅 Normalizing relative dates...")
     memories_to_update = conn.execute("""
         SELECT id, content, created_at FROM memories
         WHERE active = 1 AND (
@@ -236,26 +239,53 @@ def cmd_dream() -> None:
             total_dates_normalized += 1
 
     conn.commit()
-    print(f"   Normalized {total_dates_normalized} relative dates to absolute dates")
+    logger.info(f"   Normalized {total_dates_normalized} relative dates to absolute dates")
 
     # 4. Run decay to flag stale memories
-    print("\n🧹 Running decay to flag stale memories...")
+    logger.info("🧹 Running decay to flag stale memories...")
     run_decay()
 
+    # 4.5. Apply feedback learning from search patterns
+    logger.info("🎓 Applying feedback learning from search patterns...")
+    from .feedback import apply_feedback_learning
+    feedback_results = apply_feedback_learning(conn)
+    logger.info(f"   Boosted: {feedback_results['boosted']} high-value memories")
+    logger.info(f"   Decayed: {feedback_results['decayed']} low-value memories")
+    logger.info(f"   Flagged: {feedback_results['flagged']} unused memories as stale")
+
     # 5. Memory consolidation phase
-    print("\n💤 Phase: Memory Consolidation...")
+    logger.info("💤 Phase: Memory Consolidation...")
     consol = consolidate_memories(conn)
-    print(f"   Merged: {consol['merged']} near-duplicates")
-    print(f"   Insights: {consol['insights']} patterns discovered")
-    print(f"   Connections: {consol['connections']} strengthened")
-    print(f"   Pruned: {consol['pruned']} low-value memories")
+    logger.info(f"   Merged: {consol['merged']} near-duplicates")
+    logger.info(f"   Insights: {consol['insights']} patterns discovered")
+    logger.info(f"   Connections: {consol['connections']} strengthened")
+    logger.info(f"   Pruned: {consol['pruned']} low-value memories")
+
+    # 5.5. Belief consolidation phase
+    logger.info("🧠 Phase: Belief Consolidation...")
+    from .beliefs import beliefs_dream
+    belief_results = beliefs_dream(conn)
+    logger.info(f"   Beliefs merged: {belief_results['merged']}")
+    logger.info(f"   Predictions expired: {belief_results['predictions_expired']}")
+    logger.info(f"   Beliefs weakened: {belief_results['beliefs_weakened']}")
+
+    # 5.6. Lifecycle state auto-deprecation
+    logger.info("⚖️  Phase: Lifecycle State Management...")
+    try:
+        from .beliefs_extended import auto_deprecate_weak_beliefs
+        deprecated_count = auto_deprecate_weak_beliefs(conn, days_inactive=60)
+        logger.info(f"   Auto-deprecated: {deprecated_count} weak beliefs")
+        belief_results['deprecated'] = deprecated_count
+    except Exception as e:
+        logger.debug(f"Lifecycle deprecation skipped: {e}")
+        belief_results['deprecated'] = 0
 
     # 6. Re-export MEMORY.md
-    print("\n📝 Re-exporting MEMORY.md...")
+    logger.debug("Re-exporting MEMORY.md...")
     _get_export_memory_md()(None)
 
     # 7. Generate dream report and save as memory
-    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized from {len(unprocessed)} transcripts"
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated from {len(unprocessed)} transcripts"
 
     today = datetime.now().strftime('%Y-%m-%d')
     _get_add_memory()(
@@ -268,6 +298,7 @@ def cmd_dream() -> None:
 
     conn.close()
 
+    # Final summary — this is user output, keep as print()
     print(f"\n✨ Dream complete!")
     print(f"   📚 {total_insights} insights extracted")
     print(f"   🔗 {auto_merged + reconsolidated + consol['merged']} duplicates consolidated")
@@ -275,6 +306,8 @@ def cmd_dream() -> None:
     print(f"   💡 {consol['insights']} patterns discovered")
     print(f"   🗑️  {consol['pruned']} low-value memories pruned")
     print(f"   📅 {total_dates_normalized} dates normalized")
+    print(f"   🎓 {feedback_results['boosted']} boosted / {feedback_results['decayed']} decayed / {feedback_results['flagged']} flagged via feedback")
+    print(f"   🔮 {belief_results['merged']} beliefs merged / {belief_results['predictions_expired']} predictions expired / {belief_results['beliefs_weakened']} beliefs weakened / {belief_results.get('deprecated', 0)} beliefs deprecated")
     print(f"   💾 Report saved to memory")
 
 
@@ -298,7 +331,7 @@ CORRECTION_PATTERNS = [
 
 
 
-def consolidate_memories(conn: Any) -> Dict[str, int]:
+def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
     """Cross-memory consolidation — like REM sleep for AI memory.
     Replays memories, finds patterns, merges duplicates, generates insights."""
 
@@ -306,7 +339,7 @@ def consolidate_memories(conn: Any) -> Dict[str, int]:
 
     # Phase 1: Find and merge near-duplicate memories (>85% content overlap)
     active = conn.execute("""
-        SELECT id, content, category, project, tags, imp_score, access_count
+        SELECT id, content, category, project, tags, imp_score, access_count, proof_count, source_memory_ids
         FROM memories WHERE active = 1
         ORDER BY imp_score DESC
     """).fetchall()
@@ -329,9 +362,33 @@ def consolidate_memories(conn: Any) -> Dict[str, int]:
 
                 keep = a if keep_a else b
                 discard = b if keep == a else a
+
+                # Track proof: increment proof_count and append source IDs
+                keep_id = keep["id"]
+                discard_id = discard["id"]
+
+                # Get current proof tracking data
+                keep_proof_count = keep["proof_count"] or 1
+                discard_proof_count = discard["proof_count"] or 1
+                new_proof_count = keep_proof_count + discard_proof_count
+
+                # Merge source_memory_ids (JSON arrays)
+                keep_sources = json.loads(keep["source_memory_ids"]) if keep["source_memory_ids"] else []
+                discard_sources = json.loads(discard["source_memory_ids"]) if discard["source_memory_ids"] else []
+
+                # Add the discarded memory's ID to sources
+                new_sources = keep_sources + discard_sources + [discard_id]
+                new_sources_json = json.dumps(new_sources)
+
+                # Update keep memory with proof tracking
+                conn.execute(
+                    "UPDATE memories SET proof_count = ?, source_memory_ids = ? WHERE id = ?",
+                    (new_proof_count, new_sources_json, keep_id)
+                )
+
                 # Merge: soft delete discard
-                conn.execute("UPDATE memories SET active = 0 WHERE id = ?", (discard["id"],))
-                seen_ids.add(discard["id"])
+                conn.execute("UPDATE memories SET active = 0 WHERE id = ?", (discard_id,))
+                seen_ids.add(discard_id)
                 results["merged"] += 1
 
     # Phase 2: Find recurring patterns across error memories
@@ -432,7 +489,7 @@ def consolidate_memories(conn: Any) -> Dict[str, int]:
     return results
 
 
-def reconsolidate_memories(conn: Any) -> int:
+def reconsolidate_memories(conn: sqlite3.Connection) -> int:
     """Reconsolidation phase: find near-duplicates (85-95% similarity) and auto-merge them.
     This phase happens after standard dedup but catches memories that are almost identical
     but have minor differences (like updated timestamps, slightly different wording, etc.)."""

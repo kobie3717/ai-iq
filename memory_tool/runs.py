@@ -12,7 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -114,7 +114,7 @@ def cancel_run(run_id: int) -> None:
 
 
 
-def list_runs(status: Optional[str] = None, project: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
+def list_runs(status: Optional[str] = None, project: Optional[str] = None, limit: int = 10) -> List[sqlite3.Row]:
     """List runs with optional filters."""
     conn = get_db()
     
@@ -129,7 +129,7 @@ def list_runs(status: Optional[str] = None, project: Optional[str] = None, limit
         query += " AND project = ?"
         params.append(project)
     
-    query += " ORDER BY started_at DESC LIMIT ?"
+    query += " ORDER BY started_at DESC, id DESC LIMIT ?"
     params.append(limit)
     
     rows = conn.execute(query, params).fetchall()
@@ -139,7 +139,7 @@ def list_runs(status: Optional[str] = None, project: Optional[str] = None, limit
 
 
 
-def show_run(run_id: int) -> Optional[Dict[str, Any]]:
+def show_run(run_id: int) -> Optional[sqlite3.Row]:
     """Show detailed information for a run."""
     conn = get_db()
     row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()

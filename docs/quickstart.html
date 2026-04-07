@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Start — AI-IQ</title>
+    <meta name="description" content="Get started with AI-IQ in 5 minutes. Learn the basics of adding, searching, and managing AI memories.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦀</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                    <span class="logo">🦀</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="quickstart.html" style="color: var(--accent);">Quick Start</a>
+                <a href="api.html">API</a>
+                <a href="cli.html">CLI</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section">
+        <div class="container">
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">Quick Start Guide</h1>
+            <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem;">
+                Get up and running with AI-IQ in 5 minutes. Learn the basics of adding, searching, and managing AI memories.
+            </p>
+
+            <!-- Installation -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">1. Installation</h2>
+                <p style="margin-bottom: 1rem;">Install AI-IQ from PyPI:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash">pip install ai-iq</code></pre>
+                    <button class="copy-btn" data-clipboard="pip install ai-iq" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-muted);">
+                    <strong>Optional:</strong> For semantic search with vector embeddings, install the full version:
+                </p>
+                <div style="position: relative; margin-top: 0.5rem;">
+                    <pre><code class="language-bash">pip install ai-iq[full]</code></pre>
+                    <button class="copy-btn" data-clipboard="pip install ai-iq[full]" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">
+                    <strong>Requirements:</strong> Python 3.8+ and SQLite 3.37+
+                </p>
+            </div>
+
+            <!-- Python API Basics -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">2. Python API Basics</h2>
+                <p style="margin-bottom: 1rem;">Create your first memory in 5 lines:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-python">from ai_iq import Memory
+
+memory = Memory()  # Creates memories.db in current directory
+
+# Add a memory
+mem_id = memory.add("User prefers dark mode", tags=["preference", "ui"])
+
+# Search memories
+results = memory.search("dark mode")
+for r in results:
+    print(f"#{r['id']}: {r['content']}")
+
+# Output: #1: User prefers dark mode</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- CLI Basics -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">3. CLI Usage Basics</h2>
+                <p style="margin-bottom: 1rem;">The CLI is perfect for quick notes and automation:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Add memories
+memory-tool add preference "User likes Bitcoin" --tags crypto,finance
+memory-tool add learning "Docker needs network_mode: host for Redis" --project MyApp
+
+# Search memories (hybrid keyword + semantic)
+memory-tool search "docker networking"
+
+# View full details for a specific memory
+memory-tool get 1
+
+# List all memories for a project
+memory-tool list --project MyApp
+
+# Update a memory
+memory-tool update 1 "User REALLY likes Bitcoin"
+
+# Delete a memory (soft delete, recoverable)
+memory-tool delete 1</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">4. Memory Categories</h2>
+                <p style="margin-bottom: 1rem;">Organize memories with categories:</p>
+                <table class="command-table" style="margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Use For</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>project</code></td>
+                            <td>Project-specific facts</td>
+                            <td>"WhatsAuction uses Redis for sessions"</td>
+                        </tr>
+                        <tr>
+                            <td><code>decision</code></td>
+                            <td>Architecture choices</td>
+                            <td>"Chose PostgreSQL over MySQL for JSONB support"</td>
+                        </tr>
+                        <tr>
+                            <td><code>preference</code></td>
+                            <td>User preferences</td>
+                            <td>"User prefers TypeScript over JavaScript"</td>
+                        </tr>
+                        <tr>
+                            <td><code>error</code></td>
+                            <td>Bugs and solutions</td>
+                            <td>"Fixed CORS by adding credentials: include"</td>
+                        </tr>
+                        <tr>
+                            <td><code>learning</code></td>
+                            <td>Lessons learned</td>
+                            <td>"Always validate JWT tokens server-side"</td>
+                        </tr>
+                        <tr>
+                            <td><code>pending</code></td>
+                            <td>TODOs and action items</td>
+                            <td>"Add rate limiting to auth endpoints"</td>
+                        </tr>
+                        <tr>
+                            <td><code>architecture</code></td>
+                            <td>System design</td>
+                            <td>"Microservices pattern with event bus"</td>
+                        </tr>
+                        <tr>
+                            <td><code>workflow</code></td>
+                            <td>Process documentation</td>
+                            <td>"Deploy process: test → staging → prod"</td>
+                        </tr>
+                        <tr>
+                            <td><code>contact</code></td>
+                            <td>People and organizations</td>
+                            <td>"Alice handles frontend deployments"</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="position: relative; margin-top: 1.5rem;">
+                    <pre><code class="language-bash"># Examples
+memory-tool add decision "Using Next.js for SSR performance" --project Blog
+memory-tool add error "Redis connection failed - needed network_mode: host" --project DockerSetup
+memory-tool add pending "Implement rate limiting" --expires 2026-04-30 --project API</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- First 5 Minutes Tutorial -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">5. Your First 5 Minutes</h2>
+                <p style="margin-bottom: 1rem;">Complete beginner workflow:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># 1. Install AI-IQ
+pip install ai-iq
+
+# 2. Add some memories
+memory-tool add preference "User likes dark themes" --tags ui,design
+memory-tool add learning "React hooks must start with 'use'" --tags react,javascript
+memory-tool add decision "Chose Tailwind CSS for styling" --project Portfolio
+
+# 3. Search your memories
+memory-tool search "react"
+# Output: #2: React hooks must start with 'use'
+
+# 4. Get full details
+memory-tool get 2
+
+# 5. List all memories for a project
+memory-tool list --project Portfolio
+
+# 6. View statistics
+memory-tool stats
+
+# 7. See pending TODOs
+memory-tool pending
+
+# 8. Run maintenance (consolidate duplicates, flag stale memories)
+memory-tool dream</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Python API Tutorial -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">6. Python Integration Example</h2>
+                <p style="margin-bottom: 1rem;">Build a simple chatbot with memory:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-python">from ai_iq import Memory
+
+# Initialize memory
+memory = Memory("chatbot_memory.db")
+
+# Simulate conversation
+user_input = "I prefer Python over JavaScript"
+
+# Store preference
+memory.add(
+    user_input,
+    category="preference",
+    tags=["language", "coding"],
+    priority=5
+)
+
+# Later, retrieve context
+results = memory.search("programming language preference")
+if results:
+    context = results[0]['content']
+    print(f"Remembered: {context}")
+    # Use this context to personalize responses
+
+# Update memory when user changes mind
+memory.update(results[0]['id'], "I prefer Python for backend, JavaScript for frontend")
+
+# Check stats
+stats = memory.stats()
+print(f"Total memories: {stats['total']}")
+print(f"Active memories: {stats['active']}")
+print(f"Categories: {stats['categories']}")</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Search Modes -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">7. Search Modes</h2>
+                <p style="margin-bottom: 1rem;">AI-IQ offers three search modes:</p>
+                <table class="command-table" style="margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>Mode</th>
+                            <th>How It Works</th>
+                            <th>Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>hybrid</code> (default)</td>
+                            <td>Combines keyword (FTS5) + semantic (vector) + graph traversal with RRF fusion</td>
+                            <td>Most queries — balances precision and recall</td>
+                        </tr>
+                        <tr>
+                            <td><code>keyword</code></td>
+                            <td>Fast FTS5 full-text search, exact word matching</td>
+                            <td>Exact terms, technical keywords, code snippets</td>
+                        </tr>
+                        <tr>
+                            <td><code>semantic</code></td>
+                            <td>Vector similarity using all-MiniLM-L6-v2 embeddings</td>
+                            <td>Conceptual queries, synonyms, paraphrased content</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="position: relative; margin-top: 1.5rem;">
+                    <pre><code class="language-bash"># CLI
+memory-tool search "redis cache"              # Hybrid (default)
+memory-tool search "redis cache" --keyword    # Keyword-only
+memory-tool search "redis cache" --semantic   # Semantic-only
+
+# Python API
+results = memory.search("redis cache")                    # Hybrid
+results = memory.search("redis cache", mode="keyword")    # Keyword-only
+results = memory.search("redis cache", mode="semantic")   # Semantic-only</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="feature-detail" style="background: var(--accent-dim); border-color: var(--accent);">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Next Steps</h2>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="reference.html" style="color: var(--accent);">Full Reference</a></strong> — Complete CLI and API documentation
+                    </li>
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="plugins.html" style="color: var(--accent);">Claude Code Plugin</a></strong> — Auto-capture errors and session snapshots
+                    </li>
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="index.html#features" style="color: var(--accent);">Advanced Features</a></strong> — Beliefs, dream mode, knowledge graph, identity layer
+                    </li>
+                    <li style="padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="https://github.com/kobie3717/ai-iq/tree/main/examples" target="_blank" rel="noopener" style="color: var(--accent);">Examples</a></strong> — Real-world integration examples
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ by <a href="https://github.com/kobie3717" target="_blank" rel="noopener">kobie3717</a></p>
+            <p>Licensed under <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script>
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const text = button.getAttribute('data-clipboard');
+                const target = button.getAttribute('data-clipboard-target');
+
+                let textToCopy = text;
+                if (target) {
+                    const codeElement = button.parentElement.querySelector(target + ' code');
+                    textToCopy = codeElement ? codeElement.textContent : text;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    button.style.background = 'var(--accent)';
+                    button.style.color = 'var(--bg-dark)';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '';
+                        button.style.color = '';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

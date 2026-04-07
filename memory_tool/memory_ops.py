@@ -12,7 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
-from typing import Optional, List, Dict, Any, Tuple, Callable
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -22,6 +22,8 @@ from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
 
+logger = get_logger(__name__)
+
 # Lazy imports for optional dependencies
 try:
     import numpy as np
@@ -30,14 +32,35 @@ except ImportError:
     pass
 
 
+def recency_boost(created_at: datetime, alpha: float = 0.2) -> float:
+    """Multiplicative recency boost for search results. Recent = higher score.
+
+    Args:
+        created_at: datetime when memory was created
+        alpha: boost strength (0.2 = 20% max boost/penalty)
+
+    Returns:
+        Multiplier between ~0.9 and ~1.1
+    """
+    if not created_at:
+        return 1.0
+    days_ago = (datetime.now() - created_at).total_seconds() / 86400
+    # Normalize to 0-1 range (recent = 1, old = 0)
+    # Use 365 days as the reference window
+    recency = max(0.1, min(1.0, 1.0 - (days_ago / 365)))
+    # Convert to multiplier: 1.0 + alpha * (recency - 0.5)
+    # Recent memories get +10% boost, old memories get -10% penalty
+    return 1.0 + alpha * (recency - 0.5)
+
+
 # Lazy imports to avoid circular dependencies
-def _get_export_memory_md() -> Callable:
+def _get_export_memory_md() -> Any:
     """Lazy import of export_memory_md to avoid circular dependency."""
     from .export import export_memory_md
     return export_memory_md
 
 
-def _get_auto_link_memory() -> Callable:
+def _get_auto_link_memory() -> Any:
     """Lazy import of auto_link_memory to avoid circular dependency."""
     from .graph import auto_link_memory
     return auto_link_memory
@@ -172,6 +195,18 @@ def check_contradictions(content: str, category: Optional[str] = None, project: 
             # Return warning with the most similar memory
             most_similar = high_similarity[0]
             preview = most_similar['content'][:80] + "..." if len(most_similar['content']) > 80 else most_similar['content']
+
+            # Integration with belief system: weaken confidence of contradicting memory slightly
+            try:
+                from .beliefs import weaken_confidence
+                weaken_confidence(
+                    conn, most_similar['id'], 0.05,
+                    f"Contradiction detected with new memory: {content[:60]}..."
+                )
+                logger.debug(f"Weakened confidence of memory #{most_similar['id']} due to contradiction")
+            except Exception:
+                pass  # beliefs module might not be available or column doesn't exist yet
+
             return f"⚠️  Potential contradiction with memory #{most_similar['id']} ({most_similar['similarity']:.0%} similar): {preview}"
 
         return None
@@ -182,7 +217,7 @@ def check_contradictions(content: str, category: Optional[str] = None, project: 
 
 
 def smart_ingest(category: str, content: str, tags: str = "", project: Optional[str] = None,
-                 priority: int = 0, related_to: Optional[str] = None,
+                 priority: int = 0, related_to: Optional[int] = None,
                  expires_at: Optional[str] = None, source: str = "manual",
                  topic_key: Optional[str] = None, derived_from: Optional[str] = None,
                  citations: Optional[str] = None, reasoning: Optional[str] = None) -> Optional[int]:
@@ -194,6 +229,23 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     - CREATE: <50% (normal insert)
     """
     tags = auto_tag(content, tags)
+
+    # Content-hash dedup check: prevent exact duplicates within 30 seconds (claude-mem pattern)
+    # Use SHA256 hash of category:content (case-insensitive, whitespace-normalized)
+    content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
+    conn = get_db()
+    recent_dupe = conn.execute("""
+        SELECT id, created_at FROM memories
+        WHERE content_hash = ? AND active = 1
+        AND datetime(created_at) > datetime('now', '-30 seconds')
+        ORDER BY created_at DESC LIMIT 1
+    """, (content_hash,)).fetchone()
+    conn.close()
+
+    if recent_dupe:
+        # Skip duplicate and notify user
+        logger.info(f"⚡ DEDUP: Blocked duplicate within 30s window (matches #{recent_dupe['id']})")
+        return None
 
     # Check for contradictions using semantic search (if available)
     contradiction_warning = check_contradictions(content, category, project)
@@ -227,11 +279,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"Updated memory #{existing['id']} (revision {new_revision}) key:{topic_key}")
+            logger.info(f"Updated memory #{existing['id']} (revision {new_revision}) key:{topic_key}")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return existing["id"]
         else:
@@ -247,9 +299,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
         # SKIP: >85% (blocked)
         if score > 0.85:
-            print(f"DUPLICATE BLOCKED (score={score:.0%}): similar to #{best_id}")
-            print(f"  Existing: {best_content}")
-            print(f"  Use 'memory-tool update {best_id} \"{content}\"' to update instead.")
+            logger.warning(f"DUPLICATE BLOCKED (score={score:.0%}): similar to #{best_id}")
+            logger.warning(f"  Existing: {best_content}")
+            logger.warning(f"  Use 'memory-tool update {best_id} \"{content}\"' to update instead.")
             return None
 
         # UPDATE: 70-85% same category and project
@@ -277,11 +329,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"AUTO-UPDATED memory #{best_id} ({score:.0%} match, revision {new_revision})")
+            logger.info(f"AUTO-UPDATED memory #{best_id} ({score:.0%} match, revision {new_revision})")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return best_id
 
@@ -290,9 +342,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             # Insert new, mark old as superseded
             conn = get_db()
             cur = conn.execute(
-                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
             )
             new_id = cur.lastrowid
 
@@ -319,26 +371,26 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             conn.commit()
             conn.close()
             _get_export_memory_md()()
-            print(f"Added memory #{new_id}, supersedes #{best_id} ({score:.0%} overlap, different content)")
+            logger.info(f"Added memory #{new_id}, supersedes #{best_id} ({score:.0%} overlap, different content)")
 
             # Print contradiction warning if detected
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
             return new_id
 
         # CREATE with warning: <50% or different category/project
         else:
-            print(f"WARNING: Similar memory (score={score:.0%}): #{best_id}: {best_content}")
+            logger.info(f"Similar memory exists (score={score:.0%}): #{best_id}: {best_content}")
             if contradiction_warning:
-                print(contradiction_warning)
+                logger.warning(contradiction_warning)
 
     # CREATE: Normal insert
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
     )
     mem_id = cur.lastrowid
 
@@ -361,11 +413,11 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
     _get_export_memory_md()()
     key_str = f" key:{topic_key}" if topic_key else ""
-    print(f"Added memory #{mem_id} [{category}]{key_str}{' tags:' + tags if tags else ''}")
+    logger.info(f"Added memory #{mem_id} [{category}]{key_str}{' tags:' + tags if tags else ''}")
 
     # Print contradiction warning if detected
     if contradiction_warning:
-        print(contradiction_warning)
+        logger.warning(contradiction_warning)
 
     return mem_id
 
@@ -373,7 +425,7 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
 
 
 def add_memory(category: str, content: str, tags: str = "", project: Optional[str] = None,
-               priority: int = 0, related_to: Optional[str] = None,
+               priority: int = 0, related_to: Optional[int] = None,
                expires_at: Optional[str] = None, source: str = "manual",
                topic_key: Optional[str] = None, skip_dedup: bool = False,
                derived_from: Optional[str] = None, citations: Optional[str] = None,
@@ -386,11 +438,14 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         # Check for contradictions even if skipping dedup
         contradiction_warning = check_contradictions(content, category, project)
 
+        # Compute content hash (truncate to 16 chars to match dedup logic)
+        content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()[:16]
+
         conn = get_db()
         cur = conn.execute(
-            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning)
-               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)""",
-            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning)
+            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)""",
+            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash)
         )
         mem_id = cur.lastrowid
         if related_to:
@@ -410,11 +465,11 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         _get_auto_link_memory()(mem_id, content)
 
         _get_export_memory_md()()
-        print(f"Added memory #{mem_id} [{category}]{' tags:' + tags if tags else ''}")
+        logger.info(f"Added memory #{mem_id} [{category}]{' tags:' + tags if tags else ''}")
 
         # Print contradiction warning if detected
         if contradiction_warning:
-            print(contradiction_warning)
+            logger.warning(contradiction_warning)
 
         return mem_id
     else:
@@ -423,26 +478,78 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
 
 
-def search_memories(query: str, mode: str = "hybrid") -> List[Dict[str, Any]]:
+def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
     - keyword: FTS only
     - semantic: Vector only
+
+    Args:
+        query: Search query string
+        mode: Search mode (hybrid/keyword/semantic)
+        since: ISO date string for filtering memories created/updated after this date
+        until: ISO date string for filtering memories created/updated before this date
+        apply_recency_boost: Apply recency boost to search scores (default: True)
+
+    Returns:
+        Tuple of (rows, search_id, temporal_range) where:
+        - rows: List of memory rows
+        - search_id: ID for feedback logging
+        - temporal_range: (start_date, end_date) if temporal filtering applied, None otherwise
     """
+    import time
+    start_time = time.time()
+
+    # Extract temporal constraints from query if not explicitly provided
+    temporal_range = None
+    if not since and not until:
+        try:
+            from .temporal import extract_temporal_constraint, strip_temporal_expressions
+            temporal_range = extract_temporal_constraint(query)
+            if temporal_range:
+                since = temporal_range[0].isoformat()
+                until = temporal_range[1].isoformat()
+                # Clean query for better matching
+                query = strip_temporal_expressions(query)
+        except ImportError:
+            pass  # temporal module not available
+        except Exception:
+            pass  # Date parsing failed, continue with original query
+
     conn = get_db()
     fts_results = []
     vec_results = []
 
+    # Build date filter clause if temporal constraints provided
+    date_filter_fts = ""
+    date_filter_plain = ""
+    date_params = []
+    if since or until:
+        conditions_fts = []
+        conditions_plain = []
+        if since:
+            conditions_fts.append("(m.created_at >= ? OR m.updated_at >= ?)")
+            conditions_plain.append("(created_at >= ? OR updated_at >= ?)")
+            date_params.extend([since, since])
+        if until:
+            conditions_fts.append("(m.created_at <= ? OR m.updated_at <= ?)")
+            conditions_plain.append("(created_at <= ? OR updated_at <= ?)")
+            date_params.extend([until, until])
+        if conditions_fts:
+            date_filter_fts = " AND " + " AND ".join(conditions_fts)
+            date_filter_plain = " AND " + " AND ".join(conditions_plain)
+
     # 1. FTS keyword search
     if mode in ("hybrid", "keyword"):
         try:
-            rows = conn.execute("""
+            fts_query = f"""
                 SELECT m.id FROM memories m
                 JOIN memories_fts fts ON m.id = fts.rowid
-                WHERE memories_fts MATCH ? AND m.active = 1
+                WHERE memories_fts MATCH ? AND m.active = 1{date_filter_fts}
                 ORDER BY rank LIMIT 20
-            """, (query,)).fetchall()
+            """
+            rows = conn.execute(fts_query, [query] + date_params).fetchall()
             fts_results = [(r['id'], i) for i, r in enumerate(rows)]
         except sqlite3.OperationalError:
             pass
@@ -460,16 +567,20 @@ def search_memories(query: str, mode: str = "hybrid") -> List[Dict[str, Any]]:
                     ORDER BY distance
                 """, (query_vec,)).fetchall()
 
-                # Filter to active only
-                active_ids = set(r['id'] for r in conn.execute(
-                    "SELECT id FROM memories WHERE active = 1"
-                ).fetchall())
+                # Filter to active only and apply date filter
+                if date_filter_plain:
+                    active_query = f"SELECT id FROM memories WHERE active = 1{date_filter_plain}"
+                    active_ids = set(r['id'] for r in conn.execute(active_query, date_params).fetchall())
+                else:
+                    active_ids = set(r['id'] for r in conn.execute(
+                        "SELECT id FROM memories WHERE active = 1"
+                    ).fetchall())
                 vec_results = [(r['id'], i) for i, r in enumerate(rows) if r['id'] in active_ids]
             except Exception:
                 # Silently fail if vec table doesn't exist yet
                 pass
 
-    # 3. Reciprocal Rank Fusion (combine scores)
+    # 3. Reciprocal Rank Fusion (combine scores) with recency boost
     if mode == "hybrid" and (fts_results or vec_results):
         scores = {}
         for mem_id, rank in fts_results:
@@ -477,7 +588,35 @@ def search_memories(query: str, mode: str = "hybrid") -> List[Dict[str, Any]]:
         for mem_id, rank in vec_results:
             scores[mem_id] = scores.get(mem_id, 0) + 1.0 / (RRF_K + rank + 1)
 
-        # Sort by combined RRF score
+        # Apply recency boost to final scores (if enabled)
+        if scores and apply_recency_boost:
+            # Fetch created_at and proof_count for all candidates
+            mem_ids = list(scores.keys())
+            placeholders = ','.join('?' * len(mem_ids))
+            date_rows = conn.execute(
+                f"SELECT id, created_at, proof_count FROM memories WHERE id IN ({placeholders})",
+                mem_ids
+            ).fetchall()
+
+            for row in date_rows:
+                mem_id = row['id']
+                created_at = row['created_at']
+                if created_at:
+                    try:
+                        created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00')).replace(tzinfo=None)
+                        boost = recency_boost(created_dt)
+                        scores[mem_id] *= boost
+                    except (ValueError, AttributeError):
+                        pass  # Invalid date, skip boost
+
+                # Apply proof boost: memories confirmed by multiple sources rank higher
+                proof_count = row['proof_count'] or 1
+                if proof_count > 1:
+                    # Boost by up to 50% for well-confirmed memories (capped at 5 sources)
+                    proof_boost = 1.0 + 0.1 * min(proof_count, 5)
+                    scores[mem_id] *= proof_boost
+
+        # Sort by combined RRF score with recency boost and proof boost
         ranked_ids = sorted(scores.keys(), key=lambda x: -scores[x])[:20]
 
         # Fetch full rows
@@ -508,11 +647,24 @@ def search_memories(query: str, mode: str = "hybrid") -> List[Dict[str, Any]]:
 
     # Fallback to LIKE if no results
     if not rows:
-        rows = conn.execute("""
+        fallback_query = f"""
             SELECT * FROM memories
-            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?)
+            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?){date_filter_plain}
             ORDER BY updated_at DESC LIMIT 20
-        """, (f"%{query}%", f"%{query}%", f"%{query}%")).fetchall()
+        """
+        fallback_params = [f"%{query}%", f"%{query}%", f"%{query}%"] + date_params
+        rows = conn.execute(fallback_query, fallback_params).fetchall()
+
+    # Calculate latency
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    # Log the search
+    result_ids = ','.join(str(r['id']) for r in rows)
+    cur = conn.execute("""
+        INSERT INTO search_log (query, search_type, result_ids, result_count, latency_ms)
+        VALUES (?, ?, ?, ?, ?)
+    """, (query, mode, result_ids, len(rows), latency_ms))
+    search_id = cur.lastrowid
 
     # Touch accessed memories
     for r in rows:
@@ -520,12 +672,14 @@ def search_memories(query: str, mode: str = "hybrid") -> List[Dict[str, Any]]:
         auto_adjust_priority(conn, r["id"])
     conn.commit()
     conn.close()
-    return rows
+
+    # Return temporal_range if it was applied
+    return rows, search_id, temporal_range
 
 
 
 
-def get_memory(mem_id: int) -> Optional[Dict[str, Any]]:
+def get_memory(mem_id: int) -> Optional[sqlite3.Row]:
     """Get full detail for a single memory."""
     conn = get_db()
     row = conn.execute("SELECT * FROM memories WHERE id = ?", (mem_id,)).fetchone()
@@ -537,7 +691,7 @@ def get_memory(mem_id: int) -> Optional[Dict[str, Any]]:
 
 def list_memories(category: Optional[str] = None, project: Optional[str] = None,
                   tag: Optional[str] = None, stale_only: bool = False,
-                  expired_only: bool = False) -> List[Dict[str, Any]]:
+                  expired_only: bool = False, sort_by_proof: bool = False) -> List[sqlite3.Row]:
     conn = get_db()
     query = "SELECT * FROM memories WHERE active = 1"
     params = []
@@ -554,7 +708,12 @@ def list_memories(category: Optional[str] = None, project: Optional[str] = None,
         query += " AND stale = 1"
     if expired_only:
         query += " AND expires_at IS NOT NULL AND expires_at < datetime('now')"
-    query += " ORDER BY priority DESC, updated_at DESC"
+
+    if sort_by_proof:
+        query += " ORDER BY proof_count DESC, updated_at DESC"
+    else:
+        query += " ORDER BY priority DESC, updated_at DESC"
+
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return rows
@@ -578,7 +737,7 @@ def update_memory(mem_id: int, content: str) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"Updated memory #{mem_id} (revision {new_revision})")
+    logger.info(f"Updated memory #{mem_id} (revision {new_revision})")
 
 
 
@@ -589,7 +748,7 @@ def delete_memory(mem_id: int) -> None:
     conn.commit()
     conn.close()
     _get_export_memory_md()()
-    print(f"Deactivated memory #{mem_id}")
+    logger.info(f"Deactivated memory #{mem_id}")
 
 
 
@@ -603,7 +762,7 @@ def tag_memory(mem_id: int, tags: str) -> None:
         merged = ",".join(sorted(current | new_tags))
         conn.execute("UPDATE memories SET tags = ?, updated_at = datetime('now') WHERE id = ?", (merged, mem_id))
         conn.commit()
-        print(f"Tagged memory #{mem_id}: {merged}")
+        logger.info(f"Tagged memory #{mem_id}: {merged}")
     conn.close()
     _get_export_memory_md()()
 
@@ -631,6 +790,7 @@ def show_importance_ranking() -> None:
     """).fetchall()
     conn.close()
 
+    # User-facing output - display stays as print()
     print(f"Importance Ranking ({len(rows)} memories)")
     print("=" * 70)
     print(f"  {'#':>3} {'Score':>5} {'N':>3} {'R':>3} {'F':>3} {'I':>3} {'Cat':<8} Content")

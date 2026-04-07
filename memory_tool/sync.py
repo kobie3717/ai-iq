@@ -13,6 +13,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -21,6 +22,10 @@ from .utils import auto_tag, word_set, normalize, find_similar, word_overlap, si
 from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_next_interval, fsrs_auto_rating
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
+from .memory_ops import add_memory
+from .graph import graph_stats, graph_import_openclaw
+
+logger = get_logger(__name__)
 
 # Lazy imports for optional dependencies
 try:
@@ -49,7 +54,7 @@ def save_sync_state(state: Dict[str, Any]) -> None:
 
 
 
-def file_checksum(content):
+def file_checksum(content: str) -> str:
     """Generate MD5 checksum for content."""
     return hashlib.md5(content.encode('utf-8')).hexdigest()
 
@@ -59,7 +64,7 @@ def file_checksum(content):
 def sync_to_openclaw() -> None:
     """Export memories and graph data to OpenClaw's workspace format."""
     if not OPENCLAW_MEMORY_DIR.exists():
-        print(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
+        logger.error(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
         return
 
     conn = get_db()
@@ -251,26 +256,26 @@ def sync_to_openclaw() -> None:
             graph_sync_to_openclaw_db()
             files_written.append(str(OPENCLAW_GRAPH_DB))
         except Exception as e:
-            print(f"Warning: Graph DB sync failed: {e}")
+            logger.warning(f"Graph DB sync failed: {e}")
 
     # Save state
     save_sync_state(state)
     conn.close()
 
     if files_written:
-        print(f"Synced {len(files_written)} files to OpenClaw:")
+        logger.info(f"Synced {len(files_written)} files to OpenClaw:")
         for f in files_written:
-            print(f"  - {f}")
+            logger.info(f"  - {f}")
     else:
-        print("No changes to sync (all files up to date)")
+        logger.info("No changes to sync (all files up to date)")
 
 
 
 
-def graph_sync_to_openclaw_db():
+def graph_sync_to_openclaw_db() -> None:
     """Sync graph entities/relationships/facts to OpenClaw's graph DB."""
     if not OPENCLAW_GRAPH_DB.exists():
-        print("OpenClaw graph DB not found, skipping DB sync")
+        logger.warning("OpenClaw graph DB not found, skipping DB sync")
         return
 
     source_conn = get_db()
@@ -410,7 +415,7 @@ def graph_sync_to_openclaw_db():
 def sync_from_openclaw() -> None:
     """Import new memories from OpenClaw's daily notes and topic files."""
     if not OPENCLAW_MEMORY_DIR.exists():
-        print(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
+        logger.error(f"OpenClaw memory directory not found: {OPENCLAW_MEMORY_DIR}")
         return
 
     imported_count = 0
@@ -453,23 +458,23 @@ def sync_from_openclaw() -> None:
         try:
             graph_import_openclaw()
         except Exception as e:
-            print(f"Warning: Failed to import from OpenClaw graph DB: {e}")
+            logger.warning(f"Failed to import from OpenClaw graph DB: {e}")
 
     if imported_count > 0:
-        print(f"Imported {imported_count} new memories from OpenClaw")
+        logger.info(f"Imported {imported_count} new memories from OpenClaw")
     else:
-        print("No new memories to import from OpenClaw")
+        logger.info("No new memories to import from OpenClaw")
 
 
 
 
 def sync_bidirectional() -> None:
     """Run both sync-to and sync-from."""
-    print("=== Syncing to OpenClaw ===")
+    logger.info("=== Syncing to OpenClaw ===")
     sync_to_openclaw()
-    print("\n=== Syncing from OpenClaw ===")
+    logger.info("=== Syncing from OpenClaw ===")
     sync_from_openclaw()
-    print("\n=== Sync complete ===")
+    logger.info("=== Sync complete ===")
 
 
 

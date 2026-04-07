@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Plugin — AI-IQ</title>
+    <meta name="description" content="Auto-capture errors and session snapshots in Claude Code with AI-IQ persistent memory plugin.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                    <span class="logo">🧠</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="quickstart.html">Quick Start</a>
+                <a href="reference.html">Reference</a>
+                <a href="plugins.html" style="color: var(--accent);">Plugins</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section">
+        <div class="container">
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">Claude Code Plugin</h1>
+            <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem;">
+                Auto-capture errors and session snapshots with AI-IQ's Claude Code plugin. Persistent memory that works in the background.
+            </p>
+
+            <!-- What It Does -->
+            <div class="feature-detail" style="background: var(--accent-dim); border-color: var(--accent);">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">What This Plugin Does</h2>
+                <p style="margin-bottom: 1rem;">Once installed, AI-IQ will automatically:</p>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 0.75rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent); font-size: 1.5rem;">✓</span>
+                        <strong>Auto-capture errors</strong> — Failed Bash commands are automatically logged as error memories
+                    </li>
+                    <li style="margin-bottom: 0.75rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent); font-size: 1.5rem;">✓</span>
+                        <strong>Auto-snapshot sessions</strong> — When you stop working, AI-IQ detects git commits and file changes to create a session summary
+                    </li>
+                    <li style="margin-bottom: 0.75rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent); font-size: 1.5rem;">✓</span>
+                        <strong>Auto-export context</strong> — Regenerates MEMORY.md for Claude to read at the start of each session
+                    </li>
+                    <li style="margin-bottom: 0.75rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent); font-size: 1.5rem;">✓</span>
+                        <strong>Auto-maintain</strong> — Runs decay, garbage collection, and backups
+                    </li>
+                    <li style="padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent); font-size: 1.5rem;">✓</span>
+                        <strong>Timeline tracking</strong> — Logs session start times for better temporal context
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Quick Install -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Quick Install</h2>
+                <p style="margin-bottom: 1rem;">Install AI-IQ and run the automated installer:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># 1. Install AI-IQ
+pip install ai-iq
+
+# 2. Clone the repo (if not already cloned)
+git clone https://github.com/kobie3717/ai-iq.git
+cd ai-iq
+
+# 3. Run the plugin installer
+bash hooks/claude-code/install.sh</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">
+                    The installer will:
+                </p>
+                <ul style="margin-top: 0.5rem; color: var(--text-secondary);">
+                    <li>Check if <code>memory-tool</code> is installed</li>
+                    <li>Copy hook scripts to <code>~/.claude/hooks/</code></li>
+                    <li>Configure hooks in <code>~/.claude/settings.json</code></li>
+                    <li>Optionally install a daily maintenance cron job</li>
+                </ul>
+            </div>
+
+            <!-- Hook Details -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Hook Details</h2>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">PostToolUse Hook (error-hook.sh)</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li><strong>Trigger:</strong> After every Bash tool invocation</li>
+                    <li><strong>Condition:</strong> Only activates on non-zero exit codes</li>
+                    <li><strong>Action:</strong> Captures command and error output, calls <code>memory-tool log-error</code></li>
+                    <li><strong>Silent:</strong> Fails gracefully if memory-tool is not installed</li>
+                </ul>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Stop Hook (session-hook.sh)</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li><strong>Trigger:</strong> When Claude Code session ends</li>
+                    <li><strong>Actions:</strong>
+                        <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><code>memory-tool auto-snapshot</code> — Detects git/file changes and creates session summary</li>
+                            <li><code>memory-tool decay</code> — Flags stale memories using FSRS-6 algorithm</li>
+                            <li><code>memory-tool export</code> — Regenerates MEMORY.md with smart context</li>
+                            <li><code>memory-tool backup</code> — Daily backup check (once per day)</li>
+                        </ol>
+                    </li>
+                </ul>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">SessionStart Hook (session-start-hook.sh)</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li><strong>Trigger:</strong> When Claude Code session starts</li>
+                    <li><strong>Action:</strong> Logs session start with 7-day expiry for timeline tracking</li>
+                    <li><strong>Silent:</strong> Fails gracefully if memory-tool is not installed</li>
+                </ul>
+            </div>
+
+            <!-- Manual Installation -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Manual Installation</h2>
+                <p style="margin-bottom: 1rem;">If you prefer manual setup or need to merge with existing hooks:</p>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">1. Install AI-IQ</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash">pip install ai-iq</code></pre>
+                    <button class="copy-btn" data-clipboard="pip install ai-iq" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">2. Copy Hook Scripts</h3>
+                <div style="position: relative;">
+                    <pre><code class="language-bash">mkdir -p ~/.claude/hooks
+cp hooks/claude-code/error-hook.sh ~/.claude/hooks/ai-iq-error-hook.sh
+cp hooks/claude-code/session-hook.sh ~/.claude/hooks/ai-iq-session-hook.sh
+cp hooks/claude-code/session-start-hook.sh ~/.claude/hooks/ai-iq-session-start-hook.sh
+chmod +x ~/.claude/hooks/ai-iq-*.sh</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">3. Configure Hooks</h3>
+                <p style="margin-bottom: 0.75rem;">Add to <code>~/.claude/settings.json</code> (merge with existing hooks if needed):</p>
+                <div style="position: relative;">
+                    <pre><code class="language-json">{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/ai-iq-session-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/ai-iq-error-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/ai-iq-session-start-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">4. Add to Your Project's CLAUDE.md</h3>
+                <p style="margin-bottom: 0.75rem;">Copy the AI-IQ section from <code>CLAUDE.md.example</code> to your project's <code>CLAUDE.md</code>:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash">cat hooks/claude-code/CLAUDE.md.example >> /your/project/CLAUDE.md</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Daily Maintenance -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Daily Maintenance (Optional)</h2>
+                <p style="margin-bottom: 1rem;">Install a daily cron job for background maintenance:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Copy maintenance script
+cp hooks/claude-code/daily-maintenance.sh ~/.claude/hooks/ai-iq-daily-maintenance.sh
+chmod +x ~/.claude/hooks/ai-iq-daily-maintenance.sh
+
+# Add cron job (runs at 3:17 AM daily)
+(crontab -l 2>/dev/null; echo "17 3 * * * bash ~/.claude/hooks/ai-iq-daily-maintenance.sh") | crontab -</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">
+                    The daily maintenance runs:
+                </p>
+                <ul style="margin-top: 0.5rem; color: var(--text-secondary);">
+                    <li><code>memory-tool decay</code> — Flag stale memories</li>
+                    <li><code>memory-tool gc</code> — Garbage collect old deleted memories (180 days)</li>
+                    <li><code>memory-tool backup</code> — Create SQLite backup</li>
+                    <li><code>memory-tool export</code> — Regenerate MEMORY.md</li>
+                </ul>
+                <p style="margin-top: 0.75rem; color: var(--text-secondary);">
+                    Logs are written to <code>~/.local/share/ai-memory/logs/daily-maintenance.log</code>
+                </p>
+            </div>
+
+            <!-- Verifying Installation -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Verifying Installation</h2>
+                <p style="margin-bottom: 1rem;">Check if hooks are installed correctly:</p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># Check if hook scripts exist
+ls -la ~/.claude/hooks/ai-iq-*.sh
+
+# Check if memory-tool is installed
+which memory-tool
+memory-tool stats
+
+# Test error capture (run in Claude Code)
+bash -c "exit 1"  # Should create an error memory
+
+# Test session snapshot (run in Claude Code, then stop session)
+# Check with: memory-tool list --category session</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Usage Examples -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">How It Works in Practice</h2>
+                <p style="margin-bottom: 1rem;"><strong>Scenario 1: Error Auto-Capture</strong></p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># You run a command that fails
+npm run build
+# ERROR: Module not found: 'react-router-dom'
+
+# AI-IQ automatically captures:
+# Category: error
+# Content: "Command failed: npm run build\nERROR: Module not found: 'react-router-dom'"
+# Tags: npm, build
+# Project: [current directory name]
+
+# Later, you can search:
+memory-tool search "react-router"
+# → Returns the error with full context</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+
+                <p style="margin-top: 2rem; margin-bottom: 1rem;"><strong>Scenario 2: Session Snapshot</strong></p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># During your session, you:
+# - Fixed authentication bug
+# - Added rate limiting
+# - Committed: "feat: add rate limiting to auth endpoints"
+
+# When you stop the session, AI-IQ automatically:
+# 1. Detects git commit
+# 2. Creates snapshot: "feat: add rate limiting to auth endpoints"
+# 3. Runs decay to flag stale memories
+# 4. Regenerates MEMORY.md with updated context
+
+# Next session:
+# Claude reads MEMORY.md and knows about your recent work</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+
+                <p style="margin-top: 2rem; margin-bottom: 1rem;"><strong>Scenario 3: Dream Consolidation</strong></p>
+                <div style="position: relative;">
+                    <pre><code class="language-bash"># You have multiple similar memories:
+# #12: "Redis needs network_mode: host for Docker"
+# #45: "Redis connection failed - needed network_mode: host"
+# #67: "Docker Redis: use network_mode: host"
+
+# Run dream mode (or it runs automatically in daily maintenance)
+memory-tool dream
+
+# Output:
+# Consolidated 2 duplicates into #12
+# #45 and #67 marked as superseded
+# Kept newest memory with full context</code></pre>
+                    <button class="copy-btn" data-clipboard-target="pre" style="position: absolute; top: 8px; right: 8px;">Copy</button>
+                </div>
+            </div>
+
+            <!-- Configuration -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Configuration</h2>
+                <p style="margin-bottom: 1rem;">Customize AI-IQ behavior by editing hook scripts:</p>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Error Hook Configuration</h3>
+                <p style="margin-bottom: 0.75rem;">Edit <code>~/.claude/hooks/ai-iq-error-hook.sh</code>:</p>
+                <ul style="color: var(--text-secondary);">
+                    <li>Change error priority (default: 5)</li>
+                    <li>Add custom tags</li>
+                    <li>Filter which commands to capture</li>
+                </ul>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Session Hook Configuration</h3>
+                <p style="margin-bottom: 0.75rem;">Edit <code>~/.claude/hooks/ai-iq-session-hook.sh</code>:</p>
+                <ul style="color: var(--text-secondary);">
+                    <li>Enable/disable auto-snapshot</li>
+                    <li>Enable/disable decay</li>
+                    <li>Enable/disable export</li>
+                    <li>Configure backup frequency</li>
+                </ul>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="feature-detail">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Troubleshooting</h2>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Hooks Not Running</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li>Check if scripts are executable: <code>ls -la ~/.claude/hooks/ai-iq-*.sh</code></li>
+                    <li>Verify <code>~/.claude/settings.json</code> has correct hook configuration</li>
+                    <li>Check Claude Code logs for hook errors</li>
+                </ul>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Memory-Tool Not Found</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li>Verify installation: <code>which memory-tool</code></li>
+                    <li>Check Python path: <code>python3 -m pip show ai-iq</code></li>
+                    <li>Reinstall: <code>pip install --force-reinstall ai-iq</code></li>
+                </ul>
+
+                <h3 style="color: var(--accent); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Errors Not Being Captured</h3>
+                <ul style="color: var(--text-secondary);">
+                    <li>Verify PostToolUse hook is configured for "Bash" matcher</li>
+                    <li>Test manually: <code>bash ~/.claude/hooks/ai-iq-error-hook.sh</code></li>
+                    <li>Check if exit code is being passed correctly</li>
+                </ul>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="feature-detail" style="background: var(--accent-dim); border-color: var(--accent);">
+                <h2 style="font-size: 2rem; margin-bottom: 1rem;">Next Steps</h2>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="quickstart.html" style="color: var(--accent);">Quick Start</a></strong> — Learn the basics of AI-IQ CLI and Python API
+                    </li>
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="reference.html" style="color: var(--accent);">Full Reference</a></strong> — Complete command documentation
+                    </li>
+                    <li style="margin-bottom: 1rem; padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="index.html#features" style="color: var(--accent);">Advanced Features</a></strong> — Beliefs, dream mode, knowledge graph
+                    </li>
+                    <li style="padding-left: 2rem; position: relative;">
+                        <span style="position: absolute; left: 0; color: var(--accent);">→</span>
+                        <strong><a href="https://github.com/kobie3717/ai-iq/tree/main/hooks/claude-code" target="_blank" rel="noopener" style="color: var(--accent);">Hook Source Code</a></strong> — Inspect and customize hooks
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ by <a href="https://github.com/kobie3717" target="_blank" rel="noopener">kobie3717</a></p>
+            <p>Licensed under <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script>
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const text = button.getAttribute('data-clipboard');
+                const target = button.getAttribute('data-clipboard-target');
+
+                let textToCopy = text;
+                if (target) {
+                    const codeElement = button.parentElement.querySelector(target + ' code');
+                    textToCopy = codeElement ? codeElement.textContent : text;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    button.style.background = 'var(--accent)';
+                    button.style.color = 'var(--bg-dark)';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '';
+                        button.style.color = '';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,82 +1,66 @@
-# CLAUDE.md
+# AI-IQ Plugin
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This plugin provides persistent long-term memory for Claude Code sessions.
 
-## Persistent Memory System
+## Memory Commands
 
-This project uses [AI-IQ](https://github.com/kobie3717/ai-iq) for persistent memory across sessions.
-
-**Memory location**: `~/.claude/projects/<project-name>/memory/`
-- **memories.db** - SQLite database (source of truth)
-- **MEMORY.md** - Auto-generated summary (auto-loaded every session)
-
-### Core Commands (run via Bash tool)
+Use `memory-tool` for all memory operations:
 
 ```bash
 # Add memories
-memory-tool add <category> "<content>" --project <name> --tags tag1,tag2 --priority 0-10
+memory-tool add learning "Redis needs network_mode: host" --project MyApp
 
-# Search (hybrid: FTS + semantic + graph)
-memory-tool search "<query>"              # Default hybrid search
-memory-tool search "<query>" --full       # Verbose output
-memory-tool get <id>                      # Full detail for single memory
+# Search
+memory-tool search "docker networking"
 
-# List & filter
-memory-tool list --project <name>         # Filter by project
-memory-tool list --category decision      # Filter by category
-memory-tool pending                       # Show TODO items
+# Beliefs & predictions
+memory-tool believe "TypeScript improves quality" --confidence 0.8
+memory-tool predict "Auth flow reduces tickets 20%" --deadline 2026-05-01
 
-# Update & delete
-memory-tool update <id> "<new content>"
-memory-tool delete <id>
+# Focus (context loading)
+memory-tool focus "project-name"       # Instant context brief
+memory-tool focus "topic" --full       # Detailed view
 
 # Maintenance
-memory-tool next                          # Smart suggestions: what needs attention
-memory-tool dream                         # AI-powered consolidation & cleanup
-memory-tool conflicts                     # Find potential duplicates
-memory-tool snapshot "<summary>"          # Manual session summary
+memory-tool next    # Smart suggestions
+memory-tool dream   # AI consolidation
+memory-tool stats   # Show statistics
 ```
 
-**Categories**: `project`, `decision`, `preference`, `error`, `learning`, `pending`, `architecture`, `workflow`, `contact`
+## Auto-Capture
 
-### Auto-Update Rules (FOLLOW THESE)
+The plugin automatically:
+- Captures failed Bash commands as error memories (PostToolUse hook)
+- Generates session snapshots on Stop
+- Logs tool usage patterns
 
-**Session start**: MEMORY.md is auto-loaded. Check "Last Session" and "Pending" sections.
+## Skills
 
-**During work**: Add memories when you:
-- Make architecture decisions → `memory-tool add decision`
-- Learn project conventions → `memory-tool add learning`
-- Hit errors (auto-captured by PostToolUse hook) → no manual action needed
-- User says "remember X" → `memory-tool add` with appropriate category
-- Create TODOs → `memory-tool add pending --expires YYYY-MM-DD`
+See `/skills/memory/SKILL.md` for complete documentation on:
+- Memory categories and priorities
+- Search strategies
+- Knowledge graph usage
+- Belief and prediction tracking
+- Memory maintenance
 
-**Session end**: Auto-handled by Stop hook (snapshot + decay + export + backup).
+## Python API
 
-**When completing pending items**: `memory-tool delete <id>` to remove.
+For programmatic access:
 
-**When user says "forget X"**: `memory-tool search` then `memory-tool delete <id>`.
+```python
+from ai_iq import Memory
 
-### Automation (runs without manual intervention)
+memory = Memory()
+memory.add("User prefers dark mode", category="preference")
+results = memory.search("dark mode")
+```
 
-- **PostToolUse hook**: Auto-captures failed Bash commands as error memories
-- **Stop hook**: Auto-generates session snapshot from git/file changes, runs decay, re-exports MEMORY.md
-- **Daily cron** (3:17 AM): Maintenance (decay, garbage collection, backup)
+## Storage
 
----
+Memories are stored in `~/.ai-iq/memories.db` (single SQLite file).
 
-# Add your project-specific instructions here
+## Documentation
 
-## Project Overview
-<!-- Describe your project, stack, and architecture -->
-
-## Key Components
-<!-- List important directories, files, and their purpose -->
-
-## Development Commands
-<!-- Common commands: build, test, deploy, etc. -->
-
-## Configuration
-<!-- Environment variables, config files, secrets -->
-
-## Common Tasks
-<!-- Frequent workflows and how to execute them -->
+- Main repo: https://github.com/kobie3717/ai-iq
+- PyPI: https://pypi.org/project/ai-iq/
+- Skills: See `/skills/memory/SKILL.md`

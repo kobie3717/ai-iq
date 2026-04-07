@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-iq"
 version = "5.7.0"
-description = "Persistent context system for AI coding assistants"
+description = "Give your AI long-term memory in 1 command. SQLite-based, no setup, no servers."
 authors = [
     {name = "Kobus Wentzel", email = "kobie@pop.co.za"}
 ]
@@ -33,7 +33,9 @@ classifiers = [
     "Topic :: Text Processing :: Indexing",
 ]
 
-dependencies = []
+dependencies = [
+    "dateparser>=1.1.0",
+]
 
 [project.optional-dependencies]
 full = [
@@ -42,6 +44,11 @@ full = [
     "tokenizers>=0.13.0",
     "sqlite-vec>=0.1.0",
     "huggingface-hub>=0.14.0",
+]
+dev = [
+    "pytest>=7.0",
+    "mypy>=1.0",
+    "pylint>=3.0",
 ]
 
 [project.urls]
@@ -55,6 +62,7 @@ memory-tool = "memory_tool.cli:main"
 
 [tool.setuptools]
 packages = ["memory_tool"]
+py-modules = ["ai_iq"]
 
 [tool.setuptools.package-data]
 memory_tool = ["py.typed"]
@@ -68,3 +76,25 @@ memory_tool = ["py.typed"]
     "hooks/claude-code/session-hook.sh",
     "hooks/claude-code/settings.json.example",
 ]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false  # Start permissive, tighten later
+
+[tool.pylint.messages_control]
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "R0903",  # too-few-public-methods
+    "W0511",  # fixme/todo
+    "C0301",  # line-too-long
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+]
+
+[tool.pylint.format]
+max-line-length = 120

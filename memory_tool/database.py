@@ -1,6 +1,7 @@
 """Database connection and schema initialization."""
 
 import sqlite3
+import time
 from typing import Optional
 from .config import DB_PATH, EMBEDDING_DIM
 
@@ -33,6 +34,7 @@ def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     conn.execute("PRAGMA foreign_keys=ON")
 
     # Load sqlite-vec extension if available
@@ -45,6 +47,22 @@ def get_db() -> sqlite3.Connection:
             pass  # Extension loading failed or not available
 
     return conn
+
+
+def retry_on_busy(func, *args, max_retries: int = 3, backoff_ms: int = 100, **kwargs):
+    """Retry a database operation on SQLITE_BUSY errors.
+
+    Provides application-level retry on top of busy_timeout for extra safety
+    when multiple agents write concurrently.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except sqlite3.OperationalError as e:
+            if ("database is locked" in str(e) or "SQLITE_BUSY" in str(e)) and attempt < max_retries:
+                time.sleep(backoff_ms / 1000.0)
+                continue
+            raise
 
 
 def init_db() -> None:
@@ -73,6 +91,15 @@ def init_db() -> None:
         "imp_frequency": "ALTER TABLE memories ADD COLUMN imp_frequency REAL DEFAULT 0.0",
         "imp_impact": "ALTER TABLE memories ADD COLUMN imp_impact REAL DEFAULT 5.0",
         "imp_score": "ALTER TABLE memories ADD COLUMN imp_score REAL DEFAULT 5.0",
+        "confidence": "ALTER TABLE memories ADD COLUMN confidence REAL DEFAULT 0.7",
+        "content_hash": "ALTER TABLE memories ADD COLUMN content_hash TEXT DEFAULT NULL",
+        "proof_count": "ALTER TABLE memories ADD COLUMN proof_count INTEGER DEFAULT 1",
+        "source_memory_ids": "ALTER TABLE memories ADD COLUMN source_memory_ids TEXT DEFAULT NULL",
+    }
+
+    # Whitelist for beliefs table migrations
+    BELIEFS_COLUMN_ADDITIONS = {
+        "belief_state": "ALTER TABLE beliefs ADD COLUMN belief_state TEXT DEFAULT 'hypothesis'",
     }
 
     # Add columns if upgrading (must run BEFORE triggers reference them)
@@ -81,6 +108,19 @@ def init_db() -> None:
             conn.execute(sql_statement)
         except sqlite3.OperationalError:
             pass
+
+    # Migrate beliefs table (must run AFTER beliefs table exists)
+    try:
+        # Check if beliefs table exists first
+        conn.execute("SELECT 1 FROM beliefs LIMIT 1")
+        for col_name, sql_statement in BELIEFS_COLUMN_ADDITIONS.items():
+            try:
+                conn.execute(sql_statement)
+            except sqlite3.OperationalError:
+                pass
+    except sqlite3.OperationalError:
+        pass  # beliefs table doesn't exist yet
+
     conn.commit()
 
     conn.executescript("""
@@ -101,6 +141,9 @@ def init_db() -> None:
             source TEXT DEFAULT 'manual',
             topic_key TEXT DEFAULT NULL,
             revision_count INTEGER DEFAULT 1,
+            derived_from TEXT DEFAULT NULL,
+            citations TEXT DEFAULT NULL,
+            reasoning TEXT DEFAULT NULL,
             fsrs_stability REAL DEFAULT 1.0,
             fsrs_difficulty REAL DEFAULT 5.0,
             fsrs_interval REAL DEFAULT 1.0,
@@ -110,7 +153,11 @@ def init_db() -> None:
             imp_relevance REAL DEFAULT 5.0,
             imp_frequency REAL DEFAULT 0.0,
             imp_impact REAL DEFAULT 5.0,
-            imp_score REAL DEFAULT 5.0
+            imp_score REAL DEFAULT 5.0,
+            confidence REAL DEFAULT 0.7,
+            content_hash TEXT DEFAULT NULL,
+            proof_count INTEGER DEFAULT 1,
+            source_memory_ids TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -144,6 +191,7 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_relations_source ON memory_relations(source_id);
         CREATE INDEX IF NOT EXISTS idx_relations_target ON memory_relations(target_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_key ON memories(topic_key) WHERE topic_key IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash) WHERE content_hash IS NOT NULL;
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,
@@ -184,6 +232,23 @@ def init_db() -> None:
             # Silently fail if vec is not available
             pass
 
+    # Phase 6: Search feedback tracking table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS search_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query TEXT NOT NULL,
+            search_type TEXT DEFAULT 'hybrid',
+            result_ids TEXT,
+            used_ids TEXT,
+            result_count INTEGER DEFAULT 0,
+            hit_rate REAL,
+            latency_ms INTEGER,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_search_log_query ON search_log(query);
+        CREATE INDEX IF NOT EXISTS idx_search_log_created ON search_log(created_at);
+    """)
+
     # Phase 3: Graph Intelligence tables
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS graph_entities (
@@ -200,7 +265,7 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_entity_id INTEGER NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
             to_entity_id INTEGER NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
-            relation_type TEXT NOT NULL CHECK(relation_type IN ('knows','works_on','owns','depends_on','built_by','uses','blocks','related_to')),
+            relation_type TEXT NOT NULL CHECK(relation_type IN ('knows','works_on','owns','depends_on','built_by','uses','blocks','related_to','leads_to','prevents','resolves','requires')),
             note TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')),
             UNIQUE(from_entity_id, to_entity_id, relation_type)
@@ -280,6 +345,116 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_dream_session ON dream_log(session_file);
         CREATE INDEX IF NOT EXISTS idx_corrections_status ON corrections(status);
         CREATE INDEX IF NOT EXISTS idx_corrections_created ON corrections(created_at);
+    """)
+
+    # Beliefs system tables (Phase 7)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER REFERENCES memories(id),
+            prediction TEXT NOT NULL,
+            expected_outcome TEXT,
+            confidence REAL DEFAULT 0.5,
+            deadline TEXT,
+            status TEXT DEFAULT 'open',
+            actual_outcome TEXT,
+            resolved_at TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS belief_updates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER,
+            prediction_id INTEGER,
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
+        CREATE INDEX IF NOT EXISTS idx_predictions_memory ON predictions(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_predictions_deadline ON predictions(deadline);
+        CREATE INDEX IF NOT EXISTS idx_belief_updates_memory ON belief_updates(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_updates_prediction ON belief_updates(prediction_id);
+    """)
+
+    # Extended beliefs system tables (explicit beliefs with evidence tracking)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS beliefs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER REFERENCES memories(id),
+            statement TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            category TEXT DEFAULT 'general',
+            evidence_for INTEGER DEFAULT 0,
+            evidence_against INTEGER DEFAULT 0,
+            source TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            status TEXT DEFAULT 'active',
+            belief_state TEXT DEFAULT 'hypothesis' CHECK(belief_state IN ('hypothesis', 'tested', 'validated', 'deprecated', 'refuted'))
+        );
+
+        CREATE TABLE IF NOT EXISTS evidence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            memory_id INTEGER REFERENCES memories(id),
+            direction TEXT NOT NULL CHECK(direction IN ('supports', 'contradicts')),
+            strength REAL DEFAULT 0.5,
+            note TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS belief_revisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            revision_type TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS belief_timeline (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            belief_id INTEGER REFERENCES beliefs(id),
+            memory_id INTEGER REFERENCES memories(id),
+            old_confidence REAL,
+            new_confidence REAL,
+            reason TEXT,
+            source_type TEXT DEFAULT 'manual',
+            timestamp TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_beliefs_category ON beliefs(category);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_status ON beliefs(status);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_confidence ON beliefs(confidence);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_memory ON beliefs(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_beliefs_state ON beliefs(belief_state);
+        CREATE INDEX IF NOT EXISTS idx_evidence_belief ON evidence(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_evidence_memory ON evidence(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_revisions_belief ON belief_revisions(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_belief ON belief_timeline(belief_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_memory ON belief_timeline(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_belief_timeline_timestamp ON belief_timeline(timestamp);
+    """)
+
+    # User feedback table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rating TEXT NOT NULL CHECK(rating IN ('good', 'bad', 'meh')),
+            reason TEXT,
+            session_id TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            linked_memory_id INTEGER REFERENCES memories(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_feedback_rating ON feedback(rating);
+        CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_memory ON feedback(linked_memory_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
     """)
 
     conn.commit()

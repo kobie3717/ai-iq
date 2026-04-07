@@ -5,12 +5,14 @@ import json
 import sqlite3
 import logging
 from datetime import datetime
-from typing import Tuple, Dict, Any, List
+from typing import Optional, List, Dict, Tuple, Any
 
 # Import all operations from the core module (which re-exports everything)
 from . import core
 from .core import *
-from .config import get_logger
+from .config import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 
 def parse_flags(argv: List[str], start: int = 2) -> Tuple[Dict[str, Any], List[str]]:
@@ -35,7 +37,6 @@ def parse_flags(argv: List[str], start: int = 2) -> Tuple[Dict[str, Any], List[s
             i += 1
     return flags, remaining
 
-
 def main() -> None:
     init_db()
 
@@ -57,7 +58,13 @@ def main() -> None:
         print_help()
         sys.exit(0)
 
+    # Parse global flags for verbose/quiet BEFORE command processing
     cmd = sys.argv[1]
+
+    # Check for --verbose or --quiet flags anywhere in argv
+    verbose = '--verbose' in sys.argv or '-v' in sys.argv
+    quiet = '--quiet' in sys.argv or '-q' in sys.argv
+    setup_logging(verbose=verbose, quiet=quiet)
 
     if cmd == "add" and len(sys.argv) >= 4:
         category = sys.argv[2]
@@ -78,6 +85,9 @@ def main() -> None:
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
+        from .modes import get_mode_config
+        from .display import show_token_economics, estimate_tokens
+
         flags, query_parts = parse_flags(sys.argv, 2)
         query = " ".join(query_parts)
 
@@ -88,14 +98,53 @@ def main() -> None:
         elif flags.get("keyword"):
             search_mode = "keyword"
 
-        rows = search_memories(query, mode=search_mode)
+        # Temporal constraints
+        since = flags.get("since")
+        until = flags.get("until")
+
+        # Recency boost control
+        apply_recency = not flags.get("no-recency", False)
+
+        rows, search_id, temporal_range = search_memories(
+            query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency
+        )
+
+        # Show temporal filter info if applied
+        if temporal_range:
+            start, end = temporal_range
+            print(f"📅 Filtered to: {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}\n")
+
         if rows:
             full_mode = flags.get("full", False)
+            show_tokens = flags.get("tokens", False)  # --tokens flag to show individual estimates
+
+            # Token budget: truncate results to fit within budget (claude-mem Steal #2)
+            budget = flags.get("budget")
+            if budget:
+                try:
+                    budget_limit = int(budget)
+                    total_tokens = 0
+                    truncated_rows = []
+                    for r in rows:
+                        tokens = estimate_tokens(r['content'])
+                        if total_tokens + tokens <= budget_limit:
+                            truncated_rows.append(r)
+                            total_tokens += tokens
+                        else:
+                            # Stop when budget exceeded
+                            break
+
+                    if len(truncated_rows) < len(rows):
+                        print(f"⚠️  Token budget: showing {len(truncated_rows)}/{len(rows)} results (fits in ~{total_tokens}/{budget_limit} tokens)\n")
+                    rows = truncated_rows
+                except ValueError:
+                    pass  # Invalid budget, ignore
+
             for r in rows:
                 if full_mode:
                     print(format_row(r))
                 else:
-                    print(format_row_compact(r))
+                    print(format_row_compact(r, show_tokens=show_tokens))
                 # Related in compact mode too
                 if not full_mode:
                     for rel in get_related(r["id"]):
@@ -103,6 +152,12 @@ def main() -> None:
                 else:
                     for rel in get_related(r["id"]):
                         print(f"      -> #{rel['id']} ({rel['relation_type']}): {rel['content'][:80]}")
+
+            # Show token economics summary (always enabled)
+            show_token_economics(rows, compact=not full_mode)
+
+            # Output search_id for feedback tracking (can be parsed by hooks)
+            print(f"\n[search_id:{search_id}]")
         else:
             print("No memories found.")
 
@@ -117,6 +172,7 @@ def main() -> None:
             tag=flags.get("tag"),
             stale_only="stale" in sys.argv,
             expired_only="--expired" in sys.argv,
+            sort_by_proof="--proven" in sys.argv,
         )
         for r in rows:
             print(format_row(r))
@@ -176,6 +232,7 @@ def main() -> None:
 
     elif cmd == "topics":
         export_topics()
+        print("Exported topic files")
 
     elif cmd == "export":
         flags, _ = parse_flags(sys.argv, 2)
@@ -261,6 +318,17 @@ def main() -> None:
         print("\nBy source:")
         for s in sources:
             print(f"  {s['source']}: {s['c']}")
+
+        # Search quality summary
+        try:
+            from .feedback import get_search_quality_stats
+            search_stats = get_search_quality_stats()
+            if search_stats['hit_rate_all']['searches'] > 0:
+                print(f"\nSearch Quality:")
+                print(f"  Hit rate (7d): {search_stats['hit_rate_7d']['rate']:.0%} ({search_stats['hit_rate_7d']['searches']} searches)")
+                print(f"  Hit rate (all): {search_stats['hit_rate_all']['rate']:.0%} ({search_stats['hit_rate_all']['searches']} searches)")
+        except Exception:
+            pass  # Feedback module might not be available
 
     elif cmd == "stale":
         rows = get_stale()
@@ -667,6 +735,13 @@ def main() -> None:
     elif cmd == "next":
         suggest_next()
 
+    elif cmd == "focus" and len(sys.argv) >= 3:
+        from .focus import cmd_focus
+        flags, topic_parts = parse_flags(sys.argv, 2)
+        topic = " ".join(topic_parts) if topic_parts else sys.argv[2]
+        full = flags.get("full", False)
+        cmd_focus(topic, full)
+
     elif cmd == "dream":
         cmd_dream()
 
@@ -775,6 +850,850 @@ def main() -> None:
             print("Usage: memory-tool capture-correction <text>")
             sys.exit(1)
         cmd_capture_correction(text)
+
+    elif cmd == "feedback" and len(sys.argv) >= 4 and sys.argv[2].isdigit():
+        # memory-tool feedback <search_id> <used_id1,used_id2,...>
+        search_id = int(sys.argv[2])
+        used_ids = [int(x.strip()) for x in sys.argv[3].split(',') if x.strip()]
+        from .feedback import log_search_feedback
+        log_search_feedback(search_id, used_ids)
+        print(f"Feedback logged for search #{search_id}: {len(used_ids)} memories marked as used")
+
+    elif cmd == "search-quality":
+        from .feedback import get_search_quality_stats
+        stats = get_search_quality_stats()
+
+        print("Search Quality Report")
+        print("=" * 70)
+
+        # Hit rates by period
+        print("\nOverall Hit Rates:")
+        print(f"  Last 7 days:  {stats['hit_rate_7d']['rate']:.1%} ({stats['hit_rate_7d']['searches']} searches)")
+        print(f"  Last 30 days: {stats['hit_rate_30d']['rate']:.1%} ({stats['hit_rate_30d']['searches']} searches)")
+        print(f"  All time:     {stats['hit_rate_all']['rate']:.1%} ({stats['hit_rate_all']['searches']} searches)")
+
+        # Most helpful memories
+        if stats['most_helpful']:
+            print("\nMost Helpful Memories (high hit rate, 5+ retrievals):")
+            for m in stats['most_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Least helpful memories
+        if stats['least_helpful']:
+            print("\nLeast Helpful Memories (low hit rate, 10+ retrievals):")
+            for m in stats['least_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Search patterns
+        if stats['search_patterns']:
+            print("\nMost Common Queries:")
+            for p in stats['search_patterns'][:5]:
+                print(f"  '{p['query'][:40]}' - {p['search_count']} searches, {p['avg_hit_rate']:.0%} avg hit rate")
+
+        # Failing queries
+        if stats['failing_queries']:
+            print("\nRecent Failing Queries (0% hit rate):")
+            for q in stats['failing_queries'][:5]:
+                print(f"  '{q['query'][:50]}' [{q['search_type']}] - {q['result_count']} results but none used")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "suggestions":
+        # memory-tool feedback suggestions
+        from .feedback import get_improvement_suggestions
+        suggestions = get_improvement_suggestions()
+
+        print("Improvement Suggestions")
+        print("=" * 70)
+
+        # Deprecation candidates
+        if suggestions['deprecation_candidates']:
+            print("\n🗑️  Deprecation Candidates (retrieved often, never used):")
+            for m in suggestions['deprecation_candidates']:
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['retrieved_count']} retrievals")
+                print(f"      {m['content']}")
+                print(f"      Suggest: memory-tool delete {m['id']}")
+        else:
+            print("\n✓ No deprecation candidates found")
+
+        # Knowledge gaps
+        if suggestions['knowledge_gaps']:
+            print("\n🔍 Knowledge Gaps (queries with no results):")
+            for g in suggestions['knowledge_gaps']:
+                print(f"  '{g['query']}' - {g['attempt_count']} failed searches")
+                print(f"      Suggest: Add memory covering this topic")
+        else:
+            print("\n✓ No knowledge gaps found")
+
+        # Tag suggestions
+        if suggestions['tag_suggestions']:
+            print("\n🏷️  Tag Suggestions (commonly searched terms):")
+            for t in suggestions['tag_suggestions']:
+                print(f"  '{t['keyword']}' - {t['search_count']} searches")
+        else:
+            print("\n✓ No tag suggestions")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "reset":
+        # memory-tool feedback reset
+        conn = get_db()
+        count = conn.execute("SELECT COUNT(*) as c FROM search_log").fetchone()['c']
+        conn.execute("DELETE FROM search_log")
+        conn.commit()
+        conn.close()
+        print(f"Cleared {count} search log entries")
+
+    elif cmd == "feedback" and len(sys.argv) >= 3 and sys.argv[2] in ["good", "bad", "meh"]:
+        # memory-tool feedback good/bad/meh "reason"
+        rating = sys.argv[2]
+        reason = sys.argv[3] if len(sys.argv) >= 4 else None
+
+        # Get most recent memory
+        conn = get_db()
+        last_memory = conn.execute("""
+            SELECT id FROM memories
+            WHERE active = 1
+            ORDER BY id DESC
+            LIMIT 1
+        """).fetchone()
+        linked_memory_id = last_memory['id'] if last_memory else None
+
+        # Try to get session ID from metrics file
+        session_id = None
+        try:
+            import json
+            from pathlib import Path
+            metrics_file = Path("/tmp/claude-session-metrics.json")
+            if metrics_file.exists():
+                data = json.loads(metrics_file.read_text())
+                session_id = data.get('startedAt', None)
+        except Exception:
+            pass
+
+        # Insert feedback
+        conn.execute("""
+            INSERT INTO feedback (rating, reason, session_id, linked_memory_id)
+            VALUES (?, ?, ?, ?)
+        """, (rating, reason, session_id, linked_memory_id))
+        conn.commit()
+
+        memory_info = f" (linked to memory #{linked_memory_id})" if linked_memory_id else ""
+        print(f"✓ Feedback recorded: {rating}{memory_info}")
+        if reason:
+            print(f"  Reason: {reason}")
+        conn.close()
+
+    elif cmd == "feedback" and len(sys.argv) == 2:
+        # memory-tool feedback (no args) - show recent feedback
+        conn = get_db()
+        rows = conn.execute("""
+            SELECT f.id, f.rating, f.reason, f.created_at, f.linked_memory_id,
+                   m.content as memory_content, m.category
+            FROM feedback f
+            LEFT JOIN memories m ON f.linked_memory_id = m.id
+            ORDER BY f.created_at DESC
+            LIMIT 10
+        """).fetchall()
+        conn.close()
+
+        if rows:
+            print("Recent Feedback")
+            print("=" * 70)
+            for r in rows:
+                created = r['created_at'][:16] if r['created_at'] else "unknown"
+                rating_emoji = "✓" if r['rating'] == "good" else "✗" if r['rating'] == "bad" else "~"
+                print(f"\n{rating_emoji} #{r['id']} [{r['rating'].upper()}] {created}")
+                if r['reason']:
+                    print(f"  Reason: {r['reason']}")
+                if r['linked_memory_id']:
+                    content = r['memory_content'][:60] + "..." if r['memory_content'] and len(r['memory_content']) > 60 else r['memory_content']
+                    print(f"  Memory #{r['linked_memory_id']} [{r['category']}]: {content}")
+            print(f"\n({len(rows)} feedback entries)")
+        else:
+            print("No feedback recorded yet.")
+
+    elif cmd == "feedback" and len(sys.argv) == 3 and sys.argv[2] == "--stats":
+        # memory-tool feedback --stats
+        conn = get_db()
+        stats = conn.execute("""
+            SELECT
+                rating,
+                COUNT(*) as count,
+                COUNT(DISTINCT session_id) as sessions,
+                COUNT(DISTINCT linked_memory_id) as unique_memories
+            FROM feedback
+            GROUP BY rating
+        """).fetchall()
+        total = conn.execute("SELECT COUNT(*) as c FROM feedback").fetchone()['c']
+        conn.close()
+
+        if total > 0:
+            print("Feedback Statistics")
+            print("=" * 70)
+            for s in stats:
+                pct = (s['count'] / total * 100) if total > 0 else 0
+                print(f"  {s['rating'].upper()}: {s['count']} ({pct:.0f}%) — {s['sessions']} sessions, {s['unique_memories']} memories")
+            print(f"\nTotal: {total} feedback entries")
+        else:
+            print("No feedback recorded yet.")
+
+    elif cmd == "feedback-stats":
+        # Alias for search-quality
+        from .feedback import get_search_quality_stats
+        stats = get_search_quality_stats()
+
+        print("Search Quality Report")
+        print("=" * 70)
+
+        # Hit rates by period
+        print("\nOverall Hit Rates:")
+        print(f"  Last 7 days:  {stats['hit_rate_7d']['rate']:.1%} ({stats['hit_rate_7d']['searches']} searches)")
+        print(f"  Last 30 days: {stats['hit_rate_30d']['rate']:.1%} ({stats['hit_rate_30d']['searches']} searches)")
+        print(f"  All time:     {stats['hit_rate_all']['rate']:.1%} ({stats['hit_rate_all']['searches']} searches)")
+
+        # Most helpful memories
+        if stats['most_helpful']:
+            print("\nMost Helpful Memories (high hit rate, 5+ retrievals):")
+            for m in stats['most_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Least helpful memories
+        if stats['least_helpful']:
+            print("\nLeast Helpful Memories (low hit rate, 10+ retrievals):")
+            for m in stats['least_helpful'][:5]:
+                content_preview = m['content'][:60] + "..." if len(m['content']) > 60 else m['content']
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['hit_rate']:.0%} ({m['used_count']}/{m['retrieve_count']}) {content_preview}")
+
+        # Search patterns
+        if stats['search_patterns']:
+            print("\nMost Common Queries:")
+            for p in stats['search_patterns'][:5]:
+                print(f"  '{p['query'][:40]}' - {p['search_count']} searches, {p['avg_hit_rate']:.0%} avg hit rate")
+
+        # Failing queries
+        if stats['failing_queries']:
+            print("\nRecent Failing Queries (0% hit rate):")
+            for q in stats['failing_queries'][:5]:
+                print(f"  '{q['query'][:50]}' [{q['search_type']}] - {q['result_count']} results but none used")
+
+    elif cmd == "gaps":
+        # Show knowledge gaps - queries with no results
+        from .feedback import get_improvement_suggestions
+        suggestions = get_improvement_suggestions()
+
+        print("Knowledge Gaps (searches with poor results)")
+        print("=" * 70)
+
+        if suggestions['knowledge_gaps']:
+            print("\nQueries with zero results:")
+            for g in suggestions['knowledge_gaps']:
+                print(f"  '{g['query']}' - {g['attempt_count']} failed attempt(s)")
+                print(f"    Type: {g['search_type']}")
+                print(f"    Suggestion: Add memory covering this topic")
+                print()
+        else:
+            print("\n✓ No knowledge gaps found")
+
+        if suggestions['deprecation_candidates']:
+            print("\nMemories retrieved often but never used (false positives):")
+            for m in suggestions['deprecation_candidates'][:5]:
+                print(f"  #{m['id']:>3} [{m['category']:<8}] {m['retrieved_count']} retrievals")
+                print(f"      {m['content']}")
+                print(f"      Suggestion: Consider deletion or rewrite")
+                print()
+
+    elif cmd == "hot":
+        # Show most frequently accessed memories (immune to decay)
+        conn = get_db()
+        rows = conn.execute("""
+            SELECT id, category, project, content, access_count, priority, imp_score
+            FROM memories
+            WHERE active = 1 AND access_count >= 5
+            ORDER BY access_count DESC
+            LIMIT 20
+        """).fetchall()
+        conn.close()
+
+        if rows:
+            print("Hot Memories (5+ accesses, immune to decay)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:50] + "..." if len(r['content']) > 50 else r['content']
+                cat = r['category'][:8]
+                proj = f"[{r['project'][:10]}]" if r['project'] else ""
+                print(f"  #{r['id']:>3} {r['access_count']:>3}x [{cat:<8}]{proj:<12} {content}")
+            print(f"\n({len(rows)} hot memories)")
+        else:
+            print("No hot memories yet (need 5+ accesses)")
+
+    elif cmd == "believe" and len(sys.argv) >= 3:
+        from .beliefs import set_confidence
+        statement = " ".join(sys.argv[2:])
+        # Parse flags if present
+        flags, content_parts = parse_flags(sys.argv, 2)
+        if content_parts:
+            statement = " ".join(content_parts)
+
+        confidence = float(flags.get("confidence", 0.7))
+        based_on = int(flags.get("based-on")) if flags.get("based-on") else None
+
+        # Add as belief memory
+        mem_id = add_memory(
+            "belief",
+            statement,
+            tags="belief,explicit",
+            project=flags.get("project")
+        )
+
+        # Set explicit confidence
+        conn = get_db()
+        set_confidence(conn, mem_id, confidence, "Explicit belief creation")
+        conn.close()
+
+        print(f"Created belief #{mem_id} with confidence {confidence:.2f}")
+
+    elif cmd == "predict" and len(sys.argv) >= 3:
+        from .beliefs import predict
+        flags, content_parts = parse_flags(sys.argv, 2)
+        prediction = " ".join(content_parts) if content_parts else " ".join(sys.argv[2:])
+
+        based_on = int(flags.get("based-on")) if flags.get("based-on") else None
+        confidence = float(flags.get("confidence", 0.5))
+        deadline = flags.get("deadline")
+        expected = flags.get("expect", "")
+
+        conn = get_db()
+        pred_id = predict(conn, prediction, based_on, confidence, deadline, expected)
+        conn.close()
+
+        print(f"Created prediction #{pred_id}")
+        if deadline:
+            print(f"  Deadline: {deadline}")
+        print(f"  Confidence: {confidence:.2f}")
+
+    elif cmd == "resolve" and len(sys.argv) >= 3:
+        from .beliefs import resolve_prediction
+        pred_id = int(sys.argv[2])
+        flags, outcome_parts = parse_flags(sys.argv, 3)
+
+        confirmed = flags.get("confirmed", False)
+        refuted = flags.get("refuted", False)
+
+        if not confirmed and not refuted:
+            print("Error: Must specify --confirmed or --refuted")
+            sys.exit(1)
+
+        outcome = " ".join(outcome_parts) if outcome_parts else flags.get("outcome", "")
+
+        conn = get_db()
+        result = resolve_prediction(conn, pred_id, outcome, confirmed)
+        conn.close()
+
+        status = "confirmed" if confirmed else "refuted"
+        print(f"Resolved prediction #{pred_id} as {status}")
+        print(f"  Updated {result['updated']} memories via belief propagation")
+
+    elif cmd == "beliefs":
+        from .beliefs import weakest_beliefs, strongest_beliefs, belief_conflicts
+        conn = get_db()
+
+        # Check for --state filter
+        if "--state" in sys.argv:
+            state_idx = sys.argv.index("--state")
+            if state_idx + 1 < len(sys.argv):
+                state = sys.argv[state_idx + 1]
+                try:
+                    from .beliefs_extended import list_beliefs_by_state
+                    rows = list_beliefs_by_state(conn, state)
+                    print(f"Beliefs (state: {state})")
+                    print("=" * 70)
+                    for r in rows:
+                        stmt = r['statement'][:60] + "..." if len(r['statement']) > 60 else r['statement']
+                        print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {stmt}")
+                    print(f"\n({len(rows)} beliefs in state '{state}')")
+                except ImportError:
+                    print("Extended beliefs system not available")
+                except Exception as e:
+                    print(f"Error: {e}")
+            else:
+                print("Error: --state requires a value (hypothesis/tested/validated/deprecated/refuted)")
+            conn.close()
+
+        elif "--weak" in sys.argv:
+            rows = weakest_beliefs(conn, 20)
+            print("Weakest Beliefs (lowest confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+            conn.close()
+
+        elif "--strong" in sys.argv:
+            rows = strongest_beliefs(conn, 20)
+            print("Strongest Beliefs (highest confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                print(f"  #{r['id']:>3} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+            conn.close()
+
+        elif "--conflicts" in sys.argv:
+            conflicts = belief_conflicts(conn)
+            if conflicts:
+                print("Belief Conflicts (high-confidence contradictions)")
+                print("=" * 70)
+                for c in conflicts:
+                    print(f"  #{c['id1']} vs #{c['id2']} ({c['similarity']:.0%} similar)")
+                    print(f"    A ({c['confidence1']:.2f}): {c['content1'][:60]}...")
+                    print(f"    B ({c['confidence2']:.2f}): {c['content2'][:60]}...")
+                    print()
+                print(f"({len(conflicts)} conflicts)")
+            else:
+                print("No belief conflicts found.")
+            conn.close()
+
+        else:
+            # Show all beliefs sorted by confidence
+            rows = conn.execute("""
+                SELECT id, category, content, confidence, access_count
+                FROM memories
+                WHERE active = 1 AND category IN ('belief', 'learning', 'decision')
+                ORDER BY confidence DESC
+                LIMIT 30
+            """).fetchall()
+
+            print("Beliefs (sorted by confidence)")
+            print("=" * 70)
+            for r in rows:
+                content = r['content'][:60] + "..." if len(r['content']) > 60 else r['content']
+                bar = "█" * int(r['confidence'] * 10) + "░" * (10 - int(r['confidence'] * 10))
+                print(f"  #{r['id']:>3} {bar} {r['confidence']:.2f} [{r['category']:<8}] {content}")
+            print(f"\n({len(rows)} beliefs)")
+            conn.close()
+
+    elif cmd == "lifecycle" and len(sys.argv) >= 4:
+        # memory-tool lifecycle <id> <state>
+        from .beliefs_extended import set_belief_state
+        belief_id = int(sys.argv[2])
+        new_state = sys.argv[3]
+        reason = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else None
+
+        conn = get_db()
+        try:
+            set_belief_state(conn, belief_id, new_state, reason)
+            print(f"✓ Belief #{belief_id} transitioned to '{new_state}'")
+        except ValueError as e:
+            print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
+        conn.close()
+
+    elif cmd == "timeline":
+        # memory-tool timeline [--project X] [--days N] [<id>]
+        from .beliefs_extended import get_timeline, get_confidence_history, format_timeline_entry, get_timeline_summary
+        flags, args = parse_flags(sys.argv, 2)
+
+        conn = get_db()
+
+        # Check if specific ID provided
+        if args:
+            identifier = int(args[0])
+            # Try to determine if it's a belief or memory ID
+            is_belief = conn.execute("SELECT 1 FROM beliefs WHERE id = ?", (identifier,)).fetchone() is not None
+
+            history = get_confidence_history(conn, identifier, is_belief)
+
+            entity_type = "Belief" if is_belief else "Memory"
+            print(f"{entity_type} #{identifier} Confidence History")
+            print("=" * 70)
+
+            if history:
+                for entry in history:
+                    print(f"  {format_timeline_entry(entry)}")
+                print(f"\n({len(history)} changes)")
+            else:
+                print(f"No confidence changes recorded for {entity_type.lower()} #{identifier}")
+        else:
+            # Show general timeline
+            project = flags.get("project")
+            days = int(flags.get("days", 30))
+
+            entries = get_timeline(conn, project=project, days=days)
+
+            print(f"Timeline (last {days} days{f', project: {project}' if project else ''})")
+            print("=" * 70)
+
+            if entries:
+                for entry in entries:
+                    # Format entry with context
+                    if entry['belief_statement']:
+                        context = entry['belief_statement'][:40] + "..."
+                    elif entry['memory_content']:
+                        context = entry['memory_content'][:40] + "..."
+                    else:
+                        context = "Unknown"
+
+                    print(f"  {format_timeline_entry(entry)}")
+                    print(f"    Context: {context}")
+
+                print(f"\n({len(entries)} changes)")
+
+                # Show summary stats
+                summary = get_timeline_summary(conn, days)
+                print(f"\nSummary:")
+                print(f"  Total changes: {summary['total_changes']}")
+                print(f"  Increases: {summary['increases']} ↑")
+                print(f"  Decreases: {summary['decreases']} ↓")
+                print(f"  Avg delta: {summary['avg_confidence_delta']:+.3f}")
+                if summary['by_source']:
+                    by_source_str = ', '.join([f"{s['source_type']}({s['count']})" for s in summary['by_source']])
+                print(f"  By source: {by_source_str}")
+            else:
+                print(f"No timeline entries in the last {days} days.")
+
+        conn.close()
+
+    elif cmd == "predictions":
+        from .beliefs import list_predictions, expired_predictions
+        conn = get_db()
+
+        if "--open" in sys.argv:
+            preds = list_predictions(conn, 'open')
+            status_filter = 'open'
+        elif "--confirmed" in sys.argv:
+            preds = list_predictions(conn, 'confirmed')
+            status_filter = 'confirmed'
+        elif "--refuted" in sys.argv:
+            preds = list_predictions(conn, 'refuted')
+            status_filter = 'refuted'
+        elif "--expired" in sys.argv:
+            preds = expired_predictions(conn)
+            status_filter = 'expired'
+        else:
+            preds = list_predictions(conn, 'all')
+            status_filter = 'all'
+
+        if preds:
+            print(f"Predictions ({status_filter})")
+            print("=" * 70)
+            for p in preds:
+                deadline_str = f" [deadline: {p['deadline']}]" if p['deadline'] else ""
+                mem_ref = f" (based on #{p['memory_id']})" if p['memory_id'] else ""
+                pred_preview = p['prediction'][:50] + "..." if len(p['prediction']) > 50 else p['prediction']
+                print(f"  #{p['id']:>3} [{p['status']:<10}] {p['confidence']:.2f} {pred_preview}{deadline_str}{mem_ref}")
+            print(f"\n({len(preds)} predictions)")
+        else:
+            print(f"No {status_filter} predictions.")
+
+        conn.close()
+
+    # Extended beliefs system commands
+    elif cmd == "believe" and len(sys.argv) >= 3:
+        from .beliefs_extended import add_belief
+        flags, statement_parts = parse_flags(sys.argv, 2)
+        statement = " ".join(statement_parts)
+
+        conn = get_db()
+        belief_id = add_belief(
+            conn,
+            statement,
+            confidence=float(flags.get("confidence", 0.5)),
+            category=flags.get("category", "general"),
+            source=flags.get("source", "user"),
+            memory_id=int(flags["memory"]) if "memory" in flags else None
+        )
+        conn.close()
+        print(f"Created belief #{belief_id}")
+
+    elif cmd == "evidence" and len(sys.argv) >= 4:
+        from .beliefs_extended import add_evidence
+        belief_id = int(sys.argv[2])
+        memory_id = int(sys.argv[3])
+        flags, _ = parse_flags(sys.argv, 4)
+
+        direction = "supports" if "supports" in sys.argv else "contradicts"
+        strength = float(flags.get("strength", 0.5))
+        note = flags.get("note")
+
+        conn = get_db()
+        add_evidence(conn, belief_id, memory_id, direction, strength, note)
+        conn.close()
+        print(f"Added {direction} evidence to belief #{belief_id}")
+
+    elif cmd == "belief-stats":
+        from .beliefs_extended import belief_accuracy, strongest_beliefs, weakest_beliefs, most_revised
+        conn = get_db()
+
+        print("=== Belief System Statistics ===\n")
+
+        # Prediction accuracy
+        acc = belief_accuracy(conn)
+        if acc['total_predictions'] > 0:
+            print(f"Prediction Accuracy:")
+            print(f"  Total: {acc['total_predictions']} ({acc['correct_count']} correct, {acc['incorrect_count']} incorrect)")
+            print(f"  Accuracy: {acc['correct_percentage']:.1f}%")
+            print(f"  Avg confidence (correct): {acc['avg_confidence_correct']:.2f}")
+            print(f"  Avg confidence (incorrect): {acc['avg_confidence_incorrect']:.2f}")
+
+            if acc['calibration']:
+                print(f"\n  Calibration by confidence bucket:")
+                for bucket, stats in acc['calibration'].items():
+                    print(f"    {bucket}: {stats['accuracy']:.1%} actual vs {stats['expected']:.1%} expected ({stats['count']} predictions)")
+
+        # Strongest beliefs
+        print(f"\nStrongest Beliefs:")
+        strong = strongest_beliefs(conn, 5)
+        for b in strong:
+            print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        # Weakest beliefs
+        print(f"\nWeakest Beliefs:")
+        weak = weakest_beliefs(conn, 5)
+        for b in weak:
+            print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        # Most revised (controversial)
+        print(f"\nMost Revised (Controversial):")
+        revised = most_revised(conn, 5)
+        for b in revised:
+            print(f"  #{b['id']} {b['revision_count']} revisions {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
+
+        conn.close()
+
+    elif cmd == "expired-predictions":
+        from .beliefs_extended import check_expired_predictions
+        conn = get_db()
+        expired = check_expired_predictions(conn)
+        conn.close()
+
+        if expired:
+            print(f"Found {len(expired)} expired predictions:\n")
+            for p in expired:
+                print(f"  #{p['id']} deadline: {p['deadline']}")
+                print(f"    {p['prediction'][:80]}")
+                print()
+        else:
+            print("No expired predictions.")
+
+    elif cmd == "narrative" and len(sys.argv) >= 3:
+        from .narrative import build_narrative, get_entity_stories, get_causal_chains
+        entity_name = " ".join(sys.argv[2:])
+        flags, name_parts = parse_flags(sys.argv, 2)
+        if name_parts:
+            entity_name = " ".join(name_parts)
+
+        conn = get_db()
+        result = build_narrative(conn, entity_name, max_depth=int(flags.get("depth", 3)))
+
+        if result['entity']:
+            print(result['narrative'])
+
+            # Show causal chains
+            chains = get_causal_chains(conn, entity_name)
+            if chains:
+                print(f"\nCausal chains ({len(chains)}):")
+                for chain in chains[:5]:
+                    print(f"  {' → '.join(chain)}")
+        else:
+            print(f"Entity '{entity_name}' not found.")
+            # Show entities with richest stories
+            stories = get_entity_stories(conn, 5)
+            if stories:
+                print("\nEntities with narratives:")
+                for s in stories:
+                    print(f"  {s['name']} ({s['type']}) — {s['rel_count']} relationships, {s['mem_count']} memories")
+        conn.close()
+
+    elif cmd == "meta":
+        from .meta_learning import get_meta_stats, apply_learned_weights
+        conn = get_db()
+
+        if "--apply" in sys.argv:
+            result = apply_learned_weights(conn)
+            if result['applied']:
+                print("✓ Search weights updated:")
+                print(f"  Keyword: {result['old_weights']['keyword_weight']:.2f} → {result['new_weights']['keyword_weight']:.2f}")
+                print(f"  Semantic: {result['old_weights']['semantic_weight']:.2f} → {result['new_weights']['semantic_weight']:.2f}")
+                print(f"  Reason: {result['recommendation']}")
+            else:
+                print(f"No changes applied: {result['reason']}")
+        else:
+            stats = get_meta_stats(conn)
+            print("Meta-Learning Report")
+            print("=" * 70)
+            print(f"\nCurrent weights:")
+            for k, v in stats['current_weights'].items():
+                print(f"  {k}: {v:.2f}")
+
+            eff = stats['effectiveness_30d']
+            print(f"\nLast 30 days ({eff['total_searches']} searches):")
+            print(f"  Keyword effectiveness: {eff['keyword_effectiveness']:.1%}")
+            print(f"  Semantic effectiveness: {eff['semantic_effectiveness']:.1%}")
+            print(f"  Overall hit rate: {eff['overall_hit_rate']:.1%}")
+            print(f"  Recommendation: {eff['recommendation']}")
+
+            if eff['recommendation'] not in ('balanced', 'insufficient_data'):
+                print(f"\nSuggested weights:")
+                for k, v in eff['suggested_weights'].items():
+                    curr = stats['current_weights'].get(k, 0)
+                    delta = v - curr
+                    arrow = "↑" if delta > 0 else "↓" if delta < 0 else "="
+                    print(f"  {k}: {v:.2f} ({arrow}{abs(delta):.2f})")
+                print(f"\nRun 'memory-tool meta --apply' to apply suggested weights")
+
+            print(f"\nWeight changes: {stats['weight_changes']} total")
+        conn.close()
+
+    elif cmd == "identity":
+        from .identity import discover_traits, get_identity, save_identity_snapshot, compare_identity_snapshots
+        conn = get_db()
+
+        if "--discover" in sys.argv or "--refresh" in sys.argv:
+            print("Discovering traits from memories...\n")
+            traits = discover_traits(conn)
+            save_identity_snapshot(conn)
+
+            if traits:
+                print(f"Found {len(traits)} traits:\n")
+                for t in traits:
+                    bar = "█" * int(t['confidence'] * 10) + "░" * (10 - int(t['confidence'] * 10))
+                    print(f"  {bar} {t['confidence']:.0%}  {t['description']}")
+                    print(f"         Evidence: {t['evidence_count']} for, {t['counter_evidence']} against")
+            else:
+                print("No traits discovered. Add more memories first.")
+
+        elif "--evolution" in sys.argv:
+            result = compare_identity_snapshots(conn)
+            if result['has_comparison']:
+                print(f"Identity Evolution: {result['previous_date'][:10]} → {result['current_date'][:10]}")
+                print("=" * 70)
+
+                if result['new_traits']:
+                    print(f"\nNew traits ({len(result['new_traits'])}):")
+                    for t in result['new_traits']:
+                        print(f"  + {t['trait_name']} ({t['confidence']:.0%})")
+
+                if result['removed_traits']:
+                    print(f"\nRemoved traits ({len(result['removed_traits'])}):")
+                    for t in result['removed_traits']:
+                        print(f"  - {t['trait_name']}")
+
+                if result['changed']:
+                    print(f"\nConfidence changes:")
+                    for c in result['changed']:
+                        arrow = "↑" if c['delta'] > 0 else "↓"
+                        print(f"  {arrow} {c['trait_name']}: {c['old_confidence']:.0%} → {c['new_confidence']:.0%}")
+
+                if not result['new_traits'] and not result['removed_traits'] and not result['changed']:
+                    print("\nNo significant changes between snapshots.")
+            else:
+                print(result['message'])
+                print("Run 'memory-tool identity --discover' to create first snapshot.")
+
+        else:
+            # Show current identity
+            identity = get_identity(conn)
+
+            if identity['traits']:
+                print("Identity Profile")
+                print("=" * 70)
+                print(f"\n{identity['summary']}")
+                print(f"\nTotal: {identity['total_traits']} traits, {identity['total_evidence']} evidence points")
+                print(f"  Strong: {len(identity['strong'])} | Moderate: {len(identity['moderate'])} | Weak: {len(identity['weak'])}")
+            else:
+                print("No identity profile yet.")
+                print("Run 'memory-tool identity --discover' to build profile from memories.")
+
+        conn.close()
+
+    elif cmd == "session-log":
+        from pathlib import Path
+        import json
+
+        SESSION_LOG = Path("/tmp/ai-iq-session-log.jsonl")
+
+        if not SESSION_LOG.exists():
+            print("No session log found. Hook not yet active or no tools executed.")
+            print(f"To enable, install hook: /root/ai-iq/hooks/session-logger.mjs")
+            sys.exit(0)
+
+        # Read and display session log
+        flags, _ = parse_flags(sys.argv, 2)
+        limit = int(flags.get("limit", 50))  # Default last 50 entries
+        show_errors_only = flags.get("errors", False)
+
+        entries = []
+        with open(SESSION_LOG, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    entries.append(entry)
+                except json.JSONDecodeError:
+                    continue
+
+        # Filter if errors-only mode
+        if show_errors_only:
+            entries = [e for e in entries if e.get('tool') == 'Bash' and e.get('exit_code') != 0]
+
+        # Show last N entries
+        recent = entries[-limit:]
+
+        print(f"Session log ({len(recent)} of {len(entries)} total entries):")
+        print()
+
+        for e in recent:
+            ts = e.get('timestamp', '')[:19]  # Trim milliseconds
+            tool = e.get('tool', 'Unknown')
+
+            if tool == 'Bash':
+                cmd = e.get('input', '')
+                exit_code = e.get('exit_code', '?')
+                status = "✓" if exit_code == 0 else "✗"
+                print(f"{ts} [{tool}] {status} {cmd}")
+                if exit_code != 0:
+                    preview = e.get('output_preview', '')
+                    if preview:
+                        print(f"    Error: {preview}")
+            elif tool in ('Read', 'Edit', 'Write'):
+                file_path = e.get('file_path', '')
+                action = e.get('action', '')
+                print(f"{ts} [{tool}] {action} {file_path}")
+            elif tool in ('Glob', 'Grep'):
+                pattern = e.get('pattern', '')
+                preview = e.get('output_preview', '')
+                print(f"{ts} [{tool}] {pattern} → {preview}")
+            else:
+                inp = e.get('input', '')[:50]
+                preview = e.get('output_preview', '')[:50]
+                print(f"{ts} [{tool}] {inp} → {preview}")
+
+        print()
+        print(f"Use --limit N to show more, --errors to show only failures")
+
+    elif cmd == "mode":
+        from .modes import get_mode, set_mode, list_modes
+
+        if len(sys.argv) == 2:
+            # Show current mode
+            current = get_mode()
+            print(f"Current mode: {current}")
+            print("\nRun 'memory-tool mode list' to see all modes")
+            print("Run 'memory-tool mode <name>' to switch")
+
+        elif sys.argv[2] == "list":
+            # List all modes
+            list_modes()
+
+        else:
+            # Set mode
+            mode_name = sys.argv[2]
+            if set_mode(mode_name):
+                print(f"✅ Switched to mode: {mode_name}")
+            else:
+                print(f"❌ Failed to set mode. Valid modes: default, dev, ops, research, monitor")
+                sys.exit(1)
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

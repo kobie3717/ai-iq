@@ -1,0 +1,21 @@
+{
+  "name": "ai-iq",
+  "version": "5.7.0",
+  "description": "Give your AI long-term memory. SQLite-based persistent memory with beliefs, predictions, and knowledge graphs.",
+  "author": {
+    "name": "kobie3717",
+    "url": "https://github.com/kobie3717"
+  },
+  "homepage": "https://github.com/kobie3717/ai-iq",
+  "repository": "https://github.com/kobie3717/ai-iq",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "persistence",
+    "knowledge-graph",
+    "beliefs",
+    "predictions",
+    "sqlite",
+    "ai-memory"
+  ]
+}

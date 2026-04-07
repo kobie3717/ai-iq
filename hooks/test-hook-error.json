@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "nonexistent-command --flag"
+  },
+  "tool_result": "Exit code: 127\nOutput: command not found: nonexistent-command"
+}

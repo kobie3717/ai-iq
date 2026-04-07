@@ -1,0 +1,73 @@
+AI-IQ GitHub Pages Site - Ready to Deploy
+==========================================
+
+STEP 1: Review Changes
+-----------------------
+cd /root/ai-iq
+git status
+
+Expected changes:
+  Modified:
+    - docs/style.css
+    - docs/index.html  
+    - docs/quickstart.html
+  
+  New files:
+    - docs/api.html
+    - docs/cli.html
+    - docs/.nojekyll
+    - docs/DEPLOY_GITHUB_PAGES.md
+    - docs/SITE_BUILD_SUMMARY.md
+    - docs/COMMIT_CHECKLIST.txt
+
+STEP 2: Stage Changes
+----------------------
+git add docs/
+
+STEP 3: Commit
+--------------
+git commit -m "Add professional GitHub Pages docs site
+
+- New API reference page (api.html) with complete Python API docs
+- New CLI reference page (cli.html) with all commands organized by category
+- Updated design: rust orange accent (#FF6B35) matching crab brand
+- Changed icon from brain to crab across all pages
+- Added .nojekyll for GitHub Pages compatibility
+- Updated navigation: Home | Quick Start | API | CLI | GitHub
+- All pages tested locally (200 OK)
+- Zero build tools, fast loading, mobile responsive
+- Ready for https://kobie3717.github.io/ai-iq/"
+
+STEP 4: Push
+------------
+git push origin main
+
+STEP 5: Enable GitHub Pages
+----------------------------
+1. Visit: https://github.com/kobie3717/ai-iq/settings/pages
+2. Under "Source":
+   - Branch: main
+   - Folder: /docs
+3. Click "Save"
+4. Wait 1-2 minutes for deployment
+
+STEP 6: Verify
+--------------
+Visit: https://kobie3717.github.io/ai-iq/
+
+Test pages:
+  - https://kobie3717.github.io/ai-iq/
+  - https://kobie3717.github.io/ai-iq/quickstart.html
+  - https://kobie3717.github.io/ai-iq/api.html
+  - https://kobie3717.github.io/ai-iq/cli.html
+
+Check:
+  ✓ All pages load
+  ✓ Navigation works
+  ✓ Rust orange accent color (#FF6B35)
+  ✓ Crab emoji favicon
+  ✓ Syntax highlighting on code blocks
+  ✓ Responsive design on mobile
+  ✓ Copy buttons work
+
+DONE!

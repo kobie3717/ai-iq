@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Reference — AI-IQ</title>
+    <meta name="description" content="Complete command-line interface reference for AI-IQ memory system. All commands with examples.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦀</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; color: var(--text-primary);">
+                    <span class="logo">🦀</span>
+                    <span class="brand-name">AI-IQ</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="quickstart.html">Quick Start</a>
+                <a href="api.html">API</a>
+                <a href="cli.html" style="color: var(--accent);">CLI</a>
+                <a href="https://github.com/kobie3717/ai-iq" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section" style="padding-top: 6rem;">
+        <div class="container api-section">
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">CLI Reference</h1>
+            <p class="api-description">
+                Complete command-line reference for the <code>memory-tool</code> CLI. Available after installing AI-IQ.
+            </p>
+
+            <h2>Core Operations</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool add &lt;category&gt; "&lt;content&gt;"</code></td>
+                            <td>Create memory with optional --project, --tags, --priority, --expires, --key</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool update &lt;id&gt; "&lt;new content&gt;"</code></td>
+                            <td>Update memory (auto re-embeds for semantic search)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool delete &lt;id&gt;</code></td>
+                            <td>Soft delete (recoverable)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool get &lt;id&gt;</code></td>
+                            <td>Full detail view with relationships</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool list</code></td>
+                            <td>Filter with --project/--category/--tag/--stale/--expired</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Add a learning memory
+memory-tool add learning "Redis needs network_mode: host in Docker" --project MyApp --tags redis,docker
+
+# Add a pending task with expiry
+memory-tool add pending "Review API docs before launch" --expires 2026-06-01 --priority 8
+
+# Update a memory
+memory-tool update 42 "Redis ALWAYS needs network_mode: host"
+
+# Get full details
+memory-tool get 42
+
+# List by project
+memory-tool list --project MyApp
+
+# List stale memories
+memory-tool list --stale</code></pre>
+
+            <h2>Search & Discovery</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;"</code></td>
+                            <td>Hybrid search (keyword + semantic + graph)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --full</code></td>
+                            <td>Verbose output with all fields</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --semantic</code></td>
+                            <td>Semantic-only (vector similarity)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool search "&lt;query&gt;" --keyword</code></td>
+                            <td>Keyword-only (FTS5)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool conflicts</code></td>
+                            <td>Find 50-85% similar memories (potential duplicates)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool merge &lt;id1&gt; &lt;id2&gt;</code></td>
+                            <td>Merge similar memories (keeps newer)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool supersede &lt;old&gt; &lt;new&gt;</code></td>
+                            <td>Mark old as superseded by new</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool pending</code></td>
+                            <td>Show TODO items</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool hot</code></td>
+                            <td>Most accessed memories (access_count >= 5 = immune to decay)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool next</code></td>
+                            <td>Smart suggestions: what needs attention now</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Hybrid search (default)
+memory-tool search "redis networking"
+
+# Full verbose output
+memory-tool search "redis" --full
+
+# Find duplicates
+memory-tool conflicts
+
+# Merge duplicate memories
+memory-tool merge 42 43
+
+# See what needs attention
+memory-tool next</code></pre>
+
+            <h2>Beliefs & Predictions</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool believe "&lt;statement&gt;" --confidence 0.7</code></td>
+                            <td>Create belief with confidence score (0.01-0.99)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predict "&lt;prediction&gt;" --based-on &lt;id&gt;</code></td>
+                            <td>Make testable prediction with --deadline YYYY-MM-DD</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool resolve &lt;pred_id&gt; --confirmed "&lt;outcome&gt;"</code></td>
+                            <td>Resolve prediction (or --refuted), auto-updates belief confidence</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool beliefs</code></td>
+                            <td>List beliefs with --weak/--strong/--conflicts filters</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool predictions</code></td>
+                            <td>Filter with --open/--confirmed/--refuted/--expired</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Create a belief
+memory-tool believe "TypeScript reduces bugs vs JavaScript" --confidence 0.75
+
+# Make a prediction based on that belief
+memory-tool predict "Next rewrite will have 30% fewer runtime errors" \\
+    --based-on 1 --deadline 2026-06-01
+
+# Resolve prediction (strengthens belief to ~0.85)
+memory-tool resolve 1 --confirmed "Runtime errors down 42%"
+
+# Show weak beliefs
+memory-tool beliefs --weak
+
+# Show open predictions
+memory-tool predictions --open</code></pre>
+
+            <h2>Knowledge Graph</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool graph add &lt;type&gt; &lt;name&gt;</code></td>
+                            <td>Create entity (person/project/org/feature/concept/tool/service)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph rel &lt;from&gt; &lt;type&gt; &lt;to&gt;</code></td>
+                            <td>Add relationship (uses/depends_on/PREVENTS/RESOLVES/LEADS_TO/REQUIRES)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph fact &lt;entity&gt; &lt;key&gt; &lt;value&gt;</code></td>
+                            <td>Set entity metadata (tracks history)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph get &lt;name&gt;</code></td>
+                            <td>Entity details with facts + relationships + linked memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph spread &lt;name&gt;</code></td>
+                            <td>Spreading activation (find related context, optional --depth)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph auto-link</code></td>
+                            <td>Auto-link all memories to entities by keyword matching</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool graph list</code></td>
+                            <td>List entities with optional type filter</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Create entities
+memory-tool graph add project WhatsAuction "Real-time auction platform"
+memory-tool graph add tool Redis "In-memory cache"
+
+# Create relationships
+memory-tool graph rel WhatsAuction uses Redis "For session storage"
+memory-tool graph rel WhatsAuction REQUIRES Redis "Cache must be up before app starts"
+
+# Add facts
+memory-tool graph fact Redis version "7.2.4"
+memory-tool graph fact Redis port "6379"
+
+# Spreading activation - find all related context
+memory-tool graph spread WhatsAuction --depth 2
+
+# Auto-link existing memories to entities
+memory-tool graph auto-link
+
+# Get entity details
+memory-tool graph get Redis</code></pre>
+
+            <h2>Identity & Narrative</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool identity --discover</code></td>
+                            <td>Detect behavioral traits from memory patterns</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool identity --snapshot "&lt;desc&gt;"</code></td>
+                            <td>Save current trait snapshot</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool identity --evolution &lt;trait&gt;</code></td>
+                            <td>Show how trait changed over time</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool narrative &lt;entity&gt;</code></td>
+                            <td>Build cause-effect story from causal graph edges</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Discover behavioral traits
+memory-tool identity --discover
+
+# Save snapshot
+memory-tool identity --snapshot "After WhatsAuction rewrite"
+
+# See trait evolution
+memory-tool identity --evolution prefers_docker
+
+# Build narrative
+memory-tool narrative WhatsAuction</code></pre>
+
+            <h2>Maintenance</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool dream</code></td>
+                            <td>Consolidate duplicates, resolve conflicts, normalize metadata, run decay</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool decay</code></td>
+                            <td>Flag stale memories, reduce priorities, expire old TODOs</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool stale</code></td>
+                            <td>Review stale memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool gc</code></td>
+                            <td>Garbage collect inactive memories (default: 180 days)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool reindex</code></td>
+                            <td>Rebuild vector embeddings for all memories</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool backup</code></td>
+                            <td>Manual backup to ~/.claude/backups/</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool restore &lt;file&gt;</code></td>
+                            <td>Restore from backup</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool stats</code></td>
+                            <td>Full statistics (memories + vectors + graph + beliefs + runs)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Run dream consolidation
+memory-tool dream
+
+# Check statistics
+memory-tool stats
+
+# Manual backup
+memory-tool backup
+
+# Garbage collection
+memory-tool gc 90  # Delete inactive memories older than 90 days</code></pre>
+
+            <h2>Session Management</h2>
+            <div class="cli-section">
+                <table class="command-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>memory-tool snapshot "&lt;summary&gt;"</code></td>
+                            <td>Manual session snapshot with optional --project</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool auto-snapshot</code></td>
+                            <td>Auto-detect changes from git/filesystem</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run start "&lt;task&gt;"</code></td>
+                            <td>Start tracked workflow with --agent and --project</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run step &lt;id&gt; "&lt;description&gt;"</code></td>
+                            <td>Add step to active run</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run complete &lt;id&gt; "&lt;outcome&gt;"</code></td>
+                            <td>Finish run (or fail/cancel)</td>
+                        </tr>
+                        <tr>
+                            <td><code>memory-tool run list</code></td>
+                            <td>List runs with --status running/completed/failed</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Examples</h3>
+            <pre><code class="language-bash"># Manual snapshot
+memory-tool snapshot "Completed WhatsAuction payment integration" --project WhatsAuction
+
+# Track a workflow
+memory-tool run start "Fix authentication bug" --agent claude --project MyApp
+memory-tool run step 1 "Identified issue in JWT validation"
+memory-tool run step 1 "Added test coverage"
+memory-tool run complete 1 "Fixed, all tests passing"
+
+# List completed runs
+memory-tool run list --status completed</code></pre>
+
+            <h2>Categories</h2>
+            <p class="api-description">Valid categories for the <code>add</code> command:</p>
+            <ul style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 2rem;">
+                <li><code>project</code> — Project-specific information</li>
+                <li><code>decision</code> — Architecture or design decisions</li>
+                <li><code>preference</code> — User or team preferences</li>
+                <li><code>error</code> — Bugs, errors, and fixes</li>
+                <li><code>learning</code> — Lessons learned, gotchas</li>
+                <li><code>pending</code> — TODOs, action items</li>
+                <li><code>architecture</code> — System architecture notes</li>
+                <li><code>workflow</code> — Process and workflow notes</li>
+                <li><code>contact</code> — People and contact info</li>
+                <li><code>general</code> — Uncategorized (default)</li>
+            </ul>
+
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 AI-IQ. <a href="https://github.com/kobie3717/ai-iq/blob/main/LICENSE">MIT License</a></p>
+            <p>
+                <a href="https://github.com/kobie3717/ai-iq">GitHub</a> &middot;
+                <a href="https://pypi.org/project/ai-iq/">PyPI</a> &middot;
+                <a href="https://discord.gg/Y2jCXNGgE">Discord</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</body>
+</html>

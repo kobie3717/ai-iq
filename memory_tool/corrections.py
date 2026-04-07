@@ -12,7 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
-from typing import Optional, Dict, Any
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -21,6 +21,10 @@ from .utils import auto_tag, word_set, normalize, find_similar, word_overlap, si
 from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_next_interval, fsrs_auto_rating
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
+from .memory_ops import add_memory
+from .dream import CORRECTION_PATTERNS
+
+logger = get_logger(__name__)
 
 # Lazy imports for optional dependencies
 try:
@@ -30,7 +34,7 @@ except ImportError:
     pass
 
 
-def detect_correction(text: str) -> Optional[Dict[str, Any]]:
+def detect_correction(text: str) -> Optional[Dict[str, str]]:
     """Check if text contains a correction pattern. Returns dict with details or None."""
     import re
     text_lower = text.lower().strip()
@@ -80,7 +84,7 @@ def cmd_capture_correction(text: str) -> None:
             matches.append((category, m.group(0).strip()))
 
     if not matches:
-        print("No corrections detected.")
+        logger.info("No corrections detected.")
         return
 
     conn = get_db()
@@ -93,17 +97,17 @@ def cmd_capture_correction(text: str) -> None:
         ).fetchone()
 
         if existing:
-            print(f"  Similar correction already stored: #{existing['id']}")
+            logger.info(f"  Similar correction already stored: #{existing['id']}")
             continue
 
         # Store as a learning/preference
         content = f"CORRECTION: {correction}"
         mem_id = add_memory(category, content, tags="correction,user-feedback")
-        print(f"  ✅ Captured [{category}]: {correction} → #{mem_id}")
+        logger.info(f"  ✅ Captured [{category}]: {correction} → #{mem_id}")
 
     conn.close()
 
-    print(f"\n{len(matches)} correction(s) processed.")
+    logger.info(f"\n{len(matches)} correction(s) processed.")
 
 
 

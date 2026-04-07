@@ -12,7 +12,7 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 # Import from our modular components
 from .config import *
@@ -21,6 +21,11 @@ from .utils import auto_tag, word_set, normalize, find_similar, word_overlap, si
 from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_next_interval, fsrs_auto_rating
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
+from .memory_ops import add_memory, touch_memory
+from .export import export_memory_md
+from .dream import consolidate_memories
+
+logger = get_logger(__name__)
 
 # Lazy imports for optional dependencies
 try:
@@ -39,12 +44,12 @@ def save_snapshot(summary: str, project: Optional[str] = None, files_touched: st
     )
     conn.commit()
     conn.close()
-    print(f"Session snapshot saved.")
+    logger.info("Session snapshot saved.")
 
 
 
 
-def get_snapshots(limit: int = 5) -> List[Dict[str, Any]]:
+def get_snapshots(limit: int = 5) -> List[sqlite3.Row]:
     conn = get_db()
     rows = conn.execute("SELECT * FROM session_snapshots ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
@@ -119,7 +124,7 @@ def auto_snapshot() -> None:
         if recent:
             parts.append(f"Added {recent} new memories")
         else:
-            print("No recent activity detected for auto-snapshot.")
+            logger.debug("No recent activity detected for auto-snapshot.")
             return
 
     summary = "; ".join(parts)
@@ -132,9 +137,9 @@ def auto_snapshot() -> None:
         results = consolidate_memories(conn)
         conn.close()
         if any(results.values()):
-            print(f"  Consolidated: {sum(results.values())} changes")
+            logger.info(f"  Consolidated: {sum(results.values())} changes")
     except Exception as e:
-        pass  # Silently continue if consolidation fails
+        logger.debug(f"Consolidation failed: {e}")
 
     export_memory_md(project)
 
@@ -143,7 +148,7 @@ def auto_snapshot() -> None:
 
 
 
-def log_error(command: str, error_output: str, project: Optional[str] = None) -> int:
+def log_error(command: str, error_output: str, project: Optional[str] = None) -> Optional[int]:
     """Log a failed command as an error memory."""
     # Truncate long errors
     error_clean = error_output.strip()[:300]
@@ -168,7 +173,7 @@ def log_error(command: str, error_output: str, project: Optional[str] = None) ->
         touch_memory(conn, similar[0][0])
         conn.commit()
         conn.close()
-        print(f"Known error (memory #{similar[0][0]}), access count updated.")
+        logger.debug(f"Known error (memory #{similar[0][0]}), access count updated.")
         return similar[0][0]
 
     return add_memory("error", content, project=project, source="auto-hook", skip_dedup=True)
@@ -182,7 +187,7 @@ def import_session_md(filepath: str) -> None:
     """Import memories from a session summary markdown file."""
     path = Path(filepath)
     if not path.exists():
-        print(f"File not found: {filepath}")
+        logger.error(f"File not found: {filepath}")
         return
 
     text = path.read_text()
@@ -228,7 +233,7 @@ def import_session_md(filepath: str) -> None:
             if result:
                 imported += 1
 
-    print(f"Imported {imported} memories from {filepath}")
+    logger.info(f"Imported {imported} memories from {filepath}")
 
 
 # ── Project Detection ──

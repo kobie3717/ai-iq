@@ -478,7 +478,7 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
 
 
-def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
+def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True, project: Optional[str] = None, tags: Optional[str] = None) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
@@ -491,6 +491,8 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
         since: ISO date string for filtering memories created/updated after this date
         until: ISO date string for filtering memories created/updated before this date
         apply_recency_boost: Apply recency boost to search scores (default: True)
+        project: Filter by project name (applied before search)
+        tags: Filter by tags (applied before search)
 
     Returns:
         Tuple of (rows, search_id, temporal_range) where:
@@ -500,6 +502,19 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
     """
     import time
     start_time = time.time()
+
+    # Extract quoted phrases for boosting
+    quoted_phrases = re.findall(r'"([^"]+)"', query)
+
+    # Detect person names (capitalized words, 2+ chars, not at start of sentence)
+    words = query.split()
+    person_names = []
+    for i, word in enumerate(words):
+        # Skip first word (might be capitalized for sentence start)
+        if i > 0 and word[0].isupper() and len(word) >= 2:
+            # Basic heuristic: not common words
+            if word.lower() not in ['i', 'a', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for']:
+                person_names.append(word)
 
     # Extract temporal constraints from query if not explicitly provided
     temporal_range = None
@@ -521,6 +536,19 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
     fts_results = []
     vec_results = []
 
+    # Build metadata pre-filter (project/tags) - applied BEFORE search
+    metadata_filter_fts = ""
+    metadata_filter_plain = ""
+    metadata_params = []
+    if project:
+        metadata_filter_fts += " AND m.project = ?"
+        metadata_filter_plain += " AND project = ?"
+        metadata_params.append(project)
+    if tags:
+        metadata_filter_fts += " AND m.tags LIKE ?"
+        metadata_filter_plain += " AND tags LIKE ?"
+        metadata_params.append(f"%{tags}%")
+
     # Build date filter clause if temporal constraints provided
     date_filter_fts = ""
     date_filter_plain = ""
@@ -540,16 +568,22 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
             date_filter_fts = " AND " + " AND ".join(conditions_fts)
             date_filter_plain = " AND " + " AND ".join(conditions_plain)
 
+    # Combine all filters
+    all_params_fts = metadata_params + date_params
+    all_params_plain = metadata_params + date_params
+    combined_filter_fts = metadata_filter_fts + date_filter_fts
+    combined_filter_plain = metadata_filter_plain + date_filter_plain
+
     # 1. FTS keyword search
     if mode in ("hybrid", "keyword"):
         try:
             fts_query = f"""
                 SELECT m.id FROM memories m
                 JOIN memories_fts fts ON m.id = fts.rowid
-                WHERE memories_fts MATCH ? AND m.active = 1{date_filter_fts}
+                WHERE memories_fts MATCH ? AND m.active = 1{combined_filter_fts}
                 ORDER BY rank LIMIT 20
             """
-            rows = conn.execute(fts_query, [query] + date_params).fetchall()
+            rows = conn.execute(fts_query, [query] + all_params_fts).fetchall()
             fts_results = [(r['id'], i) for i, r in enumerate(rows)]
         except sqlite3.OperationalError:
             pass
@@ -567,10 +601,10 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                     ORDER BY distance
                 """, (query_vec,)).fetchall()
 
-                # Filter to active only and apply date filter
-                if date_filter_plain:
-                    active_query = f"SELECT id FROM memories WHERE active = 1{date_filter_plain}"
-                    active_ids = set(r['id'] for r in conn.execute(active_query, date_params).fetchall())
+                # Filter to active only and apply metadata + date filters BEFORE semantic search
+                if combined_filter_plain:
+                    active_query = f"SELECT id FROM memories WHERE active = 1{combined_filter_plain}"
+                    active_ids = set(r['id'] for r in conn.execute(active_query, all_params_plain).fetchall())
                 else:
                     active_ids = set(r['id'] for r in conn.execute(
                         "SELECT id FROM memories WHERE active = 1"
@@ -590,17 +624,20 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
 
         # Apply recency boost to final scores (if enabled)
         if scores and apply_recency_boost:
-            # Fetch created_at and proof_count for all candidates
+            # Fetch created_at, proof_count, and content for all candidates
             mem_ids = list(scores.keys())
             placeholders = ','.join('?' * len(mem_ids))
             date_rows = conn.execute(
-                f"SELECT id, created_at, proof_count FROM memories WHERE id IN ({placeholders})",
+                f"SELECT id, created_at, proof_count, content FROM memories WHERE id IN ({placeholders})",
                 mem_ids
             ).fetchall()
 
             for row in date_rows:
                 mem_id = row['id']
                 created_at = row['created_at']
+                content = row['content'] or ''
+                content_lower = content.lower()
+
                 if created_at:
                     try:
                         created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00')).replace(tzinfo=None)
@@ -615,6 +652,20 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                     # Boost by up to 50% for well-confirmed memories (capped at 5 sources)
                     proof_boost = 1.0 + 0.1 * min(proof_count, 5)
                     scores[mem_id] *= proof_boost
+
+                # Apply quoted phrase boost: exact matches get 1.5x boost
+                if quoted_phrases:
+                    for phrase in quoted_phrases:
+                        if phrase.lower() in content_lower:
+                            scores[mem_id] *= 1.5
+                            break  # Only boost once per memory
+
+                # Apply person name boost: 1.3x for mentions of detected names
+                if person_names:
+                    for name in person_names:
+                        if name.lower() in content_lower or name in content:
+                            scores[mem_id] *= 1.3
+                            break  # Only boost once per memory
 
         # Sort by combined RRF score with recency boost and proof boost
         ranked_ids = sorted(scores.keys(), key=lambda x: -scores[x])[:20]
@@ -649,10 +700,10 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
     if not rows:
         fallback_query = f"""
             SELECT * FROM memories
-            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?){date_filter_plain}
+            WHERE active = 1 AND (content LIKE ? OR tags LIKE ? OR project LIKE ?){combined_filter_plain}
             ORDER BY updated_at DESC LIMIT 20
         """
-        fallback_params = [f"%{query}%", f"%{query}%", f"%{query}%"] + date_params
+        fallback_params = [f"%{query}%", f"%{query}%", f"%{query}%"] + all_params_plain
         rows = conn.execute(fallback_query, fallback_params).fetchall()
 
     # Calculate latency

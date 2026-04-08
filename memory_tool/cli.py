@@ -105,8 +105,13 @@ def main() -> None:
         # Recency boost control
         apply_recency = not flags.get("no-recency", False)
 
+        # Metadata pre-filters
+        project_filter = flags.get("project")
+        tags_filter = flags.get("tags")
+
         rows, search_id, temporal_range = search_memories(
-            query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency
+            query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency,
+            project=project_filter, tags=tags_filter
         )
 
         # Show temporal filter info if applied

@@ -95,6 +95,8 @@ def init_db() -> None:
         "content_hash": "ALTER TABLE memories ADD COLUMN content_hash TEXT DEFAULT NULL",
         "proof_count": "ALTER TABLE memories ADD COLUMN proof_count INTEGER DEFAULT 1",
         "source_memory_ids": "ALTER TABLE memories ADD COLUMN source_memory_ids TEXT DEFAULT NULL",
+        "wing": "ALTER TABLE memories ADD COLUMN wing TEXT DEFAULT NULL",
+        "room": "ALTER TABLE memories ADD COLUMN room TEXT DEFAULT NULL",
     }
 
     # Whitelist for beliefs table migrations
@@ -157,7 +159,9 @@ def init_db() -> None:
             confidence REAL DEFAULT 0.7,
             content_hash TEXT DEFAULT NULL,
             proof_count INTEGER DEFAULT 1,
-            source_memory_ids TEXT DEFAULT NULL
+            source_memory_ids TEXT DEFAULT NULL,
+            wing TEXT DEFAULT NULL,
+            room TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -192,6 +196,7 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_relations_target ON memory_relations(target_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_key ON memories(topic_key) WHERE topic_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash) WHERE content_hash IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_wing_room ON memories(wing, room) WHERE wing IS NOT NULL;
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,

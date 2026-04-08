@@ -42,6 +42,19 @@ def format_row(row: sqlite3.Row) -> str:
     """Full verbose format."""
     tags = f" tags:{row['tags']}" if row["tags"] else ""
     proj = f" project:{row['project']}" if row["project"] else ""
+
+    # Wing/room hierarchy (v5.9 feature)
+    hierarchy = ""
+    try:
+        wing = row['wing'] if 'wing' in row.keys() else None
+        room = row['room'] if 'room' in row.keys() else None
+        if wing and room:
+            hierarchy = f" wing:{wing} room:{room}"
+        elif wing:
+            hierarchy = f" wing:{wing}"
+    except (KeyError, IndexError, TypeError):
+        pass
+
     stale = " [STALE]" if row["stale"] else ""
     acc = f" acc:{row['access_count']}" if row["access_count"] else ""
     exp = ""
@@ -69,7 +82,7 @@ def format_row(row: sqlite3.Row) -> str:
             derived = f" derived:{row['derived_from']}"
     except (KeyError, IndexError, TypeError):
         pass
-    return (f"  #{row['id']} [{row['category']}]{proj}{tags}{acc}{stale}{exp}{src}{key}{rev}{derived}"
+    return (f"  #{row['id']} [{row['category']}]{proj}{hierarchy}{tags}{acc}{stale}{exp}{src}{key}{rev}{derived}"
             f" ({row['updated_at'][:10]})\n    {row['content']}")
 
 
@@ -87,6 +100,19 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
         content_preview += "..."
     proj = f" project:{row['project']}" if row["project"] else ""
     acc = f" ({row['access_count']}x)" if row["access_count"] else ""
+
+    # Wing/room hierarchy (v5.9 feature)
+    hierarchy = ""
+    try:
+        wing = row['wing'] if 'wing' in row.keys() else None
+        room = row['room'] if 'room' in row.keys() else None
+        if wing and room:
+            hierarchy = f" [{wing}/{room}]"
+        elif wing:
+            hierarchy = f" [{wing}]"
+    except (KeyError, IndexError, TypeError):
+        pass
+
     imp = ""
     try:
         if row['imp_score']:
@@ -106,7 +132,7 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
     tokens = estimate_tokens(row['content'])
     token_str = f" ~{tokens}tok"
 
-    return f"[{row['id']}] {row['category']} | {content_preview}{acc}{imp}{proof} {token_str}"
+    return f"[{row['id']}] {row['category']}{hierarchy} | {content_preview}{acc}{imp}{proof} {token_str}"
 
 
 
@@ -124,6 +150,14 @@ def print_memory_full(mem_id: int) -> None:
     print(f"Content: {mem['content']}")
     if mem["project"]:
         print(f"Project: {mem['project']}")
+    # Wing/room hierarchy (v5.9 feature)
+    try:
+        if 'wing' in mem.keys() and mem["wing"]:
+            print(f"Wing: {mem['wing']}")
+        if 'room' in mem.keys() and mem["room"]:
+            print(f"Room: {mem['room']}")
+    except (KeyError, TypeError):
+        pass
     if mem["tags"]:
         print(f"Tags: {mem['tags']}")
     print(f"Priority: {mem['priority']}")
@@ -260,11 +294,11 @@ Phase 3: Graph intelligence with entities, relationships, facts, and spreading a
 Phase 6: FSRS-6 spaced repetition model for intelligent memory decay and retention tracking.
 
 Usage:
-  memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"]
-  memory-tool search <query> [--full] [--semantic] [--keyword] [--budget N] [--project X] [--tags X]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only, --budget to limit tokens, --project/--tags to pre-filter
+  memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"] [--wing X] [--room Y]
+  memory-tool search <query> [--full] [--semantic] [--keyword] [--budget N] [--project X] [--tags X] [--wing X] [--room Y]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only, --budget to limit tokens, --project/--tags/--wing/--room to pre-filter
   memory-tool get <id>                          # Show full detail for single memory
   memory-tool passport <id>                     # Show memory's complete identity card (graph, relations, provenance, score)
-  memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired]
+  memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired] [--wing X] [--room Y]
   memory-tool update <id> <content>
   memory-tool delete <id>
   memory-tool tag <id> <tags>

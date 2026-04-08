@@ -82,6 +82,8 @@ def main() -> None:
             derived_from=flags.get("derived-from"),
             citations=flags.get("citations"),
             reasoning=flags.get("reasoning"),
+            wing=flags.get("wing"),
+            room=flags.get("room"),
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
@@ -108,10 +110,12 @@ def main() -> None:
         # Metadata pre-filters
         project_filter = flags.get("project")
         tags_filter = flags.get("tags")
+        wing_filter = flags.get("wing")
+        room_filter = flags.get("room")
 
         rows, search_id, temporal_range = search_memories(
             query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency,
-            project=project_filter, tags=tags_filter
+            project=project_filter, tags=tags_filter, wing=wing_filter, room=room_filter
         )
 
         # Show temporal filter info if applied
@@ -189,6 +193,8 @@ def main() -> None:
             stale_only="stale" in sys.argv,
             expired_only="--expired" in sys.argv,
             sort_by_proof="--proven" in sys.argv,
+            wing=flags.get("wing"),
+            room=flags.get("room"),
         )
         for r in rows:
             print(format_row(r))

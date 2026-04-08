@@ -7,7 +7,8 @@ from typing import Dict, List
 
 # Paths
 MEMORY_DIR: Path = Path(__file__).parent.parent
-DB_PATH: Path = MEMORY_DIR / "memories.db"
+# Allow override via MEMORY_DB environment variable (for testing/benchmarks)
+DB_PATH: Path = Path(os.getenv("MEMORY_DB", str(MEMORY_DIR / "memories.db")))
 MEMORY_MD_PATH: Path = MEMORY_DIR / "MEMORY.md"
 TOPICS_DIR: Path = MEMORY_DIR / "topics"
 BACKUP_DIR: Path = Path(os.getenv("MEMORY_BACKUP_DIR", str(Path.home() / "backups/memory")))

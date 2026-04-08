@@ -63,6 +63,7 @@ See [CLAUDE_CODE_PLUGIN.md](CLAUDE_CODE_PLUGIN.md) for details.
 See [docs/REFERENCE.md](docs/REFERENCE.md) for complete documentation:
 
 - **Passport System** — Complete identity card for any memory (graph connections, provenance chain, access patterns, confidence score)
+- **Reflexion Self-Improvement** — Learn from mistakes with structured reflections (20-40% task improvement)
 - **Beliefs & Predictions** — Confidence tracking with Bayesian updates
 - **Knowledge Graph** — Entities, relationships, spreading activation
 - **Dream Mode** — REM-like consolidation (dedup, conflict detection)
@@ -88,6 +89,29 @@ Shows:
 - **Spreading activation**: related entities discovered via graph traversal
 
 Like a traveler's passport proves who you are and where you've been, a memory passport is its complete dossier.
+
+### Reflexion Self-Improvement
+
+Learn from past mistakes with structured reflections (20-40% improvement on repeated tasks):
+
+```bash
+# Before starting a task
+memory-tool reflect-load "nginx configuration"
+# Shows: what failed before, what worked, what to do differently
+
+# After completing a task
+memory-tool reflect "Fixed nginx SSL config" \
+  --outcome success \
+  --worked "Tested syntax with nginx -t first" \
+  --failed "None" \
+  --next "Keep testing syntax before reload"
+
+# Review patterns
+memory-tool lessons
+# Shows: task types with high failure rates needing attention
+```
+
+See [docs/REFLEXION.md](docs/REFLEXION.md) for complete guide.
 
 ## Example
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-iq"
-version = "5.9.0"
+version = "5.10.0"
 description = "Give your AI long-term memory in 1 command. SQLite-based, no setup, no servers."
 authors = [
     {name = "Kobus Wentzel", email = "kobie@pop.co.za"}

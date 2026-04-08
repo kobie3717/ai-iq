@@ -49,7 +49,7 @@ def get_embedding_model() -> Optional[Tuple[Any, Any]]:
     try:
         tokenizer = Tokenizer.from_file(str(MODEL_DIR / "tokenizer.json"))
         tokenizer.enable_padding(pad_id=0, pad_token='[PAD]')
-        tokenizer.enable_truncation(max_length=256)
+        tokenizer.enable_truncation(max_length=512)
 
         session = ort.InferenceSession(
             str(MODEL_DIR / "onnx" / "model.onnx"),

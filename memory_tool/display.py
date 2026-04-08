@@ -314,6 +314,10 @@ Usage:
   memory-tool next                              # Suggest next actions based on current memory state
   memory-tool focus <topic> [--full]            # Generate instant context brief on any topic
   memory-tool dream                             # Review transcripts, consolidate memories, normalize dates (AI memory REM sleep)
+  memory-tool reflect "<task_summary>" [--outcome success|partial|failure] [--worked "..."] [--failed "..."] [--next "..."] [--project X]
+                                                # Add Reflexion-style reflection after completing a task
+  memory-tool reflect-load "<task_description>" # Load relevant past reflections before starting a task
+  memory-tool lessons                           # Show all reflections grouped by task type with patterns
   memory-tool capture-correction "<text>"       # Extract and store corrections from user feedback
   memory-tool correct "<text>"                  # Queue a correction manually
   memory-tool corrections                       # Show pending corrections

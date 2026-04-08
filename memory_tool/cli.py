@@ -767,6 +767,153 @@ def main() -> None:
     elif cmd == "dream":
         cmd_dream()
 
+    elif cmd == "reflect":
+        # Add a Reflexion-style reflection
+        if len(sys.argv) < 3:
+            print("Usage: memory-tool reflect \"<task_summary>\" [--outcome success|partial|failure] [--worked \"...\"] [--failed \"...\"] [--next \"...\"] [--project X]")
+            print("\nInteractive mode:")
+            print("  memory-tool reflect \"Fixed nginx config\"")
+            print("\nBatch mode:")
+            print("  memory-tool reflect \"Fixed nginx config\" --outcome partial --worked \"Checking syntax first\" --failed \"Forgot to reload\" --next \"Always run nginx -t && systemctl reload nginx\"")
+            sys.exit(1)
+
+        flags, task_parts = parse_flags(sys.argv, 2)
+        task_summary = " ".join(task_parts) if task_parts else sys.argv[2]
+
+        # Check if flags provided (batch mode) or interactive
+        if flags.get("outcome"):
+            outcome = flags.get("outcome")
+            worked = flags.get("worked", "")
+            failed = flags.get("failed", "")
+            next_time = flags.get("next", "")
+            project = flags.get("project")
+
+            if outcome not in ['success', 'partial', 'failure']:
+                print("Error: --outcome must be success, partial, or failure")
+                sys.exit(1)
+        else:
+            # Interactive mode
+            print(f"\nReflecting on: {task_summary}")
+            print("-" * 60)
+
+            outcome = input("Outcome (success/partial/failure): ").strip().lower()
+            while outcome not in ['success', 'partial', 'failure']:
+                print("Please enter success, partial, or failure")
+                outcome = input("Outcome: ").strip().lower()
+
+            worked = input("What worked well: ").strip()
+            failed = input("What failed or didn't work: ").strip()
+            next_time = input("What to do differently next time: ").strip()
+            project = input("Project (optional, press Enter to skip): ").strip() or None
+
+        mem_id = add_reflection(
+            task_summary=task_summary,
+            outcome=outcome,
+            worked=worked,
+            failed=failed,
+            next_time=next_time,
+            project=project
+        )
+
+        print(f"\n✅ Reflection #{mem_id} stored for: {task_summary}")
+        print(f"   Outcome: {outcome}")
+        print(f"   Use 'memory-tool reflect-load \"similar task\"' before starting related tasks")
+
+    elif cmd == "reflect-load":
+        # Load relevant reflections before starting a task
+        if len(sys.argv) < 3:
+            print("Usage: memory-tool reflect-load \"<task_description>\"")
+            print("\nExample:")
+            print("  memory-tool reflect-load \"nginx configuration\"")
+            sys.exit(1)
+
+        flags, query_parts = parse_flags(sys.argv, 2)
+        task_description = " ".join(query_parts) if query_parts else sys.argv[2]
+
+        reflections = load_reflections(task_description, limit=3)
+
+        if not reflections:
+            print(f"No relevant reflections found for: {task_description}")
+            print("This is a new type of task. Good luck!")
+            sys.exit(0)
+
+        print(f"\n📚 Past Reflections for: {task_description}")
+        print("=" * 70)
+
+        for i, ref in enumerate(reflections, 1):
+            outcome_emoji = {
+                'success': '✅',
+                'partial': '⚠️',
+                'failure': '❌'
+            }.get(ref['outcome'], '❓')
+
+            print(f"\n{i}. {outcome_emoji} {ref['task'][:60]}")
+            print(f"   ID: #{ref['id']} | Created: {ref['created_at'][:10]}")
+
+            if ref['worked']:
+                print(f"   ✓ What worked: {ref['worked'][:200]}")
+            if ref['failed']:
+                print(f"   ✗ What failed: {ref['failed'][:200]}")
+            if ref['next_time']:
+                print(f"   → Next time: {ref['next_time'][:200]}")
+
+        print("\n" + "=" * 70)
+        print("Use these insights to avoid past mistakes and build on what worked!")
+
+    elif cmd == "lessons":
+        # Show all reflections grouped by task type
+        grouped = list_reflections_by_task()
+
+        if not grouped:
+            print("No reflections stored yet.")
+            print("Start building your knowledge base with: memory-tool reflect \"<task>\"")
+            sys.exit(0)
+
+        print("\n📖 Lessons Learned by Task Type")
+        print("=" * 70)
+
+        # Calculate stats per task type
+        for task_type in sorted(grouped.keys()):
+            reflections = grouped[task_type]
+            total = len(reflections)
+            successes = sum(1 for r in reflections if r['outcome'] == 'success')
+            failures = sum(1 for r in reflections if r['outcome'] == 'failure')
+            partials = sum(1 for r in reflections if r['outcome'] == 'partial')
+
+            print(f"\n{task_type.upper()} ({total} reflections)")
+            print(f"  Success: {successes} | Partial: {partials} | Failure: {failures}")
+            print(f"  {'':>5} {'Outcome':>8} {'Task':<50} {'ID':>6} {'Date':<12}")
+            print(f"  {'-' * 85}")
+
+            # Show most recent 5 for each task type
+            for ref in reflections[:5]:
+                outcome_emoji = {
+                    'success': '✅',
+                    'partial': '⚠️',
+                    'failure': '❌'
+                }.get(ref['outcome'], '❓')
+
+                task_short = ref['task'][:50] if len(ref['task']) <= 50 else ref['task'][:47] + '...'
+                date_short = ref['created_at'][:10]
+                access = f"({ref['access_count']}×)" if ref['access_count'] > 0 else ""
+
+                print(f"  {access:>5} {outcome_emoji} {ref['outcome']:>7} {task_short:<50} #{ref['id']:>5} {date_short}")
+
+            if len(reflections) > 5:
+                print(f"  ... and {len(reflections) - 5} more. Use 'memory-tool reflect-load \"{task_type}\"' to see all")
+
+        print("\n" + "=" * 70)
+
+        # Show patterns (task types with high failure rates)
+        print("\n🔍 Patterns:")
+        for task_type in sorted(grouped.keys()):
+            reflections = grouped[task_type]
+            if len(reflections) >= 3:
+                failures = sum(1 for r in reflections if r['outcome'] == 'failure')
+                failure_rate = failures / len(reflections)
+                if failure_rate >= 0.5:
+                    print(f"  ⚠️  {task_type}: {failure_rate:.0%} failure rate ({failures}/{len(reflections)}) - needs attention!")
+
     elif cmd == "correct":
         if len(sys.argv) < 3:
             print("Usage: memory-tool correct \"<correction text>\"")

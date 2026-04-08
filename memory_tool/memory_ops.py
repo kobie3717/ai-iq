@@ -607,7 +607,7 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                 rows = conn.execute("""
                     SELECT rowid as id, distance FROM memory_vec
                     WHERE embedding MATCH ?
-                    AND k = 20
+                    AND k = 100
                     ORDER BY distance
                 """, (query_vec,)).fetchall()
 
@@ -879,5 +879,183 @@ def show_importance_ranking() -> None:
             cat = (r["category"] or "?")[:8]
             print(f"  #{r['id']:>3} {r['imp_score']:>5.1f} {r['imp_novelty']:>3.0f} {r['imp_relevance']:>3.0f} {r['imp_frequency']:>3.0f} {r['imp_impact']:>3.0f} {cat:<8} {content}")
 
+
+def add_reflection(task_summary: str, outcome: str, worked: str, failed: str,
+                   next_time: str, task_type: Optional[str] = None,
+                   project: Optional[str] = None) -> Optional[int]:
+    """Add a Reflexion-style self-improvement reflection.
+
+    Args:
+        task_summary: Brief description of the task
+        outcome: success, partial, or failure
+        worked: What worked well
+        failed: What didn't work or failed
+        next_time: What to do differently next time
+        task_type: Optional task type (auto-detected from summary if not provided)
+        project: Optional project name
+
+    Returns:
+        Memory ID of the stored reflection
+    """
+    # Auto-detect task type from summary if not provided
+    if not task_type:
+        summary_lower = task_summary.lower()
+        if any(word in summary_lower for word in ['nginx', 'apache', 'config', 'server']):
+            task_type = 'configuration'
+        elif any(word in summary_lower for word in ['deploy', 'release', 'push']):
+            task_type = 'deployment'
+        elif any(word in summary_lower for word in ['bug', 'fix', 'error', 'issue']):
+            task_type = 'debugging'
+        elif any(word in summary_lower for word in ['test', 'pytest', 'jest']):
+            task_type = 'testing'
+        elif any(word in summary_lower for word in ['database', 'sql', 'migration']):
+            task_type = 'database'
+        elif any(word in summary_lower for word in ['api', 'endpoint', 'route']):
+            task_type = 'api'
+        else:
+            task_type = 'general'
+
+    # Build structured reflection content
+    content = f"""Task: {task_summary}
+Outcome: {outcome}
+
+What worked:
+{worked}
+
+What failed:
+{failed}
+
+What to do differently:
+{next_time}"""
+
+    # Store as learning memory with reflection tag
+    tags = f"reflection,{outcome},{task_type}"
+
+    mem_id = add_memory(
+        category='learning',
+        content=content,
+        tags=tags,
+        project=project,
+        priority=1 if outcome == 'failure' else 0,  # Higher priority for failures
+        wing='reflections',
+        room=task_type,
+        source='reflexion'
+    )
+
+    logger.info(f"Added reflection #{mem_id} for task: {task_summary[:50]}... (outcome: {outcome})")
+    return mem_id
+
+
+def load_reflections(task_description: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """Load relevant past reflections before starting a task.
+
+    Args:
+        task_description: Description of the upcoming task
+        limit: Maximum number of reflections to return
+
+    Returns:
+        List of relevant reflection memories
+    """
+    conn = get_db()
+
+    # Search for relevant reflections in the reflections wing
+    # Use hybrid search if available, fall back to FTS
+    from .embedding import has_vec_support
+
+    if has_vec_support():
+        # Use semantic search for better matching
+        results, _, _ = search_memories(
+            query=task_description,
+            mode='hybrid',
+            wing='reflections'
+        )
+    else:
+        # Fall back to FTS search
+        results = conn.execute("""
+            SELECT m.*, rank
+            FROM memories_fts fts
+            JOIN memories m ON m.id = fts.rowid
+            WHERE memories_fts MATCH ?
+            AND m.active = 1
+            AND m.wing = 'reflections'
+            ORDER BY rank
+            LIMIT ?
+        """, (task_description, limit)).fetchall()
+
+    conn.close()
+
+    # Parse reflection structure
+    reflections = []
+    for row in results[:limit]:
+        content = row['content']
+
+        # Extract structured fields
+        outcome_match = re.search(r'Outcome:\s*(\w+)', content)
+        worked_match = re.search(r'What worked:\s*(.+?)(?=\n\nWhat failed:|$)', content, re.DOTALL)
+        failed_match = re.search(r'What failed:\s*(.+?)(?=\n\nWhat to do differently:|$)', content, re.DOTALL)
+        next_match = re.search(r'What to do differently:\s*(.+?)$', content, re.DOTALL)
+
+        reflections.append({
+            'id': row['id'],
+            'task': re.search(r'Task:\s*(.+)', content).group(1) if re.search(r'Task:\s*(.+)', content) else 'Unknown',
+            'outcome': outcome_match.group(1) if outcome_match else 'unknown',
+            'worked': worked_match.group(1).strip() if worked_match else '',
+            'failed': failed_match.group(1).strip() if failed_match else '',
+            'next_time': next_match.group(1).strip() if next_match else '',
+            'tags': row['tags'],
+            'created_at': row['created_at']
+        })
+
+    return reflections
+
+
+def list_reflections_by_task() -> Dict[str, List[Dict[str, Any]]]:
+    """Show all stored reflections grouped by task type (room).
+
+    Returns:
+        Dictionary mapping task types to lists of reflections
+    """
+    conn = get_db()
+
+    rows = conn.execute("""
+        SELECT id, content, tags, room, created_at, accessed_at, access_count
+        FROM memories
+        WHERE active = 1
+        AND wing = 'reflections'
+        ORDER BY room, created_at DESC
+    """).fetchall()
+
+    conn.close()
+
+    # Group by room (task type)
+    grouped = {}
+    for row in rows:
+        room = row['room'] or 'general'
+        if room not in grouped:
+            grouped[room] = []
+
+        # Extract outcome from tags
+        outcome = 'unknown'
+        if 'success' in row['tags']:
+            outcome = 'success'
+        elif 'partial' in row['tags']:
+            outcome = 'partial'
+        elif 'failure' in row['tags']:
+            outcome = 'failure'
+
+        # Extract task summary
+        task_match = re.search(r'Task:\s*(.+)', row['content'])
+        task = task_match.group(1) if task_match else row['content'][:60]
+
+        grouped[room].append({
+            'id': row['id'],
+            'task': task,
+            'outcome': outcome,
+            'created_at': row['created_at'],
+            'access_count': row['access_count'],
+            'full_content': row['content']
+        })
+
+    return grouped
 
 

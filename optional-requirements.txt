@@ -1,4 +1,4 @@
-# Optional dependencies for semantic search
+# Optional dependencies for semantic search and passport credentials
 # Install with: pip install -r optional-requirements.txt
 
 numpy>=1.21.0
@@ -6,3 +6,4 @@ onnxruntime>=1.14.0
 tokenizers>=0.13.0
 sqlite-vec>=0.1.0
 huggingface-hub>=0.14.0
+cryptography>=41.0.0

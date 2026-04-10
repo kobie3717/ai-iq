@@ -64,6 +64,12 @@ def format_row(row: sqlite3.Row) -> str:
         else:
             exp = f" [expires:{row['expires_at'][:10]}]"
     src = f" src:{row['source']}" if row["source"] != "manual" else ""
+    tier = ""
+    try:
+        if row["tier"] and row["tier"] != "episodic":
+            tier = f" tier:{row['tier']}"
+    except (KeyError, IndexError):
+        pass
     key = ""
     rev = ""
     try:
@@ -82,7 +88,7 @@ def format_row(row: sqlite3.Row) -> str:
             derived = f" derived:{row['derived_from']}"
     except (KeyError, IndexError, TypeError):
         pass
-    return (f"  #{row['id']} [{row['category']}]{proj}{hierarchy}{tags}{acc}{stale}{exp}{src}{key}{rev}{derived}"
+    return (f"  #{row['id']} [{row['category']}]{proj}{hierarchy}{tags}{acc}{stale}{exp}{src}{tier}{key}{rev}{derived}"
             f" ({row['updated_at'][:10]})\n    {row['content']}")
 
 
@@ -128,11 +134,19 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
     except (KeyError, IndexError, TypeError):
         pass
 
+    # Tier indicator (only show if not episodic)
+    tier = ""
+    try:
+        if 'tier' in row.keys() and row['tier'] and row['tier'] != 'episodic':
+            tier = f" [{row['tier']}]"
+    except (KeyError, IndexError, TypeError):
+        pass
+
     # Token estimate (claude-mem style) - always show for progressive disclosure
     tokens = estimate_tokens(row['content'])
     token_str = f" ~{tokens}tok"
 
-    return f"[{row['id']}] {row['category']}{hierarchy} | {content_preview}{acc}{imp}{proof} {token_str}"
+    return f"[{row['id']}] {row['category']}{hierarchy}{tier} | {content_preview}{acc}{imp}{proof} {token_str}"
 
 
 

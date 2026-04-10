@@ -42,6 +42,7 @@ full = [
     "tokenizers>=0.13.0",
     "sqlite-vec>=0.1.0",
     "huggingface-hub>=0.14.0",
+    "cryptography>=41.0.0",
 ]
 dev = [
     "pytest>=7.0",

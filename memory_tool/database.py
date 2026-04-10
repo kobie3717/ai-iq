@@ -97,11 +97,17 @@ def init_db() -> None:
         "source_memory_ids": "ALTER TABLE memories ADD COLUMN source_memory_ids TEXT DEFAULT NULL",
         "wing": "ALTER TABLE memories ADD COLUMN wing TEXT DEFAULT NULL",
         "room": "ALTER TABLE memories ADD COLUMN room TEXT DEFAULT NULL",
+        "tier": "ALTER TABLE memories ADD COLUMN tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic'))",
     }
 
     # Whitelist for beliefs table migrations
     BELIEFS_COLUMN_ADDITIONS = {
         "belief_state": "ALTER TABLE beliefs ADD COLUMN belief_state TEXT DEFAULT 'hypothesis'",
+    }
+
+    # Whitelist for runs table migrations (Phase 2: Passport POW)
+    RUNS_COLUMN_ADDITIONS = {
+        "domain": "ALTER TABLE runs ADD COLUMN domain TEXT DEFAULT NULL",
     }
 
     # Add columns if upgrading (must run BEFORE triggers reference them)
@@ -122,6 +128,17 @@ def init_db() -> None:
                 pass
     except sqlite3.OperationalError:
         pass  # beliefs table doesn't exist yet
+
+    # Migrate runs table (must run AFTER runs table exists)
+    try:
+        conn.execute("SELECT 1 FROM runs LIMIT 1")
+        for col_name, sql_statement in RUNS_COLUMN_ADDITIONS.items():
+            try:
+                conn.execute(sql_statement)
+            except sqlite3.OperationalError:
+                pass
+    except sqlite3.OperationalError:
+        pass  # runs table doesn't exist yet
 
     conn.commit()
 
@@ -161,7 +178,8 @@ def init_db() -> None:
             proof_count INTEGER DEFAULT 1,
             source_memory_ids TEXT DEFAULT NULL,
             wing TEXT DEFAULT NULL,
-            room TEXT DEFAULT NULL
+            room TEXT DEFAULT NULL,
+            tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic'))
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -197,6 +215,7 @@ def init_db() -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_key ON memories(topic_key) WHERE topic_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash) WHERE content_hash IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_wing_room ON memories(wing, room) WHERE wing IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_tier ON memories(tier);
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,
@@ -337,6 +356,16 @@ def init_db() -> None:
             memory_id INTEGER
         );
 
+        CREATE TABLE IF NOT EXISTS passport_credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_id TEXT NOT NULL,
+            credential_json TEXT NOT NULL,
+            public_key BLOB NOT NULL,
+            issued_at TEXT DEFAULT (datetime('now')),
+            expires_at TEXT,
+            revoked INTEGER DEFAULT 0
+        );
+
         CREATE INDEX IF NOT EXISTS idx_graph_entity_type ON graph_entities(type);
         CREATE INDEX IF NOT EXISTS idx_graph_entity_name ON graph_entities(name);
         CREATE INDEX IF NOT EXISTS idx_graph_rel_from ON graph_relationships(from_entity_id);
@@ -347,10 +376,18 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
         CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project);
         CREATE INDEX IF NOT EXISTS idx_runs_agent ON runs(agent);
+        CREATE INDEX IF NOT EXISTS idx_passport_agent ON passport_credentials(agent_id);
         CREATE INDEX IF NOT EXISTS idx_dream_session ON dream_log(session_file);
         CREATE INDEX IF NOT EXISTS idx_corrections_status ON corrections(status);
         CREATE INDEX IF NOT EXISTS idx_corrections_created ON corrections(created_at);
     """)
+
+    # Create index for domain column after ALTER TABLE migrations
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_domain ON runs(domain)")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # domain column doesn't exist yet or index already exists
 
     # Beliefs system tables (Phase 7)
     conn.executescript("""

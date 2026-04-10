@@ -221,7 +221,7 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
                  expires_at: Optional[str] = None, source: str = "manual",
                  topic_key: Optional[str] = None, derived_from: Optional[str] = None,
                  citations: Optional[str] = None, reasoning: Optional[str] = None,
-                 wing: Optional[str] = None, room: Optional[str] = None) -> Optional[int]:
+                 wing: Optional[str] = None, room: Optional[str] = None, tier: Optional[str] = None) -> Optional[int]:
     """
     Smart ingestion with 4-tier similarity handling:
     - SKIP: >85% (duplicate blocked)
@@ -230,6 +230,20 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     - CREATE: <50% (normal insert)
     """
     tags = auto_tag(content, tags)
+
+    # Determine memory tier if not explicitly set
+    if tier is None:
+        from .tiers import classify_tier
+        # Build memory_row dict for classification
+        memory_row = {
+            'category': category,
+            'priority': priority,
+            'tags': tags,
+            'proof_count': 1,
+            'expires_at': expires_at,
+            'access_count': 0
+        }
+        tier = classify_tier(memory_row)
 
     # Content-hash dedup check: prevent exact duplicates within 30 seconds (claude-mem pattern)
     # Use SHA256 hash of category:content (case-insensitive, whitespace-normalized)
@@ -343,9 +357,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             # Insert new, mark old as superseded
             conn = get_db()
             cur = conn.execute(
-                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
+                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
             )
             new_id = cur.lastrowid
 
@@ -389,9 +403,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     # CREATE: Normal insert
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
+        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
     )
     mem_id = cur.lastrowid
 
@@ -431,7 +445,7 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
                topic_key: Optional[str] = None, skip_dedup: bool = False,
                derived_from: Optional[str] = None, citations: Optional[str] = None,
                reasoning: Optional[str] = None, wing: Optional[str] = None,
-               room: Optional[str] = None) -> Optional[int]:
+               room: Optional[str] = None, tier: Optional[str] = None) -> Optional[int]:
     """Legacy add_memory wrapper for backward compatibility."""
     if skip_dedup:
         # Old behavior: skip dedup entirely
@@ -444,10 +458,25 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         content_hash = hashlib.sha256(f"{category}:{content.strip().lower()}".encode()).hexdigest()
 
         conn = get_db()
+
+        # Determine tier for skip_dedup path
+        mem_tier = tier
+        if mem_tier is None:
+            from .tiers import classify_tier
+            memory_row = {
+                'category': category,
+                'priority': priority,
+                'tags': tags,
+                'proof_count': 1,
+                'expires_at': expires_at,
+                'access_count': 0
+            }
+            mem_tier = classify_tier(memory_row)
+
         cur = conn.execute(
-            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
-               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room)
+            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, mem_tier)
         )
         mem_id = cur.lastrowid
         if related_to:
@@ -475,7 +504,7 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
         return mem_id
     else:
-        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room)
+        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room, tier)
 
 
 
@@ -634,11 +663,11 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
 
         # Apply recency boost to final scores (if enabled)
         if scores and apply_recency_boost:
-            # Fetch created_at, proof_count, and content for all candidates
+            # Fetch created_at, proof_count, tier, and content for all candidates
             mem_ids = list(scores.keys())
             placeholders = ','.join('?' * len(mem_ids))
             date_rows = conn.execute(
-                f"SELECT id, created_at, proof_count, content FROM memories WHERE id IN ({placeholders})",
+                f"SELECT id, created_at, proof_count, tier, content FROM memories WHERE id IN ({placeholders})",
                 mem_ids
             ).fetchall()
 
@@ -647,6 +676,7 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                 created_at = row['created_at']
                 content = row['content'] or ''
                 content_lower = content.lower()
+                tier = row['tier'] if 'tier' in row.keys() else 'episodic'
 
                 if created_at:
                     try:
@@ -655,6 +685,16 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                         scores[mem_id] *= boost
                     except (ValueError, AttributeError):
                         pass  # Invalid date, skip boost
+
+                # Apply tier boost: semantic > episodic > working
+                # Semantic memories are proven long-term knowledge, rank highest
+                tier_boosts = {
+                    'semantic': 1.2,
+                    'episodic': 1.0,
+                    'working': 0.8
+                }
+                tier_boost = tier_boosts.get(tier, 1.0)
+                scores[mem_id] *= tier_boost
 
                 # Apply proof boost: memories confirmed by multiple sources rank higher
                 proof_count = row['proof_count'] or 1

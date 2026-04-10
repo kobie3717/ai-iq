@@ -241,6 +241,11 @@ def cmd_dream() -> None:
     conn.commit()
     logger.info(f"   Normalized {total_dates_normalized} relative dates to absolute dates")
 
+    # 3.5. Migrate existing memories to tiers (one-time migration)
+    logger.info("🔄 Migrating existing memories to tiers...")
+    migration_results = migrate_existing_tiers(conn)
+    logger.info(f"   Migrated: {migration_results['semantic']} semantic, {migration_results['working']} working, {migration_results['episodic']} episodic")
+
     # 4. Run decay to flag stale memories
     logger.info("🧹 Running decay to flag stale memories...")
     run_decay()
@@ -280,12 +285,28 @@ def cmd_dream() -> None:
         logger.debug(f"Lifecycle deprecation skipped: {e}")
         belief_results['deprecated'] = 0
 
+    # 5.7. Tier promotion
+    logger.info("🎓 Phase: Memory Tier Promotion...")
+    tier_results = promote_memories(conn)
+    logger.info(f"   Working → Episodic: {tier_results['working_to_episodic']}")
+    logger.info(f"   Episodic → Semantic: {tier_results['episodic_to_semantic']}")
+
+    # 5.8. Tier Management (new tiers.py module)
+    logger.info("🔄 Phase: Tier Management...")
+    from .tiers import promote_tier_pass, demote_tier_pass, expire_working
+    promoted = promote_tier_pass(conn)
+    demoted = demote_tier_pass(conn)
+    expired = expire_working(conn)
+    logger.info(f"   Promoted to semantic: {promoted}")
+    logger.info(f"   Demoted to episodic: {demoted}")
+    logger.info(f"   Expired working: {expired}")
+
     # 6. Re-export MEMORY.md
     logger.debug("Re-exporting MEMORY.md...")
     _get_export_memory_md()(None)
 
     # 7. Generate dream report and save as memory
-    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated from {len(unprocessed)} transcripts"
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated, {tier_results['working_to_episodic']} working→episodic, {tier_results['episodic_to_semantic']} episodic→semantic, {promoted} promoted to semantic, {demoted} demoted to episodic, {expired} working expired from {len(unprocessed)} transcripts"
 
     today = datetime.now().strftime('%Y-%m-%d')
     _get_add_memory()(
@@ -308,6 +329,8 @@ def cmd_dream() -> None:
     print(f"   📅 {total_dates_normalized} dates normalized")
     print(f"   🎓 {feedback_results['boosted']} boosted / {feedback_results['decayed']} decayed / {feedback_results['flagged']} flagged via feedback")
     print(f"   🔮 {belief_results['merged']} beliefs merged / {belief_results['predictions_expired']} predictions expired / {belief_results['beliefs_weakened']} beliefs weakened / {belief_results.get('deprecated', 0)} beliefs deprecated")
+    print(f"   🎯 {tier_results['working_to_episodic']} promoted to episodic / {tier_results['episodic_to_semantic']} promoted to semantic")
+    print(f"   🔄 {promoted} promoted to semantic / {demoted} demoted to episodic / {expired} working expired")
     print(f"   💾 Report saved to memory")
 
 
@@ -562,5 +585,112 @@ def reconsolidate_memories(conn: sqlite3.Connection) -> int:
 
     conn.commit()
     return reconsolidated
+
+
+def migrate_existing_tiers(conn: sqlite3.Connection) -> Dict[str, int]:
+    """Migrate existing memories to appropriate tiers.
+
+    Migration rules:
+    - access_count >= 5 AND age > 30 days → semantic
+    - has expiry within 24h → working
+    - everything else stays episodic
+
+    Returns dict with migration counts.
+    """
+    results = {"semantic": 0, "working": 0, "episodic": 0}
+    now = datetime.now()
+
+    # Find memories that need tier assignment (tier is NULL or 'episodic')
+    memories = conn.execute("""
+        SELECT id, access_count, created_at, expires_at, tier
+        FROM memories
+        WHERE active = 1
+    """).fetchall()
+
+    for mem in memories:
+        current_tier = mem.get('tier', 'episodic')
+
+        # Skip if already properly tiered
+        if current_tier in ('semantic', 'working'):
+            continue
+
+        # Calculate age
+        created_at = datetime.fromisoformat(mem['created_at'].replace(' ', 'T'))
+        age_days = (now - created_at).total_seconds() / 86400
+
+        # Determine target tier
+        target_tier = 'episodic'
+
+        # Check for semantic promotion
+        if mem['access_count'] >= 5 and age_days > 30:
+            target_tier = 'semantic'
+        # Check for working demotion
+        elif mem['expires_at']:
+            try:
+                exp_dt = datetime.fromisoformat(mem['expires_at'].replace('Z', '+00:00')).replace(tzinfo=None)
+                hours_until_expiry = (exp_dt - now).total_seconds() / 3600
+                if hours_until_expiry <= 24 and hours_until_expiry > 0:
+                    target_tier = 'working'
+            except (ValueError, AttributeError):
+                pass
+
+        # Update if tier changed
+        if target_tier != current_tier:
+            conn.execute("UPDATE memories SET tier = ? WHERE id = ?", (target_tier, mem['id']))
+            results[target_tier] += 1
+
+    conn.commit()
+    return results
+
+
+def promote_memories(conn: sqlite3.Connection) -> Dict[str, int]:
+    """Promote memories between tiers based on access patterns.
+
+    Promotion rules:
+    - working → episodic: access_count >= 2 AND no expiry (or expiry removed)
+    - episodic → semantic: access_count >= 5 AND age > 7 days
+    - semantic memories are immune to decay
+
+    Returns dict with promotion counts.
+    """
+    results = {"working_to_episodic": 0, "episodic_to_semantic": 0}
+    now = datetime.now()
+
+    # Promote working → episodic
+    # Memories with access_count >= 2 and no expiry (or expired/removed)
+    working_mems = conn.execute("""
+        SELECT id, access_count, expires_at, created_at
+        FROM memories
+        WHERE active = 1 AND tier = 'working'
+    """).fetchall()
+
+    for mem in working_mems:
+        # Promote if accessed 2+ times and (no expiry OR expiry passed)
+        if mem['access_count'] >= 2:
+            if not mem['expires_at'] or mem['expires_at'] < now.isoformat():
+                conn.execute("UPDATE memories SET tier = 'episodic' WHERE id = ?", (mem['id'],))
+                results['working_to_episodic'] += 1
+                logger.debug(f"Promoted #{mem['id']} working → episodic (accessed {mem['access_count']}x)")
+
+    # Promote episodic → semantic
+    # Memories with access_count >= 5 and age > 7 days
+    episodic_mems = conn.execute("""
+        SELECT id, access_count, created_at
+        FROM memories
+        WHERE active = 1 AND tier = 'episodic'
+        AND access_count >= 5
+    """).fetchall()
+
+    for mem in episodic_mems:
+        created_at = datetime.fromisoformat(mem['created_at'].replace(' ', 'T'))
+        age_days = (now - created_at).total_seconds() / 86400
+
+        if age_days > 7:
+            conn.execute("UPDATE memories SET tier = 'semantic' WHERE id = ?", (mem['id'],))
+            results['episodic_to_semantic'] += 1
+            logger.debug(f"Promoted #{mem['id']} episodic → semantic (accessed {mem['access_count']}x, age {age_days:.0f}d)")
+
+    conn.commit()
+    return results
 
 

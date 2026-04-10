@@ -272,7 +272,7 @@ def export_topics() -> None:
 
 
 def run_decay() -> Dict[str, int]:
-    """Run decay process using FSRS retention model."""
+    """Run decay process using FSRS retention model with tier-based rules."""
     conn = get_db()
     now = datetime.now()
     changes = {"stale": 0, "deprioritized": 0, "expired": 0}
@@ -284,15 +284,20 @@ def run_decay() -> Dict[str, int]:
     """)
     changes["expired"] = cur.rowcount
 
-    # FSRS-based stale detection: flag memories where retention < 0.5
+    # FSRS-based stale detection with tier-aware decay times
+    # Semantic tier: immune to decay
+    # Episodic tier: decay after 30 days (existing behavior)
+    # Working tier: decay after 1 day
     cur = conn.execute("""
-        SELECT id, fsrs_stability, last_accessed_at, updated_at, category
+        SELECT id, fsrs_stability, last_accessed_at, updated_at, category, tier, created_at
         FROM memories
         WHERE active = 1 AND stale = 0
         AND category NOT IN ('preference', 'project')
+        AND tier != 'semantic'
     """)
 
     for row in cur.fetchall():
+        tier = row["tier"] if row["tier"] else "episodic"
         stability = row["fsrs_stability"] or 1.0
         last_acc = row["last_accessed_at"] or row["updated_at"]
         try:
@@ -301,10 +306,18 @@ def run_decay() -> Dict[str, int]:
         except (ValueError, AttributeError):
             elapsed = 90  # Fallback for invalid date format
 
-        retention = fsrs_retention(stability, elapsed)
-        if retention < 0.5:
-            conn.execute("UPDATE memories SET stale = 1 WHERE id = ?", (row["id"],))
-            changes["stale"] += 1
+        # Tier-based decay thresholds
+        if tier == 'working':
+            # Working memory: decay after 1 day
+            if elapsed > 1:
+                conn.execute("UPDATE memories SET stale = 1 WHERE id = ?", (row["id"],))
+                changes["stale"] += 1
+        else:
+            # Episodic: use FSRS retention model (existing behavior)
+            retention = fsrs_retention(stability, elapsed)
+            if retention < 0.5:
+                conn.execute("UPDATE memories SET stale = 1 WHERE id = ?", (row["id"],))
+                changes["stale"] += 1
 
     # Also deprioritize memories with very low retention (< 0.3)
     cur2 = conn.execute("""

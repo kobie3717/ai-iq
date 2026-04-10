@@ -84,6 +84,7 @@ def main() -> None:
             reasoning=flags.get("reasoning"),
             wing=flags.get("wing"),
             room=flags.get("room"),
+            tier=flags.get("tier"),
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
@@ -173,7 +174,7 @@ def main() -> None:
     elif cmd == "get" and len(sys.argv) >= 3:
         print_memory_full(int(sys.argv[2]))
 
-    elif cmd == "passport" and len(sys.argv) >= 3:
+    elif cmd == "passport" and len(sys.argv) >= 3 and sys.argv[2].isdigit():
         from .passport import get_passport, display_passport
         try:
             mem_id = int(sys.argv[2])
@@ -337,6 +338,25 @@ def main() -> None:
         print("\nBy category:")
         for c in cats:
             print(f"  {c['category']}: {c['count']} (accessed {c['accesses'] or 0}x)")
+
+        # Tier breakdown
+        conn = get_db()
+        tiers = conn.execute("""
+            SELECT tier, COUNT(*) as count, SUM(access_count) as accesses
+            FROM memories WHERE active = 1 GROUP BY tier ORDER BY
+            CASE tier
+                WHEN 'semantic' THEN 1
+                WHEN 'episodic' THEN 2
+                WHEN 'working' THEN 3
+            END
+        """).fetchall()
+        conn.close()
+
+        if tiers:
+            print("\nBy tier:")
+            for t in tiers:
+                print(f"  {t['tier']}: {t['count']} (accessed {t['accesses'] or 0}x)")
+
         print("\nBy source:")
         for s in sources:
             print(f"  {s['source']}: {s['c']}")
@@ -351,6 +371,55 @@ def main() -> None:
                 print(f"  Hit rate (all): {search_stats['hit_rate_all']['rate']:.0%} ({search_stats['hit_rate_all']['searches']} searches)")
         except Exception:
             pass  # Feedback module might not be available
+
+    elif cmd == "tiers":
+        conn = get_db()
+        tier_stats = conn.execute("""
+            SELECT tier, COUNT(*) as count, SUM(access_count) as accesses
+            FROM memories WHERE active = 1 GROUP BY tier ORDER BY
+            CASE tier
+                WHEN 'semantic' THEN 1
+                WHEN 'episodic' THEN 2
+                WHEN 'working' THEN 3
+            END
+        """).fetchall()
+        conn.close()
+
+        print("Memory Tiers:")
+        total = sum(t['count'] for t in tier_stats)
+        for t in tier_stats:
+            pct = (t['count'] / total * 100) if total > 0 else 0
+            accesses = t['accesses'] or 0
+            print(f"  {t['tier']}: {t['count']} ({pct:.0f}%) — {accesses} accesses")
+        print(f"\nTotal: {total} active memories")
+        print("\nTier meanings:")
+        print("  semantic: Long-term knowledge (access_count >= 5, age > 7d)")
+        print("  episodic: Recent memories (default)")
+        print("  working: Short-term (expires within 24h)")
+
+    elif cmd == "promote" and len(sys.argv) >= 3:
+        from .tiers import promote_memory_to_tier
+        try:
+            mem_id = int(sys.argv[2])
+            target_tier = sys.argv[3] if len(sys.argv) >= 4 else 'semantic'
+            conn = get_db()
+            promote_memory_to_tier(conn, mem_id, target_tier)
+            conn.close()
+            print(f"✓ Promoted memory #{mem_id} to {target_tier}")
+        except ValueError as e:
+            print(f"Error: {e}")
+
+    elif cmd == "demote" and len(sys.argv) >= 3:
+        from .tiers import demote_memory_to_tier
+        try:
+            mem_id = int(sys.argv[2])
+            target_tier = sys.argv[3] if len(sys.argv) >= 4 else 'episodic'
+            conn = get_db()
+            demote_memory_to_tier(conn, mem_id, target_tier)
+            conn.close()
+            print(f"✓ Demoted memory #{mem_id} to {target_tier}")
+        except ValueError as e:
+            print(f"Error: {e}")
 
     elif cmd == "stale":
         rows = get_stale()
@@ -1861,6 +1930,18 @@ def main() -> None:
             else:
                 print(f"❌ Failed to set mode. Valid modes: default, dev, ops, research, monitor")
                 sys.exit(1)
+
+    elif cmd == "passport":
+        from .passport_w3c import cmd_passport
+        conn = get_db()
+        cmd_passport(sys.argv[2:], conn)
+        conn.close()
+
+    elif cmd == "verify-passport" and len(sys.argv) >= 3:
+        from .passport_w3c import cmd_verify_passport
+        conn = get_db()
+        cmd_verify_passport(sys.argv[2:], conn)
+        conn.close()
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

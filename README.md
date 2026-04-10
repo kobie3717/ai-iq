@@ -4,6 +4,17 @@ Give your AI long-term memory in 1 command.
 
 LLMs forget everything. AI-IQ makes them remember.
 
+> **Part of the Claw Stack:** AI-IQ is the substrate of a larger pipeline —
+> **Memory → Evaluation → Credential → Access Control**. Agents earn W3C Verifiable Credentials
+> through proof-of-work, then present them to gain scoped access to other agents' memory via
+> [`bot-circus`](https://github.com/kobie3717/bot-circus). Runs standalone or as part of the full stack.
+>
+> Install both as Claude Code plugins:
+> ```
+> /plugin marketplace add kobie3717/ai-iq
+> /plugin marketplace add kobie3717/bot-circus
+> ```
+
 ## Install
 
 ```bash

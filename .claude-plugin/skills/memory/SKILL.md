@@ -274,8 +274,70 @@ See [PYTHON_API.md](https://github.com/kobie3717/ai-iq/blob/main/PYTHON_API.md) 
 - **Beliefs & predictions** - Track confidence, validate hypotheses
 - **Knowledge graph** - Entities, relationships, spreading activation
 - **Dream mode** - AI-powered consolidation (REM sleep for memory)
+- **Memory tiers** (v6) - Working / Episodic / Semantic promotion paths with different search weights
+- **W3C Verifiable Credentials** (v6) - Ed25519-signed passports proving competence in 8 domains
+- **Capability-based access control** (v6) - Wing/room namespaces, deny-by-default memory gating
+- **Drift detection** (v6) - `validate scan/confirm/refute` catches reinforced bad memories
 - **Auto-capture** - PostToolUse hook logs errors automatically
 - **Framework-agnostic** - Works with any Python agent, not locked to Claude
+
+## v6 Commands: Memory → Evaluation → Credential → Access Control
+
+AI-IQ v6 is more than a memory system. It's a **pipeline** for building trustworthy AI agents:
+
+### 1. Memory Tiers
+Memories are classified into **working** (hot, recent), **episodic** (event-based), and **semantic** (validated truths). Promoted via `dream` mode. Search ranking weights differ per tier (1.2x / 1.0x / 0.8x).
+
+```bash
+# Memories are auto-classified on add; dream mode promotes working → episodic → semantic
+memory-tool dream
+memory-tool stats  # See tier distribution
+```
+
+### 2. Drift Detection (Validation)
+Catches memories that got reinforced despite being wrong:
+
+```bash
+memory-tool validate scan --min-access 3 --min-age-days 30   # Find drift candidates
+memory-tool validate confirm <id> --notes "verified from logs"   # Mark correct
+memory-tool validate refute <id> --notes "this is wrong, X is correct"   # Refute + demote tier
+memory-tool validate report   # Drift risk summary
+```
+
+### 3. Passport (W3C Verifiable Credentials)
+Agents earn **competence credentials** through proof-of-work (runs table). Ed25519-signed, W3C-compliant. 8 domains: code, devops, security, testing, documentation, research, planning, monitoring.
+
+```python
+from ai_iq.passport_w3c import Passport
+p = Passport(agent_id="alice")
+credential = p.issue_credential("code", proof_count=50)  # Must have 50+ successful code runs
+verified = p.verify_credential(credential)  # Cryptographically verifiable
+```
+
+### 4. Access Control (Wing/Room Namespaces)
+Memories live in **wings** (broad categories) and **rooms** (specific contexts). Access is capability-based, deny-by-default. 5 predefined rules: `finance.payments`, `security.secrets`, `devops.production`, `code.internal`, `general.public`.
+
+```bash
+# Store in a specific wing/room
+memory-tool add learning "Secret key rotation procedure" --wing security --room secrets
+
+# Search with access control (requires passport env var)
+MEMORY_PASSPORT="<credential>" memory-tool search "rotation"   # Filtered by access rules
+memory-tool search "rotation" --wing security --room secrets   # Pre-filter
+```
+
+### The Pipeline in One Flow
+
+```
+1. Agent does work → runs table tracks outcomes
+2. AI-IQ stores memories → classified into tiers
+3. Dream mode promotes validated memories → semantic tier
+4. Passport issues credentials ← proof-of-work from runs
+5. Credential grants access ← to wing/room namespaces
+6. Another agent presents credential → gets scoped memory access
+```
+
+**This is what makes AI-IQ more than a memory system**: the full chain from *remembering* to *proving you're trustworthy* to *gating sensitive memory access*.
 
 ## Installation
 

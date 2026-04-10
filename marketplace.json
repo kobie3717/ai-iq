@@ -4,18 +4,18 @@
     "name": "kobie3717"
   },
   "metadata": {
-    "description": "AI-IQ: Give your AI long-term memory",
+    "description": "AI-IQ: Memory → Evaluation → Credential → Access Control for AI agents",
     "homepage": "https://github.com/kobie3717/ai-iq"
   },
   "plugins": [
     {
       "name": "ai-iq",
-      "version": "5.7.0",
+      "version": "5.10.0",
       "source": ".",
-      "description": "SQLite-based persistent memory with beliefs, predictions, and knowledge graphs",
+      "description": "Memory → Evaluation → Credential → Access Control. Persistent memory with W3C Verifiable Credentials, capability-based access control, drift detection, FSRS-6 spaced repetition.",
       "category": "memory",
-      "tags": ["memory", "persistence", "knowledge-graph", "sqlite"],
-      "keywords": ["memory", "persistence", "knowledge-graph", "beliefs", "predictions", "sqlite", "ai-memory"]
+      "tags": ["memory", "persistence", "knowledge-graph", "sqlite", "credentials", "access-control"],
+      "keywords": ["memory", "persistence", "knowledge-graph", "beliefs", "predictions", "sqlite", "ai-memory", "w3c-vc", "verifiable-credentials", "access-control", "passport", "drift-detection", "fsrs"]
     }
   ]
 }

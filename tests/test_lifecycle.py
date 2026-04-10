@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from memory_tool import database, beliefs_extended
+from memory_tool import database, beliefs as beliefs_extended
 
 
 def test_set_and_get_belief_state(temp_db):

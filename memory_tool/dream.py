@@ -277,7 +277,7 @@ def cmd_dream() -> None:
     # 5.6. Lifecycle state auto-deprecation
     logger.info("⚖️  Phase: Lifecycle State Management...")
     try:
-        from .beliefs_extended import auto_deprecate_weak_beliefs
+        from .beliefs import auto_deprecate_weak_beliefs
         deprecated_count = auto_deprecate_weak_beliefs(conn, days_inactive=60)
         logger.info(f"   Auto-deprecated: {deprecated_count} weak beliefs")
         belief_results['deprecated'] = deprecated_count

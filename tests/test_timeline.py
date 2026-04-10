@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from memory_tool import database, beliefs, beliefs_extended
+from memory_tool import database, beliefs
 
 
 def test_log_confidence_change(temp_db):
@@ -24,7 +24,7 @@ def test_log_confidence_change(temp_db):
     conn.commit()
 
     # Log a confidence change
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn,
         belief_id=belief_id,
         old_confidence=0.5,
@@ -60,20 +60,20 @@ def test_get_timeline_by_belief(temp_db):
     conn.commit()
 
     # Log multiple changes
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn, belief_id=belief_id,
         old_confidence=0.5, new_confidence=0.6,
         reason="First change", source_type="manual"
     )
 
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn, belief_id=belief_id,
         old_confidence=0.6, new_confidence=0.8,
         reason="Second change", source_type="evidence"
     )
 
     # Get timeline
-    timeline = beliefs_extended.get_timeline(conn, belief_id=belief_id, days=7)
+    timeline = beliefs.get_timeline(conn, belief_id=belief_id, days=7)
 
     assert len(timeline) == 2
     # Check that both reasons are present (order may vary due to same timestamp)
@@ -103,25 +103,25 @@ def test_get_timeline_by_project(temp_db):
     conn.commit()
 
     # Log changes for both
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn, memory_id=mem_id_a,
         old_confidence=0.5, new_confidence=0.7,
         reason="Change in ProjectA", source_type="manual"
     )
 
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn, memory_id=mem_id_b,
         old_confidence=0.4, new_confidence=0.6,
         reason="Change in ProjectB", source_type="manual"
     )
 
     # Get timeline for ProjectA only
-    timeline_a = beliefs_extended.get_timeline(conn, project="ProjectA", days=7)
+    timeline_a = beliefs.get_timeline(conn, project="ProjectA", days=7)
     assert len(timeline_a) == 1
     assert timeline_a[0]['memory_project'] == "ProjectA"
 
     # Get timeline for ProjectB only
-    timeline_b = beliefs_extended.get_timeline(conn, project="ProjectB", days=7)
+    timeline_b = beliefs.get_timeline(conn, project="ProjectB", days=7)
     assert len(timeline_b) == 1
     assert timeline_b[0]['memory_project'] == "ProjectB"
 
@@ -141,20 +141,20 @@ def test_get_confidence_history_for_belief(temp_db):
     conn.commit()
 
     # Make several confidence updates
-    beliefs_extended.update_belief_confidence(
+    beliefs.update_belief_confidence(
         conn, belief_id, 0.6, "First update", "manual"
     )
 
-    beliefs_extended.update_belief_confidence(
+    beliefs.update_belief_confidence(
         conn, belief_id, 0.7, "Second update", "evidence"
     )
 
-    beliefs_extended.update_belief_confidence(
+    beliefs.update_belief_confidence(
         conn, belief_id, 0.9, "Third update", "prediction_outcome"
     )
 
     # Get history
-    history = beliefs_extended.get_confidence_history(conn, belief_id, is_belief=True)
+    history = beliefs.get_confidence_history(conn, belief_id, is_belief=True)
 
     assert len(history) >= 3  # At least 3 updates
 
@@ -185,7 +185,7 @@ def test_get_confidence_history_for_memory(temp_db):
     beliefs.set_confidence(conn, mem_id, 0.8, "Third update")
 
     # Get history
-    history = beliefs_extended.get_confidence_history(conn, mem_id, is_belief=False)
+    history = beliefs.get_confidence_history(conn, mem_id, is_belief=False)
 
     assert len(history) >= 3  # At least 3 updates
 
@@ -204,7 +204,7 @@ def test_format_timeline_entry_arrows(temp_db):
         'reason': 'Increased',
         'source_type': 'evidence'
     }
-    formatted_up = beliefs_extended.format_timeline_entry(entry_up)
+    formatted_up = beliefs.format_timeline_entry(entry_up)
     assert "↑" in formatted_up
     assert "0.50" in formatted_up
     assert "0.80" in formatted_up
@@ -217,7 +217,7 @@ def test_format_timeline_entry_arrows(temp_db):
         'reason': 'Decreased',
         'source_type': 'decay'
     }
-    formatted_down = beliefs_extended.format_timeline_entry(entry_down)
+    formatted_down = beliefs.format_timeline_entry(entry_down)
     assert "↓" in formatted_down
 
     # Test no change (→)
@@ -228,7 +228,7 @@ def test_format_timeline_entry_arrows(temp_db):
         'reason': 'No change',
         'source_type': 'manual'
     }
-    formatted_same = beliefs_extended.format_timeline_entry(entry_same)
+    formatted_same = beliefs.format_timeline_entry(entry_same)
     assert "→" in formatted_same
 
     conn.close()
@@ -240,7 +240,7 @@ def test_get_timeline_summary(temp_db):
 
     # Create some timeline entries with more increase than decrease
     for i in range(7):
-        beliefs_extended.log_confidence_change(
+        beliefs.log_confidence_change(
             conn,
             belief_id=None,
             memory_id=None,
@@ -251,7 +251,7 @@ def test_get_timeline_summary(temp_db):
         )
 
     for i in range(2):
-        beliefs_extended.log_confidence_change(
+        beliefs.log_confidence_change(
             conn,
             belief_id=None,
             memory_id=None,
@@ -262,7 +262,7 @@ def test_get_timeline_summary(temp_db):
         )
 
     # Get summary
-    summary = beliefs_extended.get_timeline_summary(conn, days=7)
+    summary = beliefs.get_timeline_summary(conn, days=7)
 
     assert summary['total_changes'] == 9
     assert summary['increases'] == 7
@@ -291,7 +291,7 @@ def test_timeline_filtering_by_days(temp_db):
     """, (None, 0.5, 0.7, "Old change", old_date))
 
     # Create a recent entry
-    beliefs_extended.log_confidence_change(
+    beliefs.log_confidence_change(
         conn,
         belief_id=None,
         old_confidence=0.6,
@@ -301,12 +301,12 @@ def test_timeline_filtering_by_days(temp_db):
     )
 
     # Get timeline for last 7 days
-    timeline_7d = beliefs_extended.get_timeline(conn, days=7)
+    timeline_7d = beliefs.get_timeline(conn, days=7)
     assert len(timeline_7d) == 1
     assert timeline_7d[0]['reason'] == "Recent change"
 
     # Get timeline for last 30 days
-    timeline_30d = beliefs_extended.get_timeline(conn, days=30)
+    timeline_30d = beliefs.get_timeline(conn, days=30)
     assert len(timeline_30d) == 2  # Both entries
 
     conn.close()
@@ -325,12 +325,12 @@ def test_timeline_integrated_with_confidence_updates(temp_db):
     conn.commit()
 
     # Update confidence (should auto-log to timeline)
-    beliefs_extended.update_belief_confidence(
+    beliefs.update_belief_confidence(
         conn, belief_id, 0.8, "Automatic logging test", "manual"
     )
 
     # Check that timeline entry was created
-    timeline = beliefs_extended.get_timeline(conn, belief_id=belief_id, days=1)
+    timeline = beliefs.get_timeline(conn, belief_id=belief_id, days=1)
     assert len(timeline) >= 1
 
     # Find the entry

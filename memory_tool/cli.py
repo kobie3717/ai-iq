@@ -189,16 +189,8 @@ def main() -> None:
     elif cmd == "get" and len(sys.argv) >= 3:
         print_memory_full(int(sys.argv[2]))
 
-    elif cmd == "passport" and len(sys.argv) >= 3 and sys.argv[2].isdigit():
-        from .passport import get_passport, display_passport
-        try:
-            mem_id = int(sys.argv[2])
-            passport = get_passport(mem_id)
-            display_passport(passport)
-        except ValueError:
-            print(f"Error: Invalid memory ID '{sys.argv[2]}'")
-        except Exception as e:
-            print(f"Error generating passport: {e}")
+    # Legacy passport <memory_id> command removed - use 'get <memory_id>' for memory details
+    # or 'passport --agent-id <id>' for W3C agent credentials
 
     elif cmd == "list":
         flags, _ = parse_flags(sys.argv, 2)
@@ -1597,7 +1589,7 @@ def main() -> None:
             if state_idx + 1 < len(sys.argv):
                 state = sys.argv[state_idx + 1]
                 try:
-                    from .beliefs_extended import list_beliefs_by_state
+                    from .beliefs import list_beliefs_by_state
                     rows = list_beliefs_by_state(conn, state)
                     print(f"Beliefs (state: {state})")
                     print("=" * 70)
@@ -1669,7 +1661,7 @@ def main() -> None:
 
     elif cmd == "lifecycle" and len(sys.argv) >= 4:
         # memory-tool lifecycle <id> <state>
-        from .beliefs_extended import set_belief_state
+        from .beliefs import set_belief_state
         belief_id = int(sys.argv[2])
         new_state = sys.argv[3]
         reason = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else None
@@ -1686,7 +1678,7 @@ def main() -> None:
 
     elif cmd == "timeline":
         # memory-tool timeline [--project X] [--days N] [<id>]
-        from .beliefs_extended import get_timeline, get_confidence_history, format_timeline_entry, get_timeline_summary
+        from .beliefs import get_timeline, get_confidence_history, format_timeline_entry, get_timeline_summary
         flags, args = parse_flags(sys.argv, 2)
 
         conn = get_db()
@@ -1785,7 +1777,7 @@ def main() -> None:
 
     # Extended beliefs system commands
     elif cmd == "believe" and len(sys.argv) >= 3:
-        from .beliefs_extended import add_belief
+        from .beliefs import add_belief
         flags, statement_parts = parse_flags(sys.argv, 2)
         statement = " ".join(statement_parts)
 
@@ -1802,7 +1794,7 @@ def main() -> None:
         print(f"Created belief #{belief_id}")
 
     elif cmd == "evidence" and len(sys.argv) >= 4:
-        from .beliefs_extended import add_evidence
+        from .beliefs import add_evidence
         belief_id = int(sys.argv[2])
         memory_id = int(sys.argv[3])
         flags, _ = parse_flags(sys.argv, 4)
@@ -1817,7 +1809,7 @@ def main() -> None:
         print(f"Added {direction} evidence to belief #{belief_id}")
 
     elif cmd == "belief-stats":
-        from .beliefs_extended import belief_accuracy, strongest_beliefs, weakest_beliefs, most_revised
+        from .beliefs import belief_accuracy, strongest_beliefs_extended, weakest_beliefs_extended, most_revised
         conn = get_db()
 
         print("=== Belief System Statistics ===\n")
@@ -1838,13 +1830,13 @@ def main() -> None:
 
         # Strongest beliefs
         print(f"\nStrongest Beliefs:")
-        strong = strongest_beliefs(conn, 5)
+        strong = strongest_beliefs_extended(conn, 5)
         for b in strong:
             print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
 
         # Weakest beliefs
         print(f"\nWeakest Beliefs:")
-        weak = weakest_beliefs(conn, 5)
+        weak = weakest_beliefs_extended(conn, 5)
         for b in weak:
             print(f"  #{b['id']} {b['confidence']:.2f} [{b['category']}] {b['statement'][:60]}")
 
@@ -1857,7 +1849,7 @@ def main() -> None:
         conn.close()
 
     elif cmd == "expired-predictions":
-        from .beliefs_extended import check_expired_predictions
+        from .beliefs import check_expired_predictions
         conn = get_db()
         expired = check_expired_predictions(conn)
         conn.close()

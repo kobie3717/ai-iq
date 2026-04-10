@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from memory_tool import beliefs_extended, database, memory_ops
+from memory_tool import beliefs as beliefs_extended, database, memory_ops
 
 
 def test_add_belief(temp_db):
@@ -214,7 +214,7 @@ def test_resolve_prediction_updates_belief(temp_db):
     pred_id = beliefs_extended.make_prediction(conn, belief_id, "Test prediction", 0.6)
 
     # Resolve as correct
-    result = beliefs_extended.resolve_prediction(conn, pred_id, "It worked!", True)
+    result = beliefs_extended.resolve_prediction_belief(conn, pred_id, "It worked!", True)
 
     assert result['updated_beliefs'] >= 1
     assert belief_id in result['belief_ids']
@@ -352,12 +352,12 @@ def test_strongest_and_weakest_beliefs(temp_db):
     beliefs_extended.add_belief(conn, "Very weak", 0.15)
 
     # Test strongest
-    strong = beliefs_extended.strongest_beliefs(conn, 2)
+    strong = beliefs_extended.strongest_beliefs_extended(conn, 2)
     assert len(strong) >= 1
     assert strong[0]['confidence'] >= 0.9
 
     # Test weakest
-    weak = beliefs_extended.weakest_beliefs(conn, 2)
+    weak = beliefs_extended.weakest_beliefs_extended(conn, 2)
     assert len(weak) >= 1
     assert weak[0]['confidence'] <= 0.2
 

@@ -97,22 +97,21 @@ elif args.command == 'tier-pass':
 
 
 def phase2_cli_additions():
-    """CLI additions for Phase 2: Passport Credentials."""
+    """CLI additions for Phase 2: Passport Credentials (W3C)."""
     return """
 # Add to cli.py imports section
-from memory_tool.passport import get_passport, display_passport
+from memory_tool.passport_w3c import cmd_passport, cmd_verify_passport
 
 # Add to main() function's subparser section
-passport_parser = subparsers.add_parser('passport', help='Get complete memory passport')
-passport_parser.add_argument('memory_id', type=int, help='Memory ID')
+passport_parser = subparsers.add_parser('passport', help='Generate W3C verifiable credential')
+passport_parser.add_argument('--agent-id', type=str, help='Agent identifier')
+passport_parser.add_argument('--output', type=str, help='Output file for credential')
 
 # Add to command routing section
 elif args.command == 'passport':
-    passport = get_passport(args.memory_id)
-    if passport:
-        display_passport(passport)
-    else:
-        print(f"Memory #{args.memory_id} not found or inactive")
+    conn = get_db()
+    cmd_passport(sys.argv[2:], conn)
+    conn.close()
 """
 
 

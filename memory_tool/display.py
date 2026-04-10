@@ -398,6 +398,16 @@ Search Feedback & Learning (Phase 6):
   memory-tool search-quality                    # Alias for feedback-stats
   memory-tool hot                               # Show most frequently accessed memories (immune to decay)
 
+Drift Detection & Validation (Phase 7 - Reinforced Lies Problem):
+  memory-tool validate scan [--min-access N] [--min-age-days N]
+                                                # Find high-risk memories that may be reinforced lies
+  memory-tool validate confirm <id> [--notes "verified from X"] [--validator user]
+                                                # Mark memory as validated and correct
+  memory-tool validate refute <id> [--notes "this is wrong because Y"] [--validator user]
+                                                # Mark memory as refuted and demote tier
+  memory-tool validate list-unvalidated        # Show unvalidated semantic memories
+  memory-tool validate report                  # Show validation statistics and drift risk summary
+
 Beliefs & Predictions (Phase 7):
   memory-tool believe "<statement>" [--confidence 0.8] [--based-on <id>] [--project X]
                                                 # Create belief with explicit confidence

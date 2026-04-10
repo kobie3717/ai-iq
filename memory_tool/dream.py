@@ -301,12 +301,24 @@ def cmd_dream() -> None:
     logger.info(f"   Demoted to episodic: {demoted}")
     logger.info(f"   Expired working: {expired}")
 
+    # 5.9. Drift Detection (reinforced lies detection)
+    logger.info("⚠️  Phase: Drift Detection...")
+    from .validation import find_drift_candidates
+    drift_candidates = find_drift_candidates(conn, min_access_count=5, min_age_days=30)
+    high_risk = [m for m in drift_candidates if m['drift_risk'] > 0.6]
+    if high_risk:
+        logger.info(f"   ⚠️  {len(high_risk)} high-risk memories need validation (potential reinforced lies)")
+        for c in high_risk[:5]:
+            logger.info(f"      #{c['id']} risk={c['drift_risk']:.2f} {c['content'][:80]}...")
+    else:
+        logger.info(f"   ✓ No high-risk drift detected ({len(drift_candidates)} candidates scanned)")
+
     # 6. Re-export MEMORY.md
     logger.debug("Re-exporting MEMORY.md...")
     _get_export_memory_md()(None)
 
     # 7. Generate dream report and save as memory
-    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated, {tier_results['working_to_episodic']} working→episodic, {tier_results['episodic_to_semantic']} episodic→semantic, {promoted} promoted to semantic, {demoted} demoted to episodic, {expired} working expired from {len(unprocessed)} transcripts"
+    report_summary = f"Dream cycle complete: {total_insights} insights extracted, {auto_merged} memories consolidated, {reconsolidated} near-duplicates reconsolidated, {consol['merged']} duplicates merged, {consol['insights']} patterns found, {consol['pruned']} pruned, {total_dates_normalized} dates normalized, {feedback_results['boosted']} feedback-boosted, {feedback_results['decayed']} feedback-decayed, {feedback_results['flagged']} feedback-flagged, {belief_results['merged']} beliefs merged, {belief_results['predictions_expired']} predictions expired, {belief_results['beliefs_weakened']} beliefs weakened, {belief_results.get('deprecated', 0)} beliefs deprecated, {tier_results['working_to_episodic']} working→episodic, {tier_results['episodic_to_semantic']} episodic→semantic, {promoted} promoted to semantic, {demoted} demoted to episodic, {expired} working expired, {len(high_risk)} high-risk drift candidates detected from {len(unprocessed)} transcripts"
 
     today = datetime.now().strftime('%Y-%m-%d')
     _get_add_memory()(
@@ -331,6 +343,8 @@ def cmd_dream() -> None:
     print(f"   🔮 {belief_results['merged']} beliefs merged / {belief_results['predictions_expired']} predictions expired / {belief_results['beliefs_weakened']} beliefs weakened / {belief_results.get('deprecated', 0)} beliefs deprecated")
     print(f"   🎯 {tier_results['working_to_episodic']} promoted to episodic / {tier_results['episodic_to_semantic']} promoted to semantic")
     print(f"   🔄 {promoted} promoted to semantic / {demoted} demoted to episodic / {expired} working expired")
+    if high_risk:
+        print(f"   ⚠️  {len(high_risk)} high-risk drift candidates need validation (run 'memory-tool validate scan')")
     print(f"   💾 Report saved to memory")
 
 

@@ -98,6 +98,7 @@ def init_db() -> None:
         "wing": "ALTER TABLE memories ADD COLUMN wing TEXT DEFAULT NULL",
         "room": "ALTER TABLE memories ADD COLUMN room TEXT DEFAULT NULL",
         "tier": "ALTER TABLE memories ADD COLUMN tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic'))",
+        "last_validated_at": "ALTER TABLE memories ADD COLUMN last_validated_at TEXT DEFAULT NULL",
     }
 
     # Whitelist for beliefs table migrations
@@ -179,7 +180,8 @@ def init_db() -> None:
             source_memory_ids TEXT DEFAULT NULL,
             wing TEXT DEFAULT NULL,
             room TEXT DEFAULT NULL,
-            tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic'))
+            tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic')),
+            last_validated_at TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -497,6 +499,23 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
         CREATE INDEX IF NOT EXISTS idx_feedback_memory ON feedback(linked_memory_id);
         CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+    """)
+
+    # Drift detection validation table (Phase 7: Reinforced Lies Problem)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS validation_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+            validator TEXT NOT NULL,
+            validation_type TEXT NOT NULL CHECK(validation_type IN ('user', 'external_source', 'llm_check', 'cross_reference')),
+            result TEXT NOT NULL CHECK(result IN ('confirmed', 'refuted', 'uncertain')),
+            notes TEXT,
+            validated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_validation_memory ON validation_log(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_validation_date ON validation_log(validated_at);
+        CREATE INDEX IF NOT EXISTS idx_validation_result ON validation_log(result);
     """)
 
     conn.commit()

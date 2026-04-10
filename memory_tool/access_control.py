@@ -141,7 +141,7 @@ def filter_memories_by_access(
     Filter a list of memory rows based on access control rules.
 
     Args:
-        rows: List of memory dicts (each must have 'wing' and 'room' keys)
+        rows: List of memory dicts or sqlite3.Row objects (each must have 'wing' and 'room' keys)
         passport_credential: Passport credential for access checks
 
     Returns:
@@ -153,8 +153,15 @@ def filter_memories_by_access(
     filtered = []
 
     for row in rows:
-        wing = row.get('wing')
-        room = row.get('room')
+        # Handle both dict and sqlite3.Row objects
+        if hasattr(row, 'keys'):
+            # sqlite3.Row or dict-like object
+            wing = row['wing'] if 'wing' in row.keys() else None
+            room = row['room'] if 'room' in row.keys() else None
+        else:
+            # Fallback to dict access
+            wing = row.get('wing')
+            room = row.get('room')
 
         # No namespace -> general access, always include
         if not wing or not room:
@@ -168,8 +175,9 @@ def filter_memories_by_access(
             filtered.append(row)
         else:
             # Log denied access attempts for security audit
+            mem_id = row['id'] if 'id' in row.keys() else '?'
             logger.debug(
-                f"Access denied to memory #{row.get('id', '?')} "
+                f"Access denied to memory #{mem_id} "
                 f"({wing}.{room}): {reason}"
             )
 

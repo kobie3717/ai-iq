@@ -1,6 +1,7 @@
 """Command-line interface for memory-tool."""
 
 import sys
+import os
 import json
 import sqlite3
 import logging
@@ -114,9 +115,23 @@ def main() -> None:
         wing_filter = flags.get("wing")
         room_filter = flags.get("room")
 
+        # Load passport credential for access control (from --passport flag or MEMORY_PASSPORT env var)
+        passport_cred = None
+        passport_path = flags.get("passport") or os.environ.get("MEMORY_PASSPORT")
+        if passport_path:
+            try:
+                with open(passport_path, 'r') as f:
+                    passport_cred = json.load(f)
+                logger.debug(f"Loaded passport credential from {passport_path}")
+            except FileNotFoundError:
+                logger.warning(f"Passport file not found: {passport_path}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON in passport file: {e}")
+
         rows, search_id, temporal_range = search_memories(
             query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency,
-            project=project_filter, tags=tags_filter, wing=wing_filter, room=room_filter
+            project=project_filter, tags=tags_filter, wing=wing_filter, room=room_filter,
+            passport_credential=passport_cred
         )
 
         # Show temporal filter info if applied
@@ -1362,6 +1377,148 @@ def main() -> None:
             print(f"\n({len(rows)} hot memories)")
         else:
             print("No hot memories yet (need 5+ accesses)")
+
+    elif cmd == "validate" and len(sys.argv) >= 3:
+        from .validation import (
+            find_drift_candidates,
+            mark_validated,
+            mark_refuted,
+            get_unvalidated_semantic,
+            detect_contradictions_in_tier,
+            validation_report
+        )
+
+        action = sys.argv[2]
+        conn = get_db()
+
+        if action == "scan":
+            flags, _ = parse_flags(sys.argv, 3)
+            min_access = int(flags.get("min-access", 5))
+            min_age_days = int(flags.get("min-age-days", 30))
+
+            candidates = find_drift_candidates(conn, min_access, min_age_days)
+
+            if candidates:
+                print("⚠️  Drift Detection: High-Risk Memories Needing Validation")
+                print("=" * 80)
+                print("These memories are frequently accessed but may be wrong (reinforced lies).")
+                print()
+
+                for mem in candidates[:15]:  # Show top 15
+                    risk = mem['drift_risk']
+                    risk_level = "🔴 HIGH" if risk > 0.7 else "🟡 MED" if risk > 0.5 else "🟢 LOW"
+                    content = mem['content'][:60] + "..." if len(mem['content']) > 60 else mem['content']
+
+                    print(f"  #{mem['id']:>3} {risk_level} (risk={risk:.2f}) [{mem['tier']:<8}] {mem['access_count']:>2}x")
+                    print(f"      {content}")
+                    print(f"      Last validated: {mem['last_validated_at'] or 'NEVER'}")
+                    print()
+
+                print(f"Total: {len(candidates)} drift candidates")
+                print("\nActions:")
+                print("  memory-tool validate confirm <id> --notes 'verified from X'")
+                print("  memory-tool validate refute <id> --notes 'this is wrong because Y'")
+            else:
+                print("✓ No drift candidates found. All memories look healthy.")
+
+            conn.close()
+
+        elif action == "confirm" and len(sys.argv) >= 4:
+            memory_id = int(sys.argv[3])
+            flags, _ = parse_flags(sys.argv, 4)
+            notes = flags.get("notes", "")
+            validator = flags.get("validator", "user")
+
+            success = mark_validated(conn, memory_id, validator, "user", "confirmed", notes)
+            if success:
+                print(f"✓ Memory #{memory_id} validated as CONFIRMED")
+            else:
+                print(f"✗ Failed to validate memory #{memory_id}")
+
+            conn.close()
+
+        elif action == "refute" and len(sys.argv) >= 4:
+            memory_id = int(sys.argv[3])
+            flags, _ = parse_flags(sys.argv, 4)
+            notes = flags.get("notes", "")
+            validator = flags.get("validator", "user")
+
+            success = mark_refuted(conn, memory_id, validator, notes)
+            if success:
+                print(f"✓ Memory #{memory_id} marked as REFUTED and demoted")
+            else:
+                print(f"✗ Failed to refute memory #{memory_id}")
+
+            conn.close()
+
+        elif action == "list-unvalidated":
+            unvalidated = get_unvalidated_semantic(conn)
+
+            if unvalidated:
+                print("⚠️  Unvalidated Semantic Memories")
+                print("=" * 80)
+                print("These are 'proven knowledge' that has never been validated.")
+                print()
+
+                for mem in unvalidated[:20]:
+                    content = mem['content'][:60] + "..." if len(mem['content']) > 60 else mem['content']
+                    print(f"  #{mem['id']:>3} [{mem['category']:<10}] {mem['access_count']:>2}x accesses")
+                    print(f"      {content}")
+                    print()
+
+                print(f"Total: {len(unvalidated)} unvalidated semantic memories")
+            else:
+                print("✓ All semantic memories have been validated")
+
+            conn.close()
+
+        elif action == "report":
+            report = validation_report(conn)
+
+            print("📊 Validation Report")
+            print("=" * 80)
+            print()
+
+            # Validation counts
+            if report['validation_counts']:
+                print("Validation Results:")
+                for result, count in report['validation_counts'].items():
+                    print(f"  {result.capitalize()}: {count}")
+                print()
+
+            # Tier stats
+            print("Validation Status by Tier:")
+            for tier in ['semantic', 'episodic', 'working']:
+                if tier in report['tier_stats']:
+                    stats = report['tier_stats'][tier]
+                    pct = stats['pct_validated']
+                    bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
+                    print(f"  {tier.capitalize():<10} [{bar}] {pct:>5.1f}%  ({stats['validated']}/{stats['total']})")
+
+            print()
+            print(f"High-risk memories needing validation: {report['high_risk_count']}")
+            print(f"Total validations performed: {report['total_validations']}")
+
+            conn.close()
+
+        else:
+            print("Usage: memory-tool validate <action> [args]")
+            print("Actions:")
+            print("  scan                      - Show drift candidates with risk scores")
+            print("  confirm <id> --notes X    - Mark memory as validated")
+            print("  refute <id> --notes Y     - Mark memory as wrong and demote")
+            print("  list-unvalidated          - Show unvalidated semantic memories")
+            print("  report                    - Show validation statistics")
+
+    elif cmd == "validate":
+        # Show help if no action specified
+        print("Usage: memory-tool validate <action> [args]")
+        print("Actions:")
+        print("  scan                      - Show drift candidates with risk scores")
+        print("  confirm <id> --notes X    - Mark memory as validated")
+        print("  refute <id> --notes Y     - Mark memory as wrong and demote")
+        print("  list-unvalidated          - Show unvalidated semantic memories")
+        print("  report                    - Show validation statistics")
 
     elif cmd == "believe" and len(sys.argv) >= 3:
         from .beliefs import set_confidence

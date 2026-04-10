@@ -509,7 +509,7 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
 
 
-def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True, project: Optional[str] = None, tags: Optional[str] = None, wing: Optional[str] = None, room: Optional[str] = None) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
+def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True, project: Optional[str] = None, tags: Optional[str] = None, wing: Optional[str] = None, room: Optional[str] = None, passport_credential: Optional[Dict] = None) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
@@ -524,6 +524,9 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
         apply_recency_boost: Apply recency boost to search scores (default: True)
         project: Filter by project name (applied before search)
         tags: Filter by tags (applied before search)
+        wing: Filter by wing namespace (applied before search)
+        room: Filter by room namespace (applied before search)
+        passport_credential: Passport credential for access control filtering
 
     Returns:
         Tuple of (rows, search_id, temporal_range) where:
@@ -755,6 +758,15 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
         """
         fallback_params = [f"%{query}%", f"%{query}%", f"%{query}%"] + all_params_plain
         rows = conn.execute(fallback_query, fallback_params).fetchall()
+
+    # Apply access control filtering if passport provided
+    if passport_credential:
+        from .access_control import filter_memories_by_access
+        before_count = len(rows)
+        rows = filter_memories_by_access(rows, passport_credential)
+        filtered_count = before_count - len(rows)
+        if filtered_count > 0:
+            logger.debug(f"Access control filtered {filtered_count} memories")
 
     # Calculate latency
     latency_ms = int((time.time() - start_time) * 1000)

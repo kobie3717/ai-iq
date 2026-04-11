@@ -32,6 +32,10 @@ MODEL_DIR: Path = Path.home() / ".cache/models/all-MiniLM-L6-v2"
 EMBEDDING_DIM: int = 384
 RRF_K: int = 60  # Reciprocal Rank Fusion constant
 
+# ReasoningBank boost configuration
+REASONING_BOOST_BASE: float = 1.3  # Boost multiplier per confirmed prediction link
+REASONING_BOOST_CAP: float = 1.8  # Maximum total boost to prevent runaway compounding
+
 # Project detection paths (example - customize for your projects)
 PROJECT_PATHS: Dict[str, str] = {
     # Example format:

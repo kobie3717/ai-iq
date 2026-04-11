@@ -720,7 +720,11 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                             scores[mem_id] *= 1.3
                             break  # Only boost once per memory
 
-        # Sort by combined RRF score with recency boost and proof boost
+        # Apply reasoning boost: memories linked to confirmed predictions rank higher
+        from .reasoning import apply_reasoning_boost_to_scores
+        apply_reasoning_boost_to_scores(scores, conn)
+
+        # Sort by combined RRF score with all boosts applied
         ranked_ids = sorted(scores.keys(), key=lambda x: -scores[x])[:20]
 
         # Fetch full rows

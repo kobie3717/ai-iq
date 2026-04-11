@@ -1370,6 +1370,31 @@ def main() -> None:
         else:
             print("No hot memories yet (need 5+ accesses)")
 
+    elif cmd == "reasoning":
+        # Show memories ranked by reasoning boost (ReasoningBank pattern)
+        from .reasoning import list_memories_by_reasoning
+
+        results = list_memories_by_reasoning()
+
+        if results:
+            print("Memories Ranked by Reasoning Boost (confirmed vs refuted predictions)")
+            print("=" * 80)
+            for mem_id, preview, confirmed, refuted, boost in results:
+                status = f"✓{confirmed}" if confirmed > 0 else ""
+                if refuted > 0:
+                    status += f" ✗{refuted}" if status else f"✗{refuted}"
+                if not status:
+                    status = "-"
+                boost_str = f"{boost:.2f}x"
+                print(f"  #{mem_id:>3} {boost_str:>6} [{status:>6}] {preview}")
+            print(f"\n({len(results)} memories with predictions)")
+            print("\nLegend: ✓ = confirmed predictions, ✗ = refuted predictions")
+            from .config import REASONING_BOOST_BASE, REASONING_BOOST_CAP
+            print(f"Boost formula: {REASONING_BOOST_BASE}^confirmed / {REASONING_BOOST_BASE}^refuted, capped at {REASONING_BOOST_CAP}x")
+        else:
+            print("No memories with linked predictions yet")
+            print("\nTo create predictions: memory-tool predict \"prediction text\" --based-on <memory_id>")
+
     elif cmd == "validate" and len(sys.argv) >= 3:
         from .validation import (
             find_drift_candidates,

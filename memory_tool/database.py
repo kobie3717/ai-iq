@@ -99,6 +99,8 @@ def init_db() -> None:
         "room": "ALTER TABLE memories ADD COLUMN room TEXT DEFAULT NULL",
         "tier": "ALTER TABLE memories ADD COLUMN tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic'))",
         "last_validated_at": "ALTER TABLE memories ADD COLUMN last_validated_at TEXT DEFAULT NULL",
+        "agent_id": "ALTER TABLE memories ADD COLUMN agent_id TEXT DEFAULT NULL",
+        "disclosure_condition": "ALTER TABLE memories ADD COLUMN disclosure_condition TEXT DEFAULT NULL",
     }
 
     # Whitelist for beliefs table migrations
@@ -181,7 +183,9 @@ def init_db() -> None:
             wing TEXT DEFAULT NULL,
             room TEXT DEFAULT NULL,
             tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic')),
-            last_validated_at TEXT DEFAULT NULL
+            last_validated_at TEXT DEFAULT NULL,
+            agent_id TEXT DEFAULT NULL,
+            disclosure_condition TEXT DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -218,6 +222,7 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash) WHERE content_hash IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_wing_room ON memories(wing, room) WHERE wing IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_tier ON memories(tier);
+        CREATE INDEX IF NOT EXISTS idx_agent_id ON memories(agent_id) WHERE agent_id IS NOT NULL;
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,

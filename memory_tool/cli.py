@@ -109,6 +109,12 @@ def main() -> None:
         # Recency boost control
         apply_recency = not flags.get("no-recency", False)
 
+        # Reasoning boost control (ReasoningBank feature)
+        apply_reasoning = not flags.get("no-reasoning-boost", False)
+
+        # Reasoning bank filter: show only memories with confirmed predictions
+        reasoning_bank_mode = flags.get("reasoning-bank", False)
+
         # Metadata pre-filters
         project_filter = flags.get("project")
         tags_filter = flags.get("tags")
@@ -130,9 +136,42 @@ def main() -> None:
 
         rows, search_id, temporal_range = search_memories(
             query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency,
-            project=project_filter, tags=tags_filter, wing=wing_filter, room=room_filter,
-            passport_credential=passport_cred
+            reasoning_boost=apply_reasoning, project=project_filter, tags=tags_filter,
+            wing=wing_filter, room=room_filter, passport_credential=passport_cred
         )
+
+        # Apply PPR boost if requested (Upgrade 3)
+        if flags.get("ppr") and rows:
+            from .ppr import ppr_boost_search_results
+            # Convert rows to list of dicts with scores
+            results_with_scores = []
+            for i, r in enumerate(rows):
+                result_dict = dict(r) if hasattr(r, 'keys') else r
+                # Use inverse rank as score (1.0 for top result, decreasing)
+                result_dict['score'] = 1.0 / (i + 1)
+                results_with_scores.append(result_dict)
+
+            # Apply PPR boost
+            ppr_weight = float(flags.get("ppr-weight", "0.3"))
+            boosted = ppr_boost_search_results(results_with_scores, ppr_weight=ppr_weight)
+            rows = boosted
+            print(f"🔗 PPR boost applied (weight: {ppr_weight:.1f})\n")
+
+        # Apply reasoning bank filter if requested
+        if reasoning_bank_mode and rows:
+            from .reasoning import compute_reasoning_score
+            conn = get_db()
+            filtered_rows = []
+            for r in rows:
+                score, details = compute_reasoning_score(conn, r['id'])
+                # Only include memories with confirmed predictions (score > 0.5)
+                if details['confirmed'] > 0:
+                    filtered_rows.append(r)
+            conn.close()
+            original_count = len(rows)
+            rows = filtered_rows
+            if original_count > len(rows):
+                print(f"🧠 ReasoningBank filter: {len(rows)}/{original_count} memories have confirmed predictions\n")
 
         # Show temporal filter info if applied
         if temporal_range:
@@ -367,6 +406,29 @@ def main() -> None:
         print("\nBy source:")
         for s in sources:
             print(f"  {s['source']}: {s['c']}")
+
+        # Context budget stats (Upgrade 5)
+        try:
+            from .context_budget import budget_stats
+            budget_info = budget_stats()
+            if budget_info['total_memories'] > 0:
+                print(f"\nContext Budget:")
+                print(f"  Total tokens: ~{budget_info['total_tokens']:,}")
+                print(f"  Avg tokens/memory: ~{budget_info['avg_tokens']:.1f}")
+                print(f"  Range: {budget_info['min_tokens']} - {budget_info['max_tokens']} tokens")
+        except Exception:
+            pass  # context_budget module might not be available
+
+        # Procedural memory stats (Upgrade 4)
+        try:
+            from .procedures import procedure_stats
+            proc_stats = procedure_stats()
+            if proc_stats['total_procedures'] > 0:
+                print(f"\nProcedural Memory:")
+                print(f"  Total procedures: {proc_stats['total_procedures']}")
+                print(f"  Overall success rate: {proc_stats['overall_success_rate']:.1f}%")
+        except Exception:
+            pass  # procedures module might not be available
 
         # Search quality summary
         try:
@@ -2091,6 +2153,174 @@ def main() -> None:
         conn = get_db()
         cmd_verify_passport(sys.argv[2:], conn)
         conn.close()
+
+    elif cmd == "reasoning" and len(sys.argv) >= 3:
+        from .reasoning import show_reasoning_details
+        conn = get_db()
+        memory_id = int(sys.argv[2])
+        report = show_reasoning_details(conn, memory_id)
+        print(report)
+        conn.close()
+
+    elif cmd == "reasoning-bank":
+        # Show top memories by reasoning boost (proven trajectories)
+        from .reasoning import get_top_reasoning_memories, get_reasoning_statistics
+        conn = get_db()
+
+        # Get statistics
+        stats = get_reasoning_statistics(conn)
+        print("ReasoningBank - Proven Trajectories")
+        print("=" * 70)
+        print(f"Memories with predictions: {stats['total_with_predictions']}")
+        print(f"  Boosted (>1.0x): {stats['boosted']}")
+        print(f"  Penalized (<1.0x): {stats['penalized']}")
+        print(f"  Neutral (=1.0x): {stats['neutral']}")
+        print()
+
+        # Get top memories
+        top_memories = get_top_reasoning_memories(conn, limit=10)
+
+        if top_memories:
+            print("Top 10 Memories by Reasoning Boost:")
+            print("=" * 70)
+            for mem_id, score, boost, details in top_memories:
+                # Get memory content
+                mem = conn.execute("SELECT content, category, project FROM memories WHERE id = ?", (mem_id,)).fetchone()
+                content = mem['content'][:60] + "..." if len(mem['content']) > 60 else mem['content']
+                cat = mem['category'][:10]
+                proj = f"[{mem['project'][:12]}]" if mem['project'] else ""
+
+                # Format prediction stats
+                pred_stats = f"{details['confirmed']}✓ {details['refuted']}✗ {details['open']}○"
+
+                print(f"  #{mem_id:>3} {boost:.2f}x [{cat:<10}]{proj:<14} ({pred_stats}) {content}")
+            print(f"\n({len(top_memories)} proven trajectories)")
+        else:
+            print("No memories with resolved predictions yet.")
+            print("Tip: Create predictions with 'memory-tool predict' and resolve them with 'memory-tool resolve'")
+
+        conn.close()
+
+    # ── Procedural Memory Commands (Upgrade 4) ──
+    elif cmd == "procedure" and len(sys.argv) >= 3:
+        from .procedures import (
+            add_procedure, get_procedure, list_procedures,
+            run_procedure, procedure_succeed, procedure_fail,
+            update_procedure_steps, delete_procedure, procedure_stats
+        )
+
+        subcmd = sys.argv[2]
+
+        if subcmd == "add" and len(sys.argv) >= 5:
+            name = sys.argv[3]
+            steps = sys.argv[4:]
+            flags, step_args = parse_flags(sys.argv, 4)
+            if step_args:
+                # Remaining args after flags are steps
+                success = add_procedure(
+                    name,
+                    step_args,
+                    project=flags.get("project"),
+                    tags=flags.get("tags")
+                )
+                if success:
+                    print(f"✓ Created procedure '{name}' with {len(step_args)} steps")
+                else:
+                    print(f"✗ Procedure '{name}' already exists")
+            else:
+                print("Usage: memory-tool procedure add <name> \"<step1>\" \"<step2>\" ... [--project X] [--tags t1,t2]")
+
+        elif subcmd == "get" and len(sys.argv) >= 4:
+            name = sys.argv[3]
+            proc = get_procedure(name)
+            if proc:
+                print(f"Procedure: {proc['name']}")
+                print(f"Project: {proc['project'] or 'None'}")
+                print(f"Success rate: {proc['success_rate']:.1f}% ({proc['success_count']}✓ / {proc['failure_count']}✗)")
+                print(f"\nSteps:")
+                for i, step in enumerate(proc['steps'], 1):
+                    print(f"  {i}. {step}")
+                if proc['refinements']:
+                    print(f"\nRefinements ({len(proc['refinements'])}):")
+                    for ref in proc['refinements'][-5:]:  # Show last 5
+                        ts = ref['timestamp'][:19]
+                        print(f"  [{ts}] {ref['note']}")
+            else:
+                print(f"Procedure '{name}' not found")
+
+        elif subcmd == "list":
+            flags, _ = parse_flags(sys.argv, 3)
+            procedures = list_procedures(project=flags.get("project"))
+            if procedures:
+                print(f"{'Name':<30} {'Success Rate':<15} {'Executions':<12} {'Project'}")
+                print("-" * 80)
+                for proc in procedures:
+                    total = proc['success_count'] + proc['failure_count']
+                    rate_str = f"{proc['success_rate']:.1f}% ({proc['success_count']}✓/{proc['failure_count']}✗)"
+                    proj = proc['project'] or ""
+                    print(f"{proc['name']:<30} {rate_str:<15} {total:<12} {proj}")
+                print(f"\n({len(procedures)} procedures)")
+            else:
+                print("No procedures found")
+
+        elif subcmd == "run" and len(sys.argv) >= 4:
+            name = sys.argv[3]
+            steps = run_procedure(name)
+            if steps:
+                print(f"Procedure: {name}")
+                print("-" * 60)
+                for i, step in enumerate(steps, 1):
+                    print(f"{i}. {step}")
+                print("\nTip: Mark success with 'memory-tool procedure succeed <name>'")
+                print("     Mark failure with 'memory-tool procedure fail <name> \"<reason>\"'")
+            else:
+                print(f"Procedure '{name}' not found")
+
+        elif subcmd == "succeed" and len(sys.argv) >= 4:
+            name = sys.argv[3]
+            if procedure_succeed(name):
+                print(f"✓ Marked procedure '{name}' as successful")
+            else:
+                print(f"✗ Procedure '{name}' not found")
+
+        elif subcmd == "fail" and len(sys.argv) >= 5:
+            name = sys.argv[3]
+            reason = " ".join(sys.argv[4:])
+            if procedure_fail(name, reason):
+                print(f"✓ Recorded failure for procedure '{name}'")
+            else:
+                print(f"✗ Procedure '{name}' not found")
+
+        elif subcmd == "update" and len(sys.argv) >= 5:
+            name = sys.argv[3]
+            new_steps = sys.argv[4:]
+            if update_procedure_steps(name, new_steps):
+                print(f"✓ Updated procedure '{name}' with {len(new_steps)} steps")
+            else:
+                print(f"✗ Procedure '{name}' not found")
+
+        elif subcmd == "delete" and len(sys.argv) >= 4:
+            name = sys.argv[3]
+            if delete_procedure(name):
+                print(f"✓ Deleted procedure '{name}'")
+            else:
+                print(f"✗ Procedure '{name}' not found")
+
+        elif subcmd == "stats":
+            stats = procedure_stats()
+            print("Procedural Memory Statistics")
+            print("=" * 60)
+            print(f"Total procedures: {stats['total_procedures']}")
+            print(f"Total executions: {stats['total_successes'] + stats['total_failures']}")
+            print(f"  Successes: {stats['total_successes']}")
+            print(f"  Failures: {stats['total_failures']}")
+            print(f"Overall success rate: {stats['overall_success_rate']:.1f}%")
+            if 'best_performer' in stats:
+                print(f"\nBest performer: {stats['best_performer']['name']} ({stats['best_performer']['success_rate']:.1f}%)")
+            if 'most_used' in stats:
+                print(f"Most used: {stats['most_used']['name']} ({stats['most_used']['executions']} executions)")
+        else:
+            print("Usage: memory-tool procedure <add|get|list|run|succeed|fail|update|delete|stats> ...")
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

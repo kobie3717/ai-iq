@@ -142,11 +142,34 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
     except (KeyError, IndexError, TypeError):
         pass
 
+    # Reasoning boost indicator (ReasoningBank feature)
+    reasoning_indicator = ""
+    try:
+        from .reasoning import compute_reasoning_score
+        conn = get_db()
+        score, details = compute_reasoning_score(conn, row['id'])
+        conn.close()
+
+        # Show indicator if memory has confirmed or refuted predictions
+        if details['confirmed'] > 0 or details['refuted'] > 0:
+            if details['confirmed'] > 0 and details['refuted'] == 0:
+                # All confirmed
+                reasoning_indicator = " [✓ confirmed]"
+            elif details['refuted'] > 0 and details['confirmed'] == 0:
+                # All refuted
+                reasoning_indicator = " [✗ refuted]"
+            else:
+                # Mixed results
+                reasoning_indicator = f" [±{details['confirmed']}/{details['refuted']}]"
+    except Exception:
+        # Silently fail if reasoning module not available or DB error
+        pass
+
     # Token estimate (claude-mem style) - always show for progressive disclosure
     tokens = estimate_tokens(row['content'])
     token_str = f" ~{tokens}tok"
 
-    return f"[{row['id']}] {row['category']}{hierarchy}{tier} | {content_preview}{acc}{imp}{proof} {token_str}"
+    return f"[{row['id']}] {row['category']}{hierarchy}{tier} | {content_preview}{acc}{imp}{proof}{reasoning_indicator} {token_str}"
 
 
 

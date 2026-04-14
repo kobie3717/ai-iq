@@ -221,7 +221,8 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
                  expires_at: Optional[str] = None, source: str = "manual",
                  topic_key: Optional[str] = None, derived_from: Optional[str] = None,
                  citations: Optional[str] = None, reasoning: Optional[str] = None,
-                 wing: Optional[str] = None, room: Optional[str] = None, tier: Optional[str] = None) -> Optional[int]:
+                 wing: Optional[str] = None, room: Optional[str] = None, tier: Optional[str] = None,
+                 agent_id: Optional[str] = None, disclosure: Optional[str] = None) -> Optional[int]:
     """
     Smart ingestion with 4-tier similarity handling:
     - SKIP: >85% (duplicate blocked)
@@ -357,9 +358,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             # Insert new, mark old as superseded
             conn = get_db()
             cur = conn.execute(
-                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
+                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure)
             )
             new_id = cur.lastrowid
 
@@ -403,9 +404,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     # CREATE: Normal insert
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
+        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure)
     )
     mem_id = cur.lastrowid
 
@@ -445,7 +446,8 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
                topic_key: Optional[str] = None, skip_dedup: bool = False,
                derived_from: Optional[str] = None, citations: Optional[str] = None,
                reasoning: Optional[str] = None, wing: Optional[str] = None,
-               room: Optional[str] = None, tier: Optional[str] = None) -> Optional[int]:
+               room: Optional[str] = None, tier: Optional[str] = None,
+               agent_id: Optional[str] = None, disclosure: Optional[str] = None) -> Optional[int]:
     """Legacy add_memory wrapper for backward compatibility."""
     if skip_dedup:
         # Old behavior: skip dedup entirely
@@ -474,9 +476,9 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
             mem_tier = classify_tier(memory_row)
 
         cur = conn.execute(
-            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier)
-               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, mem_tier)
+            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, mem_tier, agent_id, disclosure)
         )
         mem_id = cur.lastrowid
         if related_to:
@@ -504,12 +506,12 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
 
         return mem_id
     else:
-        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room, tier)
+        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room, tier, agent_id, disclosure)
 
 
 
 
-def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True, project: Optional[str] = None, tags: Optional[str] = None, wing: Optional[str] = None, room: Optional[str] = None, passport_credential: Optional[Dict] = None) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
+def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = None, until: Optional[str] = None, apply_recency_boost: bool = True, reasoning_boost: bool = True, project: Optional[str] = None, tags: Optional[str] = None, wing: Optional[str] = None, room: Optional[str] = None, passport_credential: Optional[Dict] = None) -> Tuple[List[sqlite3.Row], int, Optional[Tuple[datetime, datetime]]]:
     """
     Search memories with multiple modes:
     - hybrid: Combine FTS and vector search with RRF (default)
@@ -522,6 +524,7 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
         since: ISO date string for filtering memories created/updated after this date
         until: ISO date string for filtering memories created/updated before this date
         apply_recency_boost: Apply recency boost to search scores (default: True)
+        reasoning_boost: Apply ReasoningBank boost based on prediction outcomes (default: True)
         project: Filter by project name (applied before search)
         tags: Filter by tags (applied before search)
         wing: Filter by wing namespace (applied before search)
@@ -720,7 +723,18 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                             scores[mem_id] *= 1.3
                             break  # Only boost once per memory
 
-        # Sort by combined RRF score with recency boost and proof boost
+            # Apply reasoning boost: memories linked to confirmed predictions rank higher
+            if reasoning_boost:
+                try:
+                    from .reasoning import get_reasoning_boosts
+                    reasoning_boosts = get_reasoning_boosts(conn, list(scores.keys()))
+                    for mem_id, r_boost in reasoning_boosts.items():
+                        scores[mem_id] *= r_boost
+                except Exception as e:
+                    # Silently fail if reasoning boost fails (missing predictions table, etc.)
+                    logger.debug(f"Reasoning boost failed: {e}")
+
+        # Sort by combined RRF score with all boosts
         ranked_ids = sorted(scores.keys(), key=lambda x: -scores[x])[:20]
 
         # Fetch full rows

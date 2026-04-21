@@ -86,6 +86,7 @@ def main() -> None:
             wing=flags.get("wing"),
             room=flags.get("room"),
             tier=flags.get("tier"),
+            is_pinned=bool(flags.get("pin")),
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
@@ -253,6 +254,22 @@ def main() -> None:
     elif cmd == "delete" and len(sys.argv) >= 3:
         delete_memory(int(sys.argv[2]))
 
+    elif cmd == "pin" and len(sys.argv) >= 3:
+        mem_id = int(sys.argv[2])
+        conn = get_db()
+        conn.execute("UPDATE memories SET is_pinned = 1 WHERE id = ?", (mem_id,))
+        conn.commit()
+        conn.close()
+        print(f"📌 Memory #{mem_id} pinned (immune to decay/GC)")
+
+    elif cmd == "unpin" and len(sys.argv) >= 3:
+        mem_id = int(sys.argv[2])
+        conn = get_db()
+        conn.execute("UPDATE memories SET is_pinned = 0 WHERE id = ?", (mem_id,))
+        conn.commit()
+        conn.close()
+        print(f"📌 Memory #{mem_id} unpinned")
+
     elif cmd == "tag" and len(sys.argv) >= 4:
         tag_memory(int(sys.argv[2]), sys.argv[3])
 
@@ -317,6 +334,7 @@ def main() -> None:
                    SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) as active,
                    SUM(CASE WHEN stale = 1 AND active = 1 THEN 1 ELSE 0 END) as stale,
                    SUM(CASE WHEN expires_at IS NOT NULL AND expires_at < datetime('now') AND active = 1 THEN 1 ELSE 0 END) as expired,
+                   SUM(CASE WHEN is_pinned = 1 AND active = 1 THEN 1 ELSE 0 END) as pinned,
                    COUNT(DISTINCT project) as projects,
                    COUNT(DISTINCT category) as categories,
                    SUM(access_count) as total_accesses
@@ -348,7 +366,7 @@ def main() -> None:
 
         conn.close()
 
-        print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired)")
+        print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired, {stats['pinned'] or 0} pinned)")
         print(f"Projects: {stats['projects']} | Categories: {stats['categories']}")
         print(f"Relations: {relations} | Snapshots: {snapshots} | Backups: {backup_count}")
         print(f"Topic keys: {topic_keys}")

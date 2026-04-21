@@ -101,6 +101,7 @@ def init_db() -> None:
         "last_validated_at": "ALTER TABLE memories ADD COLUMN last_validated_at TEXT DEFAULT NULL",
         "agent_id": "ALTER TABLE memories ADD COLUMN agent_id TEXT DEFAULT NULL",
         "disclosure_condition": "ALTER TABLE memories ADD COLUMN disclosure_condition TEXT DEFAULT NULL",
+        "is_pinned": "ALTER TABLE memories ADD COLUMN is_pinned INTEGER DEFAULT 0",
     }
 
     # Whitelist for beliefs table migrations
@@ -185,7 +186,8 @@ def init_db() -> None:
             tier TEXT DEFAULT 'episodic' CHECK(tier IN ('working', 'episodic', 'semantic')),
             last_validated_at TEXT DEFAULT NULL,
             agent_id TEXT DEFAULT NULL,
-            disclosure_condition TEXT DEFAULT NULL
+            disclosure_condition TEXT DEFAULT NULL,
+            is_pinned INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS memory_relations (
@@ -223,6 +225,7 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_wing_room ON memories(wing, room) WHERE wing IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_tier ON memories(tier);
         CREATE INDEX IF NOT EXISTS idx_agent_id ON memories(agent_id) WHERE agent_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_pinned ON memories(is_pinned);
 
         CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             content, tags, project, category,

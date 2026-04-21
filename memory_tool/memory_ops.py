@@ -222,7 +222,8 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
                  topic_key: Optional[str] = None, derived_from: Optional[str] = None,
                  citations: Optional[str] = None, reasoning: Optional[str] = None,
                  wing: Optional[str] = None, room: Optional[str] = None, tier: Optional[str] = None,
-                 agent_id: Optional[str] = None, disclosure: Optional[str] = None) -> Optional[int]:
+                 agent_id: Optional[str] = None, disclosure: Optional[str] = None,
+                 is_pinned: bool = False) -> Optional[int]:
     """
     Smart ingestion with 4-tier similarity handling:
     - SKIP: >85% (duplicate blocked)
@@ -358,9 +359,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             # Insert new, mark old as superseded
             conn = get_db()
             cur = conn.execute(
-                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure)
+                """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition, is_pinned)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure, 1 if is_pinned else 0)
             )
             new_id = cur.lastrowid
 
@@ -404,9 +405,9 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     # CREATE: Normal insert
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure)
+        """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition, is_pinned)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure, 1 if is_pinned else 0)
     )
     mem_id = cur.lastrowid
 
@@ -435,6 +436,15 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
     if contradiction_warning:
         logger.warning(contradiction_warning)
 
+    # Circus write-through hook
+    try:
+        from .circus_sync import init_circus_sync
+        from .config import DB_PATH
+        sync = init_circus_sync(str(DB_PATH))
+        sync.auto_publish_on_add(mem_id, content, category, tags, confidence=0.9)
+    except Exception:
+        pass  # Silent fail - don't break local operations
+
     return mem_id
 
 
@@ -447,7 +457,8 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
                derived_from: Optional[str] = None, citations: Optional[str] = None,
                reasoning: Optional[str] = None, wing: Optional[str] = None,
                room: Optional[str] = None, tier: Optional[str] = None,
-               agent_id: Optional[str] = None, disclosure: Optional[str] = None) -> Optional[int]:
+               agent_id: Optional[str] = None, disclosure: Optional[str] = None,
+               is_pinned: bool = False) -> Optional[int]:
     """Legacy add_memory wrapper for backward compatibility."""
     if skip_dedup:
         # Old behavior: skip dedup entirely
@@ -476,9 +487,9 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
             mem_tier = classify_tier(memory_row)
 
         cur = conn.execute(
-            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition)
-               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, mem_tier, agent_id, disclosure)
+            """INSERT INTO memories (category, content, tags, project, priority, accessed_at, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, tier, agent_id, disclosure_condition, is_pinned)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (category, content, tags, project, priority, expires_at, source, topic_key, derived_from, citations, reasoning, content_hash, wing, room, mem_tier, agent_id, disclosure, 1 if is_pinned else 0)
         )
         mem_id = cur.lastrowid
         if related_to:
@@ -504,9 +515,18 @@ def add_memory(category: str, content: str, tags: str = "", project: Optional[st
         if contradiction_warning:
             logger.warning(contradiction_warning)
 
+        # Circus write-through hook
+        try:
+            from .circus_sync import init_circus_sync
+            from .config import DB_PATH
+            sync = init_circus_sync(str(DB_PATH))
+            sync.auto_publish_on_add(mem_id, content, category, tags, confidence=0.9)
+        except Exception:
+            pass  # Silent fail - don't break local operations
+
         return mem_id
     else:
-        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room, tier, agent_id, disclosure)
+        return smart_ingest(category, content, tags, project, priority, related_to, expires_at, source, topic_key, derived_from, citations, reasoning, wing, room, tier, agent_id, disclosure, is_pinned)
 
 
 

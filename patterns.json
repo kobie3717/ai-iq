@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-15T23:06:04.248284+00:00",
+  "pattern_count": 1,
+  "patterns": [
+    {
+      "session_id": "9c89663a",
+      "recorded_at": "2026-04-15T23:06:04.248035+00:00",
+      "context": "nelson scavenge test",
+      "adopt": [
+        "Hull integrity thresholds for token monitoring"
+      ],
+      "avoid": []
+    }
+  ]
+}

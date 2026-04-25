@@ -1,9 +1,9 @@
 """ReasoningBank-style retrieval boost for memories linked to confirmed predictions.
 
 This module implements retrieval boosting based on prediction outcomes:
-- Memories that led to confirmed predictions get a ranking boost (1.3x per link)
-- Memories that led to refuted predictions get a penalty
-- Boost is capped at 1.8x to prevent runaway compounding
+- Memories that led to confirmed predictions get a ranking boost (1.5x per link)
+- Memories that led to refuted predictions get a penalty (0.67x per link)
+- Boost is capped at 2.0x to prevent runaway compounding
 - Links discovered via:
   1. Direct prediction.memory_id
   2. Memory relations table

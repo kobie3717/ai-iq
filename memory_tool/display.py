@@ -419,6 +419,7 @@ Beliefs & Predictions (Phase 7):
                                                 # List beliefs sorted by confidence
   memory-tool predictions [--open|--confirmed|--refuted|--expired]
                                                 # List predictions by status
+  memory-tool reasoning                         # Show memories ranked by ReasoningBank boost (confirmed vs refuted predictions)
 
 Extended Beliefs System (explicit beliefs with evidence tracking):
   memory-tool believe "<statement>" [--confidence 0.5] [--category general] [--source user] [--memory <id>]

@@ -2117,6 +2117,59 @@ def main() -> None:
         cmd_verify_passport(sys.argv[2:], conn)
         conn.close()
 
+    elif cmd == "patterns":
+        from .patterns import add_pattern, list_patterns, brief, get_stats
+        subcmd = sys.argv[2] if len(sys.argv) > 2 else "list"
+        if subcmd == "add":
+            adopt = None
+            avoid = None
+            context = ""
+            args = sys.argv[3:]
+            i = 0
+            while i < len(args):
+                if args[i] == "--adopt" and i + 1 < len(args):
+                    adopt = args[i + 1]; i += 2
+                elif args[i] == "--avoid" and i + 1 < len(args):
+                    avoid = args[i + 1]; i += 2
+                elif args[i] == "--context" and i + 1 < len(args):
+                    context = args[i + 1]; i += 2
+                else:
+                    i += 1
+            if not adopt and not avoid:
+                print("Usage: memory-tool patterns add --adopt \"X\" [--avoid \"Y\"] [--context \"Z\"]")
+                sys.exit(1)
+            rec = add_pattern(adopt=adopt, avoid=avoid, context=context)
+            print(f"✅ Pattern recorded [{rec['session_id']}]")
+            if adopt: print(f"  ADOPT: {adopt}")
+            if avoid: print(f"  AVOID: {avoid}")
+        elif subcmd == "brief":
+            context = sys.argv[3] if len(sys.argv) > 3 else ""
+            print(brief(context=context))
+        elif subcmd == "stats":
+            s = get_stats()
+            print(f"📊 Pattern Store Stats")
+            print(f"  Sessions tracked : {s['total_sessions']}")
+            print(f"  Adopt patterns   : {s['adopt_count']}")
+            print(f"  Avoid patterns   : {s['avoid_count']}")
+            print(f"  Top contexts     : {', '.join(s['top_context_keywords']) or 'none'}")
+            print(f"  Last recorded    : {s['last_recorded'] or 'never'}")
+            print(f"  File             : {s['patterns_file']}")
+        else:  # list
+            last_n = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3].isdigit() else 20
+            rows = list_patterns(last_n=last_n)
+            if not rows:
+                print("No patterns recorded yet.")
+                print("  memory-tool patterns add --adopt \"what worked\" --avoid \"what didn't\"")
+            else:
+                print(f"📚 Last {len(rows)} session patterns (newest first):")
+                for p in rows:
+                    date = p.get("recorded_at", "")[:10]
+                    ctx = f" [{p['context']}]" if p.get("context") else ""
+                    for item in p.get("adopt", []):
+                        print(f"  ✅ {date}{ctx}: {item}")
+                    for item in p.get("avoid", []):
+                        print(f"  ❌ {date}{ctx}: {item}")
+
     elif cmd in ("help", "--help", "-h"):
         print_help()
 

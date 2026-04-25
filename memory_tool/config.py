@@ -33,8 +33,8 @@ EMBEDDING_DIM: int = 384
 RRF_K: int = 60  # Reciprocal Rank Fusion constant
 
 # ReasoningBank boost configuration
-REASONING_BOOST_BASE: float = 1.3  # Boost multiplier per confirmed prediction link
-REASONING_BOOST_CAP: float = 1.8  # Maximum total boost to prevent runaway compounding
+REASONING_BOOST_BASE: float = 1.5  # Boost multiplier per confirmed prediction link (1.5x boost, 0.67x penalty)
+REASONING_BOOST_CAP: float = 2.0  # Maximum total boost to prevent runaway compounding
 
 # Project detection paths (example - customize for your projects)
 PROJECT_PATHS: Dict[str, str] = {

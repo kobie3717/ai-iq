@@ -1,8 +1,9 @@
-# AI-IQ
+# AI-IQ — Self-Hosted AI Agent Memory (Python)
 
-Give your AI long-term memory in 1 command.
+Long-term memory for AI agents. One pip install. No servers, no paywall, no vendor lock-in.
+Graph memory, conflict detection, and semantic search — free, forever.
 
-LLMs forget everything. AI-IQ makes them remember.
+> Python library for AI agent long-term memory. SQLite-based. Works with Claude, GPT-4, Gemini, or any LLM. Mem0 alternative. Zep alternative. No cloud required.
 
 > **Part of the Claw Stack:** AI-IQ is the **memory + credential substrate** of a larger pipeline —
 > **Memory → Credential → Commons → Runtime**. Agents earn W3C Verifiable Credentials through
@@ -72,7 +73,21 @@ See [CLAUDE_CODE_PLUGIN.md](CLAUDE_CODE_PLUGIN.md) for details.
 - **No cloud dependencies** — Works offline, owns your data, zero API keys
 - **Works with any Python agent** — Not locked to Claude, OpenAI, or any vendor
 - **Hybrid search** — Keyword (FTS5) + semantic (vector) + graph traversal
+- **Conflict detection** — Catches contradictions automatically
 - **Memories decay naturally** — FSRS-6 algorithm like human memory
+
+## AI-IQ vs Mem0 vs Zep
+
+| Feature | AI-IQ | Mem0 | Zep |
+|---|---|---|---|
+| Install | `pip install ai-iq` | pip + vector DB + LLM API | Neo4j + FalkorDB + Graphiti |
+| Graph memory | ✅ Free | ❌ $249/mo | ❌ Paywalled |
+| Conflict detection | ✅ Built-in | ❌ None | ❌ None |
+| Self-hostable | ✅ Single SQLite file | ⚠️ Complex setup | ⚠️ 3 systems required |
+| Fact recall | Bayesian scoring | ~17.5% (independent benchmark) | ~58% (disputed) |
+| Open source | ✅ MIT | ⚠️ Core only | ❌ Community edition killed April 2025 |
+| Works offline | ✅ Yes | ❌ No | ❌ No |
+| Price | Free | $49-$249/mo for full features | Paywalled |
 
 ## Advanced Features
 

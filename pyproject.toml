@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-iq"
 version = "5.11.0"
-description = "Give your AI long-term memory in 1 command. SQLite-based, no setup, no servers."
+description = "Self-hosted AI agent memory in one pip install. Graph memory, conflict detection, semantic search — free, no servers required. Mem0 and Zep alternative."
 authors = [
     {name = "Kobus Wentzel", email = "kobie@pop.co.za"}
 ]
@@ -13,12 +13,17 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [
-    "ai", "memory", "context", "sqlite", "rag", "semantic-search",
-    "knowledge-graph", "llm", "claude", "coding-assistant"
+    "ai", "memory", "agent-memory", "ai-agent", "long-term-memory",
+    "graph-memory", "vector-memory", "sqlite", "rag", "semantic-search",
+    "knowledge-graph", "llm", "claude", "openai", "self-hosted",
+    "mem0-alternative", "zep-alternative", "persistent-memory",
+    "ai-memory", "python-memory", "llm-memory", "agent", "chatbot-memory",
+    "conflict-detection", "coding-assistant", "context-management"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -26,6 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Database",
     "Topic :: Text Processing :: Indexing",

@@ -96,6 +96,7 @@ See [docs/REFERENCE.md](docs/REFERENCE.md) for complete documentation:
 - **Passport System** — Complete identity card for any memory (graph connections, provenance chain, access patterns, confidence score)
 - **Reflexion Self-Improvement** — Learn from mistakes with structured reflections (20-40% task improvement)
 - **Beliefs & Predictions** — Confidence tracking with Bayesian updates
+- **ReasoningBank Boost** — Successful reasoning (confirmed predictions) ranks higher in retrieval (inspired by ruvnet/ruflo)
 - **Knowledge Graph** — Entities, relationships, spreading activation
 - **Dream Mode** — REM-like consolidation (dedup, conflict detection)
 - **Identity Layer** — Auto-discovers behavioral traits

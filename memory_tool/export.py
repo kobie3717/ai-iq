@@ -277,10 +277,11 @@ def run_decay() -> Dict[str, int]:
     now = datetime.now()
     changes = {"stale": 0, "deprioritized": 0, "expired": 0}
 
-    # Expire items past their expiry date (keep existing logic)
+    # Expire items past their expiry date (keep existing logic, but skip pinned)
     cur = conn.execute("""
         UPDATE memories SET active = 0, stale = 0
         WHERE active = 1 AND expires_at IS NOT NULL AND expires_at < datetime('now')
+        AND is_pinned = 0
     """)
     changes["expired"] = cur.rowcount
 
@@ -288,12 +289,14 @@ def run_decay() -> Dict[str, int]:
     # Semantic tier: immune to decay
     # Episodic tier: decay after 30 days (existing behavior)
     # Working tier: decay after 1 day
+    # Pinned memories: immune to decay
     cur = conn.execute("""
-        SELECT id, fsrs_stability, last_accessed_at, updated_at, category, tier, created_at
+        SELECT id, fsrs_stability, last_accessed_at, updated_at, category, tier, created_at, is_pinned
         FROM memories
         WHERE active = 1 AND stale = 0
         AND category NOT IN ('preference', 'project')
         AND tier != 'semantic'
+        AND is_pinned = 0
     """)
 
     for row in cur.fetchall():
@@ -362,7 +365,7 @@ def get_stale() -> List[sqlite3.Row]:
 def garbage_collect(days: int = 180) -> None:
     conn = get_db()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-    cur = conn.execute("DELETE FROM memories WHERE active = 0 AND updated_at < ?", (cutoff,))
+    cur = conn.execute("DELETE FROM memories WHERE active = 0 AND updated_at < ? AND is_pinned = 0", (cutoff,))
     count = cur.rowcount
     conn.execute("""
         DELETE FROM memory_relations

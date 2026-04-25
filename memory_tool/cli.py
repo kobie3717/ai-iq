@@ -86,6 +86,7 @@ def main() -> None:
             wing=flags.get("wing"),
             room=flags.get("room"),
             tier=flags.get("tier"),
+            is_pinned=bool(flags.get("pin")),
         )
 
     elif cmd == "search" and len(sys.argv) >= 3:
@@ -109,6 +110,12 @@ def main() -> None:
         # Recency boost control
         apply_recency = not flags.get("no-recency", False)
 
+        # Reasoning boost control (ReasoningBank feature)
+        apply_reasoning = not flags.get("no-reasoning-boost", False)
+
+        # Reasoning bank filter: show only memories with confirmed predictions
+        reasoning_bank_mode = flags.get("reasoning-bank", False)
+
         # Metadata pre-filters
         project_filter = flags.get("project")
         tags_filter = flags.get("tags")
@@ -130,9 +137,42 @@ def main() -> None:
 
         rows, search_id, temporal_range = search_memories(
             query, mode=search_mode, since=since, until=until, apply_recency_boost=apply_recency,
-            project=project_filter, tags=tags_filter, wing=wing_filter, room=room_filter,
-            passport_credential=passport_cred
+            reasoning_boost=apply_reasoning, project=project_filter, tags=tags_filter,
+            wing=wing_filter, room=room_filter, passport_credential=passport_cred
         )
+
+        # Apply PPR boost if requested (Upgrade 3)
+        if flags.get("ppr") and rows:
+            from .ppr import ppr_boost_search_results
+            # Convert rows to list of dicts with scores
+            results_with_scores = []
+            for i, r in enumerate(rows):
+                result_dict = dict(r) if hasattr(r, 'keys') else r
+                # Use inverse rank as score (1.0 for top result, decreasing)
+                result_dict['score'] = 1.0 / (i + 1)
+                results_with_scores.append(result_dict)
+
+            # Apply PPR boost
+            ppr_weight = float(flags.get("ppr-weight", "0.3"))
+            boosted = ppr_boost_search_results(results_with_scores, ppr_weight=ppr_weight)
+            rows = boosted
+            print(f"🔗 PPR boost applied (weight: {ppr_weight:.1f})\n")
+
+        # Apply reasoning bank filter if requested
+        if reasoning_bank_mode and rows:
+            from .reasoning import compute_reasoning_score
+            conn = get_db()
+            filtered_rows = []
+            for r in rows:
+                score, details = compute_reasoning_score(conn, r['id'])
+                # Only include memories with confirmed predictions (score > 0.5)
+                if details['confirmed'] > 0:
+                    filtered_rows.append(r)
+            conn.close()
+            original_count = len(rows)
+            rows = filtered_rows
+            if original_count > len(rows):
+                print(f"🧠 ReasoningBank filter: {len(rows)}/{original_count} memories have confirmed predictions\n")
 
         # Show temporal filter info if applied
         if temporal_range:
@@ -214,6 +254,22 @@ def main() -> None:
     elif cmd == "delete" and len(sys.argv) >= 3:
         delete_memory(int(sys.argv[2]))
 
+    elif cmd == "pin" and len(sys.argv) >= 3:
+        mem_id = int(sys.argv[2])
+        conn = get_db()
+        conn.execute("UPDATE memories SET is_pinned = 1 WHERE id = ?", (mem_id,))
+        conn.commit()
+        conn.close()
+        print(f"📌 Memory #{mem_id} pinned (immune to decay/GC)")
+
+    elif cmd == "unpin" and len(sys.argv) >= 3:
+        mem_id = int(sys.argv[2])
+        conn = get_db()
+        conn.execute("UPDATE memories SET is_pinned = 0 WHERE id = ?", (mem_id,))
+        conn.commit()
+        conn.close()
+        print(f"📌 Memory #{mem_id} unpinned")
+
     elif cmd == "tag" and len(sys.argv) >= 4:
         tag_memory(int(sys.argv[2]), sys.argv[3])
 
@@ -278,6 +334,7 @@ def main() -> None:
                    SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) as active,
                    SUM(CASE WHEN stale = 1 AND active = 1 THEN 1 ELSE 0 END) as stale,
                    SUM(CASE WHEN expires_at IS NOT NULL AND expires_at < datetime('now') AND active = 1 THEN 1 ELSE 0 END) as expired,
+                   SUM(CASE WHEN is_pinned = 1 AND active = 1 THEN 1 ELSE 0 END) as pinned,
                    COUNT(DISTINCT project) as projects,
                    COUNT(DISTINCT category) as categories,
                    SUM(access_count) as total_accesses
@@ -309,7 +366,7 @@ def main() -> None:
 
         conn.close()
 
-        print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired)")
+        print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired, {stats['pinned'] or 0} pinned)")
         print(f"Projects: {stats['projects']} | Categories: {stats['categories']}")
         print(f"Relations: {relations} | Snapshots: {snapshots} | Backups: {backup_count}")
         print(f"Topic keys: {topic_keys}")
@@ -367,6 +424,29 @@ def main() -> None:
         print("\nBy source:")
         for s in sources:
             print(f"  {s['source']}: {s['c']}")
+
+        # Context budget stats (Upgrade 5)
+        try:
+            from .context_budget import budget_stats
+            budget_info = budget_stats()
+            if budget_info['total_memories'] > 0:
+                print(f"\nContext Budget:")
+                print(f"  Total tokens: ~{budget_info['total_tokens']:,}")
+                print(f"  Avg tokens/memory: ~{budget_info['avg_tokens']:.1f}")
+                print(f"  Range: {budget_info['min_tokens']} - {budget_info['max_tokens']} tokens")
+        except Exception:
+            pass  # context_budget module might not be available
+
+        # Procedural memory stats (Upgrade 4)
+        try:
+            from .procedures import procedure_stats
+            proc_stats = procedure_stats()
+            if proc_stats['total_procedures'] > 0:
+                print(f"\nProcedural Memory:")
+                print(f"  Total procedures: {proc_stats['total_procedures']}")
+                print(f"  Overall success rate: {proc_stats['overall_success_rate']:.1f}%")
+        except Exception:
+            pass  # procedures module might not be available
 
         # Search quality summary
         try:

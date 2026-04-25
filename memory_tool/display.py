@@ -56,6 +56,12 @@ def format_row(row: sqlite3.Row) -> str:
         pass
 
     stale = " [STALE]" if row["stale"] else ""
+    pinned = ""
+    try:
+        if 'is_pinned' in row.keys() and row["is_pinned"]:
+            pinned = " 📌"
+    except (KeyError, TypeError):
+        pass
     acc = f" acc:{row['access_count']}" if row["access_count"] else ""
     exp = ""
     if row["expires_at"]:
@@ -88,7 +94,7 @@ def format_row(row: sqlite3.Row) -> str:
             derived = f" derived:{row['derived_from']}"
     except (KeyError, IndexError, TypeError):
         pass
-    return (f"  #{row['id']} [{row['category']}]{proj}{hierarchy}{tags}{acc}{stale}{exp}{src}{tier}{key}{rev}{derived}"
+    return (f"  #{row['id']} [{row['category']}]{proj}{hierarchy}{tags}{acc}{stale}{pinned}{exp}{src}{tier}{key}{rev}{derived}"
             f" ({row['updated_at'][:10]})\n    {row['content']}")
 
 
@@ -142,11 +148,42 @@ def format_row_compact(row: sqlite3.Row, show_tokens: bool = True) -> str:
     except (KeyError, IndexError, TypeError):
         pass
 
+    # Pinned indicator
+    pinned = ""
+    try:
+        if 'is_pinned' in row.keys() and row["is_pinned"]:
+            pinned = " 📌"
+    except (KeyError, TypeError):
+        pass
+
+    # Reasoning boost indicator (ReasoningBank feature)
+    reasoning_indicator = ""
+    try:
+        from .reasoning import compute_reasoning_score
+        conn = get_db()
+        score, details = compute_reasoning_score(conn, row['id'])
+        conn.close()
+
+        # Show indicator if memory has confirmed or refuted predictions
+        if details['confirmed'] > 0 or details['refuted'] > 0:
+            if details['confirmed'] > 0 and details['refuted'] == 0:
+                # All confirmed
+                reasoning_indicator = " [✓ confirmed]"
+            elif details['refuted'] > 0 and details['confirmed'] == 0:
+                # All refuted
+                reasoning_indicator = " [✗ refuted]"
+            else:
+                # Mixed results
+                reasoning_indicator = f" [±{details['confirmed']}/{details['refuted']}]"
+    except Exception:
+        # Silently fail if reasoning module not available or DB error
+        pass
+
     # Token estimate (claude-mem style) - always show for progressive disclosure
     tokens = estimate_tokens(row['content'])
     token_str = f" ~{tokens}tok"
 
-    return f"[{row['id']}] {row['category']}{hierarchy}{tier} | {content_preview}{acc}{imp}{proof} {token_str}"
+    return f"[{row['id']}] {row['category']}{hierarchy}{tier}{pinned} | {content_preview}{acc}{imp}{proof}{reasoning_indicator} {token_str}"
 
 
 
@@ -209,6 +246,11 @@ def print_memory_full(mem_id: int) -> None:
 
     if mem["stale"]:
         print(f"Status: STALE")
+    try:
+        if 'is_pinned' in mem.keys() and mem["is_pinned"]:
+            print(f"Status: PINNED 📌 (immune to decay/GC)")
+    except (KeyError, TypeError):
+        pass
     if mem["expires_at"]:
         print(f"Expires: {mem['expires_at']}")
     print(f"Source: {mem['source']}")
@@ -308,13 +350,15 @@ Phase 3: Graph intelligence with entities, relationships, facts, and spreading a
 Phase 6: FSRS-6 spaced repetition model for intelligent memory decay and retention tracking.
 
 Usage:
-  memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"] [--wing X] [--room Y]
+  memory-tool add <category> <content> [--tags t1,t2] [--project X] [--priority N] [--related ID] [--expires YYYY-MM-DD] [--key topic-key] [--derived-from ID1,ID2] [--citations "URL1;path2"] [--reasoning "why"] [--wing X] [--room Y] [--pin]
   memory-tool search <query> [--full] [--semantic] [--keyword] [--budget N] [--project X] [--tags X] [--wing X] [--room Y]  # Hybrid search (default), --semantic for semantic-only, --keyword for FTS-only, --budget to limit tokens, --project/--tags/--wing/--room to pre-filter
   memory-tool get <id>                          # Show full detail for single memory
   memory-tool passport <id>                     # Show memory's complete identity card (graph, relations, provenance, score)
   memory-tool list [--category X] [--project X] [--tag X] [--stale] [--expired] [--wing X] [--room Y]
   memory-tool update <id> <content>
   memory-tool delete <id>
+  memory-tool pin <id>                          # Pin memory (immune to decay/GC)
+  memory-tool unpin <id>                        # Unpin memory
   memory-tool tag <id> <tags>
   memory-tool relate <id1> <id2> [type]         # Link related memories
   memory-tool conflicts                         # Find potential duplicate memories

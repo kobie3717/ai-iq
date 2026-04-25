@@ -375,9 +375,10 @@ def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
     results = {"merged": 0, "insights": 0, "connections": 0, "pruned": 0}
 
     # Phase 1: Find and merge near-duplicate memories (>85% content overlap)
+    # Skip pinned memories from consolidation
     active = conn.execute("""
         SELECT id, content, category, project, tags, imp_score, access_count, proof_count, source_memory_ids
-        FROM memories WHERE active = 1
+        FROM memories WHERE active = 1 AND is_pinned = 0
         ORDER BY imp_score DESC
     """).fetchall()
 
@@ -498,11 +499,13 @@ def consolidate_memories(conn: sqlite3.Connection) -> Dict[str, int]:
         pass  # Consolidation phase failed
 
     # Phase 4: Prune low-value stale memories (retention < 20% AND importance < 2)
+    # Skip pinned memories from pruning
     now = datetime.now()
     stale = conn.execute("""
         SELECT id, fsrs_stability, last_accessed_at, updated_at, imp_score
         FROM memories WHERE active = 1 AND stale = 1
         AND category NOT IN ('preference', 'decision')
+        AND is_pinned = 0
     """).fetchall()
 
     for s in stale:
@@ -531,9 +534,10 @@ def reconsolidate_memories(conn: sqlite3.Connection) -> int:
     This phase happens after standard dedup but catches memories that are almost identical
     but have minor differences (like updated timestamps, slightly different wording, etc.)."""
 
+    # Skip pinned memories from reconsolidation
     active = conn.execute("""
         SELECT id, content, category, project, tags, imp_score, access_count
-        FROM memories WHERE active = 1
+        FROM memories WHERE active = 1 AND is_pinned = 0
         ORDER BY imp_score DESC
     """).fetchall()
 

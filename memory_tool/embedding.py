@@ -2,7 +2,8 @@
 
 import sys
 import sqlite3
-from typing import Optional, List, Tuple, Any
+import math
+from typing import Optional, List, Tuple, Any, Iterable
 from .config import MODEL_DIR, EMBEDDING_DIM, RRF_K, get_logger
 
 logger = get_logger(__name__)
@@ -17,6 +18,23 @@ try:
     _VEC_LIBS_AVAILABLE = True
 except ImportError:
     _VEC_LIBS_AVAILABLE = False
+
+
+def sanitize_and_normalize_embedding(vec: Iterable[float]) -> List[float]:
+    """
+    Defensive pre-cosine: replace NaN/Inf with 0.0, then L2-normalize.
+
+    Empty or all-zero vectors return as-is (no division by zero).
+    Returns a fresh list.
+    """
+    cleaned = [
+        0.0 if (v is None or math.isnan(v) or math.isinf(v)) else float(v)
+        for v in vec
+    ]
+    norm = math.sqrt(sum(v * v for v in cleaned))
+    if norm == 0.0:
+        return cleaned
+    return [v / norm for v in cleaned]
 
 
 def has_vec_support() -> bool:
@@ -92,8 +110,12 @@ def embed_text(text: str) -> Optional[bytes]:
         counts = np.clip(mask_expanded.sum(axis=1), 1e-9, None)
         embeddings = summed / counts
 
+        # Defensive scrub before normalize: replace NaN/Inf with 0
+        embeddings = np.nan_to_num(embeddings, nan=0.0, posinf=0.0, neginf=0.0)
+
         # Normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms = np.clip(norms, 1e-9, None)  # Prevent division by zero
         embeddings = (embeddings / norms).astype(np.float32)
 
         # Return as bytes
@@ -132,8 +154,12 @@ def embed_texts_batch(texts: List[str]) -> List[Optional[bytes]]:
         counts = np.clip(mask_expanded.sum(axis=1), 1e-9, None)
         embeddings = summed / counts
 
+        # Defensive scrub before normalize: replace NaN/Inf with 0
+        embeddings = np.nan_to_num(embeddings, nan=0.0, posinf=0.0, neginf=0.0)
+
         # Normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms = np.clip(norms, 1e-9, None)  # Prevent division by zero
         embeddings = (embeddings / norms).astype(np.float32)
 
         # Return as list of bytes

@@ -96,6 +96,9 @@ def main() -> None:
         flags, query_parts = parse_flags(sys.argv, 2)
         query = " ".join(query_parts)
 
+        # Check for JSON output mode
+        json_output = flags.get("json", False)
+
         # Determine search mode
         search_mode = "hybrid"  # default
         if flags.get("semantic"):
@@ -156,7 +159,8 @@ def main() -> None:
             ppr_weight = float(flags.get("ppr-weight", "0.3"))
             boosted = ppr_boost_search_results(results_with_scores, ppr_weight=ppr_weight)
             rows = boosted
-            print(f"🔗 PPR boost applied (weight: {ppr_weight:.1f})\n")
+            if not json_output:
+                print(f"🔗 PPR boost applied (weight: {ppr_weight:.1f})\n")
 
         # Apply reasoning bank filter if requested
         if reasoning_bank_mode and rows:
@@ -171,15 +175,21 @@ def main() -> None:
             conn.close()
             original_count = len(rows)
             rows = filtered_rows
-            if original_count > len(rows):
+            if original_count > len(rows) and not json_output:
                 print(f"🧠 ReasoningBank filter: {len(rows)}/{original_count} memories have confirmed predictions\n")
 
         # Show temporal filter info if applied
-        if temporal_range:
+        if temporal_range and not json_output:
             start, end = temporal_range
             print(f"📅 Filtered to: {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}\n")
 
-        if rows:
+        # JSON output mode
+        if json_output:
+            output = []
+            for r in rows:
+                output.append(dict(r))
+            print(json.dumps(output, ensure_ascii=False))
+        elif rows:
             full_mode = flags.get("full", False)
             show_tokens = flags.get("tokens", False)  # --tokens flag to show individual estimates
 
@@ -224,16 +234,30 @@ def main() -> None:
             # Output search_id for feedback tracking (can be parsed by hooks)
             print(f"\n[search_id:{search_id}]")
         else:
-            print("No memories found.")
+            if not json_output:
+                print("No memories found.")
 
     elif cmd == "get" and len(sys.argv) >= 3:
-        print_memory_full(int(sys.argv[2]))
+        flags, args = parse_flags(sys.argv, 2)
+        mem_id = int(args[0]) if args else int(sys.argv[2])
+        json_output = flags.get("json", False)
+
+        if json_output:
+            mem = get_memory(mem_id)
+            if mem:
+                print(json.dumps(dict(mem), ensure_ascii=False))
+            else:
+                print(json.dumps({"error": "Memory not found"}, ensure_ascii=False))
+                sys.exit(1)
+        else:
+            print_memory_full(mem_id)
 
     # Legacy passport <memory_id> command removed - use 'get <memory_id>' for memory details
     # or 'passport --agent-id <id>' for W3C agent credentials
 
     elif cmd == "list":
         flags, _ = parse_flags(sys.argv, 2)
+        json_output = flags.get("json", False)
         rows = list_memories(
             category=flags.get("category"),
             project=flags.get("project"),
@@ -244,9 +268,13 @@ def main() -> None:
             wing=flags.get("wing"),
             room=flags.get("room"),
         )
-        for r in rows:
-            print(format_row(r))
-        print(f"\n({len(rows)} memories)")
+        if json_output:
+            output = [dict(r) for r in rows]
+            print(json.dumps(output, ensure_ascii=False))
+        else:
+            for r in rows:
+                print(format_row(r))
+            print(f"\n({len(rows)} memories)")
 
     elif cmd == "update" and len(sys.argv) >= 4:
         update_memory(int(sys.argv[2]), " ".join(sys.argv[3:]))
@@ -328,6 +356,9 @@ def main() -> None:
         print(f"Exported to {MEMORY_MD_PATH}{focus}")
 
     elif cmd == "stats":
+        flags, _ = parse_flags(sys.argv, 2)
+        json_output = flags.get("json", False)
+
         conn = get_db()
         stats = conn.execute("""
             SELECT COUNT(*) as total,
@@ -364,47 +395,7 @@ def main() -> None:
         # Graph stats
         g_stats = graph_stats()
 
-        conn.close()
-
-        print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired, {stats['pinned'] or 0} pinned)")
-        print(f"Projects: {stats['projects']} | Categories: {stats['categories']}")
-        print(f"Relations: {relations} | Snapshots: {snapshots} | Backups: {backup_count}")
-        print(f"Topic keys: {topic_keys}")
-        print(f"Total accesses: {stats['total_accesses'] or 0}")
-        print(f"Graph: {g_stats['entities']} entities, {g_stats['relationships']} relationships, {g_stats['facts']} facts, {g_stats['memory_links']} memory links")
-
-        # Vector search status
-        if has_vec_support():
-            vec_pct = (vec_indexed / stats['active'] * 100) if stats['active'] > 0 else 0
-            print(f"Vector index: {vec_indexed}/{stats['active']} embeddings ({vec_pct:.0f}%)")
-        else:
-            print("Vector index: Not available (install sqlite-vec, onnxruntime, tokenizers, numpy)")
-        # Bridge status
-        sync_state = load_sync_state()
-        if sync_state.get('last_sync'):
-            last_sync = sync_state['last_sync'][:16]
-            openclaw_files = len(list(OPENCLAW_MEMORY_DIR.glob("*.md"))) if OPENCLAW_MEMORY_DIR.exists() else 0
-            print(f"Bridge: last sync {last_sync}, {openclaw_files} OpenClaw files")
-        else:
-            print("Bridge: never synced (run 'memory-tool sync')")
-
-        # Corrections status
-        conn = get_db()
-        try:
-            corrections_total = conn.execute("SELECT COUNT(*) as c FROM corrections").fetchone()["c"]
-            corrections_pending = conn.execute("SELECT COUNT(*) as c FROM corrections WHERE status = 'pending'").fetchone()["c"]
-            if corrections_total:
-                print(f"Corrections: {corrections_total} total ({corrections_pending} pending)")
-        except sqlite3.OperationalError:
-            pass  # corrections table might not exist in older versions
-        conn.close()
-
-        print("\nBy category:")
-        for c in cats:
-            print(f"  {c['category']}: {c['count']} (accessed {c['accesses'] or 0}x)")
-
         # Tier breakdown
-        conn = get_db()
         tiers = conn.execute("""
             SELECT tier, COUNT(*) as count, SUM(access_count) as accesses
             FROM memories WHERE active = 1 GROUP BY tier ORDER BY
@@ -414,50 +405,152 @@ def main() -> None:
                 WHEN 'working' THEN 3
             END
         """).fetchall()
+
+        # Corrections status
+        corrections_total = 0
+        corrections_pending = 0
+        try:
+            corrections_total = conn.execute("SELECT COUNT(*) as c FROM corrections").fetchone()["c"]
+            corrections_pending = conn.execute("SELECT COUNT(*) as c FROM corrections WHERE status = 'pending'").fetchone()["c"]
+        except sqlite3.OperationalError:
+            pass  # corrections table might not exist in older versions
+
         conn.close()
 
-        if tiers:
-            print("\nBy tier:")
-            for t in tiers:
-                print(f"  {t['tier']}: {t['count']} (accessed {t['accesses'] or 0}x)")
+        # Build JSON object if needed
+        if json_output:
+            output = {
+                "total": stats['total'],
+                "active": stats['active'],
+                "stale": stats['stale'],
+                "expired": stats['expired'] or 0,
+                "pinned": stats['pinned'] or 0,
+                "projects": stats['projects'],
+                "categories": stats['categories'],
+                "total_accesses": stats['total_accesses'] or 0,
+                "relations": relations,
+                "snapshots": snapshots,
+                "backups": backup_count,
+                "topic_keys": topic_keys,
+                "vector_indexed": vec_indexed,
+                "vector_available": has_vec_support(),
+                "graph": {
+                    "entities": g_stats['entities'],
+                    "relationships": g_stats['relationships'],
+                    "facts": g_stats['facts'],
+                    "memory_links": g_stats['memory_links']
+                },
+                "by_category": [dict(c) for c in cats],
+                "by_tier": [dict(t) for t in tiers],
+                "by_source": [dict(s) for s in sources],
+                "corrections": {
+                    "total": corrections_total,
+                    "pending": corrections_pending
+                }
+            }
 
-        print("\nBy source:")
-        for s in sources:
-            print(f"  {s['source']}: {s['c']}")
+            # Add optional stats if available
+            try:
+                from .context_budget import budget_stats
+                budget_info = budget_stats()
+                if budget_info['total_memories'] > 0:
+                    output['context_budget'] = budget_info
+            except Exception:
+                pass
 
-        # Context budget stats (Upgrade 5)
-        try:
-            from .context_budget import budget_stats
-            budget_info = budget_stats()
-            if budget_info['total_memories'] > 0:
-                print(f"\nContext Budget:")
-                print(f"  Total tokens: ~{budget_info['total_tokens']:,}")
-                print(f"  Avg tokens/memory: ~{budget_info['avg_tokens']:.1f}")
-                print(f"  Range: {budget_info['min_tokens']} - {budget_info['max_tokens']} tokens")
-        except Exception:
-            pass  # context_budget module might not be available
+            try:
+                from .procedures import procedure_stats
+                proc_stats = procedure_stats()
+                if proc_stats['total_procedures'] > 0:
+                    output['procedural'] = proc_stats
+            except Exception:
+                pass
 
-        # Procedural memory stats (Upgrade 4)
-        try:
-            from .procedures import procedure_stats
-            proc_stats = procedure_stats()
-            if proc_stats['total_procedures'] > 0:
-                print(f"\nProcedural Memory:")
-                print(f"  Total procedures: {proc_stats['total_procedures']}")
-                print(f"  Overall success rate: {proc_stats['overall_success_rate']:.1f}%")
-        except Exception:
-            pass  # procedures module might not be available
+            try:
+                from .feedback import get_search_quality_stats
+                search_stats = get_search_quality_stats()
+                if search_stats['hit_rate_all']['searches'] > 0:
+                    output['search_quality'] = {
+                        "hit_rate_7d": search_stats['hit_rate_7d'],
+                        "hit_rate_30d": search_stats['hit_rate_30d'],
+                        "hit_rate_all": search_stats['hit_rate_all']
+                    }
+            except Exception:
+                pass
 
-        # Search quality summary
-        try:
-            from .feedback import get_search_quality_stats
-            search_stats = get_search_quality_stats()
-            if search_stats['hit_rate_all']['searches'] > 0:
-                print(f"\nSearch Quality:")
-                print(f"  Hit rate (7d): {search_stats['hit_rate_7d']['rate']:.0%} ({search_stats['hit_rate_7d']['searches']} searches)")
-                print(f"  Hit rate (all): {search_stats['hit_rate_all']['rate']:.0%} ({search_stats['hit_rate_all']['searches']} searches)")
-        except Exception:
-            pass  # Feedback module might not be available
+            print(json.dumps(output, ensure_ascii=False))
+        else:
+            print(f"Memories: {stats['total']} total ({stats['active']} active, {stats['stale']} stale, {stats['expired'] or 0} expired, {stats['pinned'] or 0} pinned)")
+            print(f"Projects: {stats['projects']} | Categories: {stats['categories']}")
+            print(f"Relations: {relations} | Snapshots: {snapshots} | Backups: {backup_count}")
+            print(f"Topic keys: {topic_keys}")
+            print(f"Total accesses: {stats['total_accesses'] or 0}")
+            print(f"Graph: {g_stats['entities']} entities, {g_stats['relationships']} relationships, {g_stats['facts']} facts, {g_stats['memory_links']} memory links")
+
+            # Vector search status
+            if has_vec_support():
+                vec_pct = (vec_indexed / stats['active'] * 100) if stats['active'] > 0 else 0
+                print(f"Vector index: {vec_indexed}/{stats['active']} embeddings ({vec_pct:.0f}%)")
+            else:
+                print("Vector index: Not available (install sqlite-vec, onnxruntime, tokenizers, numpy)")
+            # Bridge status
+            sync_state = load_sync_state()
+            if sync_state.get('last_sync'):
+                last_sync = sync_state['last_sync'][:16]
+                openclaw_files = len(list(OPENCLAW_MEMORY_DIR.glob("*.md"))) if OPENCLAW_MEMORY_DIR.exists() else 0
+                print(f"Bridge: last sync {last_sync}, {openclaw_files} OpenClaw files")
+            else:
+                print("Bridge: never synced (run 'memory-tool sync')")
+
+            if corrections_total:
+                print(f"Corrections: {corrections_total} total ({corrections_pending} pending)")
+
+            print("\nBy category:")
+            for c in cats:
+                print(f"  {c['category']}: {c['count']} (accessed {c['accesses'] or 0}x)")
+
+            if tiers:
+                print("\nBy tier:")
+                for t in tiers:
+                    print(f"  {t['tier']}: {t['count']} (accessed {t['accesses'] or 0}x)")
+
+            print("\nBy source:")
+            for s in sources:
+                print(f"  {s['source']}: {s['c']}")
+
+            # Context budget stats (Upgrade 5)
+            try:
+                from .context_budget import budget_stats
+                budget_info = budget_stats()
+                if budget_info['total_memories'] > 0:
+                    print(f"\nContext Budget:")
+                    print(f"  Total tokens: ~{budget_info['total_tokens']:,}")
+                    print(f"  Avg tokens/memory: ~{budget_info['avg_tokens']:.1f}")
+                    print(f"  Range: {budget_info['min_tokens']} - {budget_info['max_tokens']} tokens")
+            except Exception:
+                pass  # context_budget module might not be available
+
+            # Procedural memory stats (Upgrade 4)
+            try:
+                from .procedures import procedure_stats
+                proc_stats = procedure_stats()
+                if proc_stats['total_procedures'] > 0:
+                    print(f"\nProcedural Memory:")
+                    print(f"  Total procedures: {proc_stats['total_procedures']}")
+                    print(f"  Overall success rate: {proc_stats['overall_success_rate']:.1f}%")
+            except Exception:
+                pass  # procedures module might not be available
+
+            # Search quality summary
+            try:
+                from .feedback import get_search_quality_stats
+                search_stats = get_search_quality_stats()
+                if search_stats['hit_rate_all']['searches'] > 0:
+                    print(f"\nSearch Quality:")
+                    print(f"  Hit rate (7d): {search_stats['hit_rate_7d']['rate']:.0%} ({search_stats['hit_rate_7d']['searches']} searches)")
+                    print(f"  Hit rate (all): {search_stats['hit_rate_all']['rate']:.0%} ({search_stats['hit_rate_all']['searches']} searches)")
+            except Exception:
+                pass  # Feedback module might not be available
 
     elif cmd == "tiers":
         conn = get_db()
@@ -2249,6 +2342,15 @@ def main() -> None:
                         print(f"  ✅ {date}{ctx}: {item}")
                     for item in p.get("avoid", []):
                         print(f"  ❌ {date}{ctx}: {item}")
+
+    elif cmd == "serve":
+        # HTTP API server mode
+        flags, _ = parse_flags(sys.argv, 2)
+        port = int(flags.get("port", 37777))
+        host = flags.get("host", "127.0.0.1")
+
+        from .server import run_server
+        run_server(host, port)
 
     elif cmd in ("help", "--help", "-h"):
         print_help()

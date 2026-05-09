@@ -33,6 +33,87 @@ except ImportError:
     pass
 
 
+# Causal query classifier
+_CAUSAL_PATTERNS = re.compile(
+    r'\b(why|caused?|because|how did|led to|result(?:ed|s)? in|due to|'
+    r'reason|trigger(?:ed|s)?|brought about|stem(?:med|s)? from|'
+    r'consequence|impact of|effect of|what made)\b',
+    re.IGNORECASE
+)
+
+def _is_causal_query(query: str) -> bool:
+    """Return True if query is asking about causes/effects rather than similarity."""
+    return bool(_CAUSAL_PATTERNS.search(query))
+
+
+def _graph_search(query: str, conn: sqlite3.Connection, limit: int = 15) -> List[Tuple[int, float]]:
+    """
+    Find memories via graph spreading activation.
+    1. Extract noun-like tokens from query
+    2. Find matching graph entities
+    3. Run graph_spread from each matched entity
+    4. Resolve entities → memories via memory_entity_links
+    Returns list of (memory_id, rank) tuples.
+    """
+    from .graph import graph_spread
+
+    # Extract candidate entity names: tokens ≥4 chars, skip stop words
+    stop = {'what', 'when', 'where', 'which', 'that', 'this', 'with', 'from',
+            'have', 'been', 'were', 'they', 'their', 'there', 'about', 'into',
+            'will', 'would', 'could', 'should', 'because', 'result', 'caused'}
+    tokens = [t for t in re.findall(r'\b[a-zA-Z]{4,}\b', query) if t.lower() not in stop]
+
+    if not tokens:
+        return []
+
+    # Find matching entities (case-insensitive partial match, limit to 5 seed entities)
+    placeholders = ' OR '.join(['LOWER(name) LIKE ?' for _ in tokens[:5]])
+    params = [f'%{t.lower()}%' for t in tokens[:5]]
+    try:
+        entities = conn.execute(
+            f"SELECT id, name FROM graph_entities WHERE {placeholders} LIMIT 5",
+            params
+        ).fetchall()
+    except Exception:
+        return []
+
+    if not entities:
+        return []
+
+    # Run graph_spread from each matched entity, collect memory scores
+    mem_scores: Dict[int, float] = {}
+    seen_entities = set()
+
+    for ent in entities[:3]:  # max 3 seeds
+        ent_name = ent['name'] if hasattr(ent, 'keys') else ent[1]
+        if ent_name in seen_entities:
+            continue
+        seen_entities.add(ent_name)
+
+        spread = graph_spread(ent_name, depth=2)  # returns List[Dict] with 'id' key
+
+        # Get memory IDs linked to each spread entity
+        for spread_ent in spread:
+            ent_id = spread_ent.get('id')
+            activation = spread_ent.get('activation', 0.5)
+            if ent_id is None:
+                continue
+            try:
+                linked = conn.execute(
+                    "SELECT memory_id FROM memory_entity_links WHERE entity_id = ?",
+                    (ent_id,)
+                ).fetchall()
+                for row in linked:
+                    mid = row[0]
+                    mem_scores[mid] = max(mem_scores.get(mid, 0.0), activation)
+            except Exception:
+                pass
+
+    # Sort and return top results as (memory_id, rank) tuples
+    sorted_mems = sorted(mem_scores.items(), key=lambda x: -x[1])
+    return [(mid, i) for i, (mid, _) in enumerate(sorted_mems[:limit])]
+
+
 def recency_boost(created_at: datetime, alpha: float = 0.2) -> float:
     """Multiplicative recency boost for search results. Recent = higher score.
 
@@ -686,13 +767,24 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                 # Silently fail if vec table doesn't exist yet
                 pass
 
-    # 3. Reciprocal Rank Fusion (combine scores) with recency boost
-    if mode == "hybrid" and (fts_results or vec_results):
+    # 3. Causal graph routing — for "why/caused/led to" queries
+    graph_results: List[Tuple[int, int]] = []
+    if _is_causal_query(query) and mode in ("hybrid", "keyword"):
+        try:
+            graph_results = _graph_search(query, conn)
+        except Exception:
+            pass  # graph search is best-effort
+
+    # 4. Reciprocal Rank Fusion (combine scores) with recency boost
+    if mode == "hybrid" and (fts_results or vec_results or graph_results):
         scores = {}
         for mem_id, rank in fts_results:
             scores[mem_id] = scores.get(mem_id, 0) + 1.0 / (RRF_K + rank + 1)
         for mem_id, rank in vec_results:
             scores[mem_id] = scores.get(mem_id, 0) + 1.0 / (RRF_K + rank + 1)
+        # Add graph results as third signal (causal queries only) with 0.7 weight
+        for mem_id, rank in graph_results:
+            scores[mem_id] = scores.get(mem_id, 0) + 0.7 / (RRF_K + rank + 1)
 
         # Apply recency boost to final scores (if enabled)
         if scores and apply_recency_boost:

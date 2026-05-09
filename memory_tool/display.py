@@ -388,6 +388,9 @@ Usage:
   memory-tool retention                         # Show memories by retention (lowest first)
   memory-tool importance                        # Show memories ranked by importance score
   memory-tool reindex                           # Bulk-embed all active memories for vector search
+  memory-tool ssl-finetune [--epochs N] [--batch-size N] [--dry-run]
+                                                # Fine-tune embedding model on memory corpus using SimCSE (SSL)
+  memory-tool reembed [--confirm]               # Re-embed all memories with current model (run after ssl-finetune)
   memory-tool snapshot <summary> [--project X]  # Save session snapshot
   memory-tool auto-snapshot                     # Auto-generate snapshot from git/file changes
   memory-tool snapshots [--limit N]             # View recent snapshots

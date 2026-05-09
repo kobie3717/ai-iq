@@ -21,5 +21,6 @@ __version__ = "5.7.0"
 # Export the main API class for "from ai_iq import Memory"
 from .api import Memory
 from .gdpr import erase_memory, erase_project, export_audit_log, audit_stats, audit
+from .ssl_finetune import finetune_on_memories
 
-__all__ = ["Memory", "__version__", "erase_memory", "erase_project", "export_audit_log", "audit_stats", "audit"]
+__all__ = ["Memory", "__version__", "erase_memory", "erase_project", "export_audit_log", "audit_stats", "audit", "finetune_on_memories"]

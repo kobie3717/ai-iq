@@ -2374,6 +2374,41 @@ def main() -> None:
                     for item in p.get("avoid", []):
                         print(f"  ❌ {date}{ctx}: {item}")
 
+    elif cmd == "ssl-finetune":
+        from .ssl_finetune import finetune_on_memories
+        flags, _ = parse_flags(sys.argv, 2)
+        epochs = int(flags.get("epochs", 3))
+        batch_size = int(flags.get("batch-size", 32))
+        dry_run = flags.get("dry-run", False)
+
+        print("Starting SimCSE fine-tuning on memory corpus...")
+        if dry_run:
+            print("[dry-run] No training will occur")
+        ok = finetune_on_memories(epochs=epochs, batch_size=batch_size, dry_run=dry_run)
+        if ok:
+            print("Done. Run 'memory-tool reembed' to re-index all memories.")
+        else:
+            print("Fine-tuning skipped (too few memories or error).", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "reembed":
+        from .embedding import reindex_embeddings
+        flags, _ = parse_flags(sys.argv, 2)
+        confirm = flags.get("confirm", False)
+
+        if not confirm:
+            print("This will re-embed all active memories with the current model.")
+            response = input("Continue? [y/N]: ")
+            if response.lower() not in ('y', 'yes'):
+                print("Aborted.")
+                sys.exit(0)
+
+        conn = get_db()
+        print("Re-embedding all memories...")
+        reindex_embeddings(conn)
+        conn.close()
+        print("Done.")
+
     elif cmd == "serve":
         # HTTP API server mode
         flags, _ = parse_flags(sys.argv, 2)

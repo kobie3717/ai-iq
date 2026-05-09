@@ -448,7 +448,22 @@ def smart_ingest(category: str, content: str, tags: str = "", project: Optional[
             new_id = cur.lastrowid
 
             # Deactivate old
+            old_row = conn.execute("SELECT content, category, project FROM memories WHERE id = ?", (best_id,)).fetchone()
             conn.execute("UPDATE memories SET active = 0, updated_at = datetime('now') WHERE id = ?", (best_id,))
+
+            # Audit the supersession
+            from .gdpr import audit
+            if old_row:
+                audit(
+                    event_type='supersede',
+                    memory_id=best_id,
+                    content=old_row['content'],
+                    category=old_row['category'],
+                    project=old_row['project'],
+                    actor='system',
+                    reason='topic_upsert_supersede',
+                    conn=conn
+                )
 
             # Create supersedes relation
             conn.execute(
@@ -1004,9 +1019,28 @@ def update_memory(mem_id: int, content: str) -> None:
 
 
 def delete_memory(mem_id: int) -> None:
+    from .gdpr import audit
     conn = get_db()
+
+    # Get memory details for audit log
+    row = conn.execute("SELECT content, category, project FROM memories WHERE id = ?", (mem_id,)).fetchone()
+
     conn.execute("UPDATE memories SET active = 0, updated_at = datetime('now') WHERE id = ?", (mem_id,))
     conn.commit()
+
+    # Audit the deletion
+    if row:
+        audit(
+            event_type='delete',
+            memory_id=mem_id,
+            content=row['content'],
+            category=row['category'],
+            project=row['project'],
+            actor='user',
+            reason='user_initiated_delete',
+            conn=conn
+        )
+
     conn.close()
     _get_export_memory_md()()
     logger.info(f"Deactivated memory #{mem_id}")

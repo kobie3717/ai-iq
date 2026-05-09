@@ -509,6 +509,26 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
     """)
 
+    # GDPR/EU AI Act audit log table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            memory_id INTEGER,
+            content_hash TEXT,
+            category TEXT,
+            project TEXT,
+            actor TEXT DEFAULT 'system',
+            reason TEXT,
+            ip_address TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            retention_until TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event_type, created_at);
+        CREATE INDEX IF NOT EXISTS idx_audit_memory ON audit_log(memory_id);
+    """)
+
     # Drift detection validation table (Phase 7: Reinforced Lies Problem)
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS validation_log (

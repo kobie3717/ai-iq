@@ -282,6 +282,37 @@ def main() -> None:
     elif cmd == "delete" and len(sys.argv) >= 3:
         delete_memory(int(sys.argv[2]))
 
+    elif cmd == "erase" and len(sys.argv) >= 3:
+        from .gdpr import erase_memory
+        flags, args = parse_flags(sys.argv, 2)
+        memory_id = int(args[0]) if args else int(sys.argv[2])
+        reason = flags.get("reason", "gdpr_erasure_request")
+        actor = flags.get("actor", "user")
+        ok = erase_memory(memory_id, actor=actor, reason=reason)
+        if ok:
+            print(f"Memory #{memory_id} erased. Audit trail preserved.")
+        else:
+            print(f"Memory #{memory_id} not found or already inactive.", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "audit":
+        from .gdpr import export_audit_log, audit_stats
+        flags, _ = parse_flags(sys.argv, 2)
+        since = flags.get("since")
+        event_type = flags.get("type")
+        limit = int(flags.get("limit", 50))
+
+        entries = export_audit_log(since=since, event_type=event_type, limit=limit)
+        if not entries:
+            print("No audit log entries found.")
+        else:
+            for e in entries:
+                mem_id = f"mem#{e['memory_id']}" if e['memory_id'] else "N/A"
+                reason = e['reason'] or ''
+                print(f"[{e['created_at']}] {e['event_type']:12} {mem_id:8} by {e['actor']:10} — {reason}")
+            stats = audit_stats()
+            print(f"\nTotal: {stats['total_entries']} entries | Oldest: {stats['oldest_entry']}")
+
     elif cmd == "pin" and len(sys.argv) >= 3:
         mem_id = int(sys.argv[2])
         conn = get_db()

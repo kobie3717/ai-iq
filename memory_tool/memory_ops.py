@@ -21,6 +21,7 @@ from .utils import auto_tag, word_set, normalize, find_similar, word_overlap, si
 from .fsrs import fsrs_retention, fsrs_new_stability, fsrs_new_difficulty, fsrs_next_interval, fsrs_auto_rating
 from .importance import update_importance
 from .embedding import embed_and_store, embed_text, semantic_search
+from .ppr import ppr_boost_search_results
 
 logger = get_logger(__name__)
 
@@ -646,7 +647,7 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                 SELECT m.id FROM memories m
                 JOIN memories_fts fts ON m.id = fts.rowid
                 WHERE memories_fts MATCH ? AND m.active = 1{combined_filter_fts}
-                ORDER BY rank LIMIT 20
+                ORDER BY rank LIMIT 15
             """
             rows = conn.execute(fts_query, [query] + all_params_fts).fetchall()
             fts_results = [(r['id'], i) for i, r in enumerate(rows)]
@@ -665,6 +666,12 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
                     AND k = 100
                     ORDER BY distance
                 """, (query_vec,)).fetchall()
+
+                # Adaptive k: drop results where cosine distance jumps >40% above the best distance
+                if rows:
+                    best_dist = rows[0]['distance']
+                    cutoff = best_dist + max(0.15, best_dist * 0.4)  # absolute floor of 0.15
+                    rows = [r for r in rows if r['distance'] <= cutoff]
 
                 # Filter to active only and apply metadata + date filters BEFORE semantic search
                 if combined_filter_plain:
@@ -757,6 +764,21 @@ def search_memories(query: str, mode: str = "hybrid", since: Optional[str] = Non
             # Re-sort by RRF score
             id_to_row = {r['id']: r for r in rows}
             rows = [id_to_row[mid] for mid in ranked_ids if mid in id_to_row]
+
+            # Apply PPR boost if we have enough results and the graph isn't too large
+            if len(rows) >= 3:
+                # Check memory count to avoid PPR performance issues
+                mem_count = conn.execute("SELECT COUNT(*) FROM memories WHERE active=1").fetchone()[0]
+                if mem_count <= 10000:
+                    # Normalize scores to 0-1 range for PPR
+                    max_score = max(scores.values()) if scores else 1.0
+                    # Convert rows to format expected by PPR (list of dicts with 'id' and 'score')
+                    ppr_input = [{'id': r['id'], 'score': scores[r['id']] / max_score} for r in rows]
+                    # Apply PPR boost (25% weight)
+                    ppr_results = ppr_boost_search_results(ppr_input, ppr_weight=0.25)
+                    # Re-sort rows based on PPR-boosted scores
+                    ppr_id_order = [r['id'] for r in ppr_results]
+                    rows = [id_to_row[mid] for mid in ppr_id_order if mid in id_to_row]
         else:
             rows = []
     elif mode == "keyword" and fts_results:

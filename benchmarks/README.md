@@ -152,6 +152,110 @@ If you use this benchmark in research:
 }
 ```
 
+## Internal Retrieval Quality Benchmark
+
+**Script:** `run.py` (module: `benchmarks.run`)
+
+Tests AI-IQ's search modes (keyword, semantic, hybrid) against curated test corpus to measure retrieval quality improvements from PPR, adaptive-k, and causal routing.
+
+### Quick Start
+
+```bash
+# Run full benchmark with formatted table output
+python3 -m benchmarks.run
+
+# Output JSON for programmatic analysis
+python3 -m benchmarks.run --json
+
+# Suppress progress messages
+python3 -m benchmarks.run --quiet
+```
+
+### What It Measures
+
+**Metrics:**
+- **Recall@k**: Fraction of queries where relevant memory appears in top-k results
+  - R@1: Relevant memory is the top result
+  - R@3: Relevant memory in top 3
+  - R@5: Relevant memory in top 5
+- **MRR**: Mean Reciprocal Rank (1/rank of first relevant hit, 0 if none found)
+- **Latency**: Average search time in milliseconds
+
+**Search Modes:**
+- **keyword**: FTS5 full-text search only
+- **semantic**: Vector embedding search only
+- **hybrid**: RRF fusion of keyword + semantic (includes PPR, adaptive-k, causal routing)
+
+**Query Types:**
+- **Keyword** (7 queries): Exact terms present in memories
+- **Semantic** (8 queries): Paraphrased, no exact term matches
+- **Causal** (10 queries): Why/caused/led-to patterns
+
+### Test Corpus
+
+35 curated memories + 25 labeled queries spanning:
+- Infrastructure/DevOps (Redis, Docker, Nginx, PM2, SSL, PostgreSQL)
+- WhatsApp/Baileys (rate limits, bans, errors, session bugs)
+- Python/AI (SQLite FTS5, embeddings, RRF, ONNX, PPR)
+- Frontend (React, Tailwind, Vite, CSS), Backend (Express, Node.js)
+- Security/Compliance (GDPR, EU AI Act, JWT)
+- Payments (Stripe, PayFast)
+
+### Example Output
+
+```
+======================================================================
+AI-IQ RETRIEVAL BENCHMARK
+======================================================================
+
+── Query type: ALL ──
+Mode            R@1    R@3    R@5    MRR      ms
+---------------------------------------------
+keyword      28.0% 28.0% 28.0% 0.280  169.0ms
+semantic     84.0% 100.0% 100.0% 0.900  429.0ms
+hybrid       80.0% 96.0% 96.0% 0.872  263.0ms
+
+── Query type: KEYWORD ──
+Mode            R@1    R@3    R@5    MRR      ms
+---------------------------------------------
+keyword      85.7% 85.7% 85.7% 0.857  283.0ms
+semantic     85.7% 100.0% 100.0% 0.905  501.6ms
+hybrid       100.0% 100.0% 100.0% 1.000  284.9ms
+
+── Query type: SEMANTIC ──
+Mode            R@1    R@3    R@5    MRR      ms
+---------------------------------------------
+keyword      12.5% 12.5% 12.5% 0.125   83.8ms
+semantic     75.0% 100.0% 100.0% 0.833  272.5ms
+hybrid       75.0% 87.5% 87.5% 0.810  237.5ms
+
+── Query type: CAUSAL ──
+Mode            R@1    R@3    R@5    MRR      ms
+---------------------------------------------
+keyword       0.0%  0.0%  0.0% 0.000  237.1ms
+semantic     90.0% 100.0% 100.0% 0.950  270.4ms
+hybrid       70.0% 100.0% 100.0% 0.833  230.8ms
+
+======================================================================
+Legend: R@k = Recall@k  MRR = Mean Reciprocal Rank  ms = avg latency
+======================================================================
+```
+
+### Implementation
+
+- **Isolation**: Uses temporary database, no pollution of production data
+- **Clean fixtures**: All test data bundled in `fixtures.py`
+- **No external deps**: Self-contained, runs immediately
+- **Fast**: Completes in ~30 seconds with vector search
+
+### Files
+
+- `fixtures.py`: 35 memories + 25 labeled queries
+- `eval_suite.py`: Benchmark runner, metrics, report formatting
+- `run.py`: CLI entry point
+
+---
+
 ## Adding New Benchmarks
 
 To add a new benchmark:
